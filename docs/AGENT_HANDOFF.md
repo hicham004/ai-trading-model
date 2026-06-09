@@ -1,109 +1,99 @@
 # Agent Handoff
 
-## Environment Status
+## Repository And Environment
 
-The development workstation is ready for Phase 1 research work.
-
-- Windows 11 Home, build 26200
-- WSL 2 with Ubuntu 26.04 LTS
-- Docker Desktop 4.76.0 with the WSL 2 backend
-- Docker Engine 29.5.2
-- Docker integration enabled for Ubuntu
-- Docker `hello-world` verification passed from Windows and Ubuntu
-- VS Code with the WSL, Python, Codex, and Claude Code extensions
-- Ubuntu user: `aitec` with password-protected `sudo`
-
-## Installed Tools
-
-Windows:
-
-- Git 2.54.0
-- Python 3.14.5
-- Node.js 24.16.0
-- npm 11.13.0
-- Docker 29.5.2
-- VS Code 1.123.0
-- Codex
-- Claude Code
-
-Ubuntu/WSL:
-
-- Git 2.53.0
-- Python 3.14.4
-- Node.js 22.22.1
-- npm 9.2.0
-- Docker 29.5.2
-
-## Project Location
-
-The canonical working repository is:
+The canonical repository is:
 
 ```text
 /home/aitec/ai-trading-model
 ```
 
-Use this Linux-home copy for development. Do not use the fallback Windows copy
-under `/mnt/c/Users/aitec/OneDrive/Desktop/ai-trading-model`, because
-Windows-mounted repositories can have slower file I/O and more permission or
-symlink friction in WSL.
+Use the Linux-home copy for development. The WSL/Docker/Python environment is
+available, and local PostgreSQL is defined in `docker-compose.yml`.
 
-## Repository Status
+## Product Direction
 
-- Git repository initialized on branch `main`
-- No Git remote configured
-- Setup and safety files only
-- No trading-system scaffold or implementation exists
-- No real `.env` file or credentials exist
-- This handoff is included in the initial setup checkpoint
+The final goal is an AI-assisted automated OKX trading bot. The dashboard is
+only an observability surface over the data foundation.
 
-## Safety Rules
-
-- No real trading in Phase 1
-- Public OKX market data only
-- No OKX private API keys or account access
-- No live order execution or order placement
-- No withdrawals ever
-- No martingale
-- No doubling down or automated loss chasing
-- Every future strategy must be backtested
-- Backtest results do not authorize paper or live execution
-- The risk manager has final veto over every future simulated, paper, or live
-  trading action
-- Never commit secrets or put real values in `.env.example`
-
-## Next Task For Claude Code
-
-The following prompt is future work. It has not been executed as part of the
-setup checkpoint.
+The intended progression is:
 
 ```text
-Claude Code, read CLAUDE.md, PROJECT_RULES.md, README.md, and docs/AGENT_HANDOFF.md before doing anything.
-
-Build Phase 1 only for this AI-assisted OKX trading research system.
-
-Phase 1 scope:
-- Python FastAPI backend
-- public OKX REST market data client only
-- fetch candles for BTC-USDT and ETH-USDT
-- PostgreSQL database through Docker
-- SQLAlchemy models for candles
-- script to fetch and store candles
-- simple Streamlit dashboard to view stored candles
-- basic backtest skeleton with fake strategy only
-- logging
-- tests
-- README instructions
-
-Hard restrictions:
-- no OKX private API keys
-- no account access
-- no live trading
-- no order placement
-- no leverage
-- no withdrawals
-- no strategy claiming profitability
-- no hidden secrets
-- no editing .env with real values
-
-After building, run tests and show me exactly how to run the project.
+historical public data
+-> realistic strategy backtesting
+-> live public WebSocket data
+-> local paper trading
+-> OKX demo trading
+-> AI news/event research
+-> long walk-forward and paper/demo evaluation
+-> tiny controlled live automation
 ```
+
+The AI/LLM never directly places orders. Future order authority belongs only
+to the strategy/risk/control pipeline, with the risk manager holding final
+veto.
+
+## Current Status
+
+- Phase 1 data foundation exists and is the accepted baseline.
+- Claude Code created the Phase 2 strategy/backtesting implementation and
+  completed the Phase 2B corrections.
+- Codex independently reviewed Phase 2 and documented safety/correctness
+  findings in `docs/PHASE2_REVIEW_NOTES.md`.
+- Phase 2B corrections include conservative
+  stop-gap fills, distinct signal-data/execution time with future/naive/stale
+  rejection, simulation-only broker enforcement with strict fill/order matching,
+  signal identity/alignment validation, next-bar-open execution (no look-ahead),
+  and timeframe-aware signal staleness. Adverse tests were added for each, and
+  the offline suite passes.
+- Codex independently verified the corrections with the full offline suite and
+  targeted adversarial reproductions. The human owner explicitly accepted
+  Phase 2/2B on June 9, 2026.
+- Phase 3 and later are not authorized.
+
+## Required Reading
+
+Before any work:
+
+1. `CLAUDE.md`
+2. `PROJECT_RULES.md`
+3. `README.md`
+4. `docs/PHASES.md`
+5. `docs/PHASE2_REVIEW_NOTES.md`
+6. `docs/AGENT_WORKFLOW.md`
+
+For long-term context:
+
+- `docs/LIVE_TRADING_VISION.md`
+- `docs/AUTOMATED_TRADING_ROADMAP.md`
+
+## Immediate Engineering Boundary
+
+Do not begin Phase 3 implementation yet. The next step is to define and approve
+a bounded Phase 3 plan for live **public** OKX WebSocket market data.
+
+Until that separate approval, do not add WebSocket workers, authenticated or
+private OKX access, paper/demo execution, or live execution. Phase 2/2B
+acceptance authorizes historical simulation only.
+
+## Permanent Safety Rules
+
+- No real trading in the current scope.
+- Public OKX market data only until a later approved phase.
+- No private OKX API keys or account access.
+- No withdrawals ever.
+- No martingale, doubling down, or loss chasing.
+- No strategy profitability guarantees.
+- The risk manager has final veto over every future action.
+- No phase is complete solely because tests pass.
+- No agent can approve its own work.
+- Do not commit automatically.
+
+## Agent Responsibilities
+
+- Claude Code builds approved work.
+- Codex reviews, tests, and challenges safety assumptions.
+- ChatGPT supports architecture, research, and planning.
+- The human owner approves phases and capital decisions.
+
+See `docs/AGENT_WORKFLOW.md` for the required review loop.

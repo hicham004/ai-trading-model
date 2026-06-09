@@ -1,40 +1,69 @@
 # AI Agent Rules
 
-These rules apply to Claude Code, Codex, and every other AI agent working in
-this repository.
+These rules apply to Claude Code, Codex, ChatGPT, and every other AI agent
+working on this repository.
 
-## Allowed Work
+## Product Goal
 
-- AI agents may write code, tests, documentation, and development scripts.
-- AI agents may use public OKX market-data endpoints for research.
-- AI agents may build local databases, backtesting foundations, logs, and
-  dashboards.
+This is an AI-assisted automated OKX trading-system project. The long-term
+goal is a controlled system that can eventually place trades automatically.
+It is not merely a dashboard and it is not a manual trading assistant.
+
+Live automation is a future capability only. The current repository is not
+authorized to place real trades, access an exchange account, or use private
+OKX APIs.
+
+## Agent Authority
+
+- AI agents may build approved code, tests, documentation, research tooling,
+  public-data collectors, databases, backtests, simulations, and dashboards.
+- AI agents may use public OKX market-data endpoints for approved research.
+- AI and LLM components may research markets, classify news, explain signals,
+  identify regimes, and adjust a bounded confidence input.
+- An AI or LLM must never directly place, approve, modify, or cancel an order.
+- Future orders may be authorized only by the strategy engine, risk manager,
+  and controlled execution module for an explicitly approved phase.
+- No agent may approve its own implementation or declare its phase complete.
 
 ## Absolute Restrictions
 
-- AI agents must not place real trades.
-- Do not create or enable live order execution in Phase 1.
-- Use public market data only in Phase 1.
-- Do not request or use OKX private API keys.
-- Do not request, store, print, log, or commit API keys or other secrets.
-- Do not put API keys or credentials in source code.
-- Never implement withdrawals or request or enable withdrawal permissions.
-- Do not implement martingale strategies.
-- Do not implement doubling down or loss-chasing position sizing.
-- Do not claim that backtest results guarantee future performance.
-- Every future strategy must be backtested before it can be considered.
-- Backtest results never authorize paper or live execution.
-- The risk manager has final veto over every future simulated, paper, or live
-  trading action.
+- Do not place real trades.
+- Do not add or enable live order execution without explicit human phase
+  approval and a separate security review.
+- Do not request or use OKX private API keys in the current approved scope.
+- Do not request, store, print, log, screenshot, prompt, or commit secrets.
+- Never implement withdrawals or request withdrawal permissions.
+- Do not implement martingale, doubling down, or automated loss chasing.
+- Do not claim that a strategy or backtest guarantees future performance.
+- A passing backtest never authorizes paper, demo, or live execution.
+- The risk manager has final veto over every future simulated, paper, demo, or
+  live trading action.
 
-## Phase 1 Boundary
+## Current Phase Boundary
 
-Phase 1 is limited to:
+- Phase 1 data-foundation work exists and is accepted as the current baseline.
+- Phase 2 strategy/backtesting and the Phase 2B safety corrections were
+  independently reviewed by Codex and explicitly accepted by the human owner
+  on June 9, 2026.
+- Phase 2 acceptance covers historical simulation and research only. It does
+  not authorize live public streaming, paper trading, demo trading, private
+  OKX access, or real orders.
+- Do not begin Phase 3 or later work without explicit human approval.
 
-- Public OKX data collection
-- Local database foundations
-- Backtesting skeleton
-- Structured logs
-- Local research dashboard
+See `PROJECT_RULES.md`, `docs/PHASES.md`, and
+`docs/PHASE2_REVIEW_NOTES.md`.
 
-Stop and ask for explicit human review before expanding beyond this boundary.
+## Completion And Change Control
+
+A phase is complete only when all of the following are true:
+
+- the approved implementation exists;
+- normal tests pass;
+- adverse and safety tests pass;
+- reviewer findings are resolved;
+- documentation matches actual behavior;
+- an independent review has occurred; and
+- the human owner explicitly approves completion.
+
+Tests alone are never phase approval. Stop and ask before changing the agreed
+scope, adding authenticated exchange access, or advancing to another phase.

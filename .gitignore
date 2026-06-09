@@ -29,6 +29,7 @@ artifacts/
 # Editors and operating systems
 .vscode/
 .idea/
+.claude/
 .DS_Store
 Thumbs.db
 

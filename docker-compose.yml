@@ -1,0 +1,27 @@
+# Local PostgreSQL for Phase 1 research only.
+#
+# The credentials below are LOCAL-ONLY, non-secret development defaults. They
+# are intentionally not real secrets and must never be used outside local
+# development. Do not put real credentials here or in Git.
+services:
+  db:
+    image: postgres:16
+    container_name: ai_trading_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trading
+      POSTGRES_PASSWORD: trading_local_dev
+      POSTGRES_DB: trading
+    ports:
+      # host:container — connect from the app at localhost:5432
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading -d trading"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pg_data:

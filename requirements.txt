@@ -1,0 +1,29 @@
+# Phase 1 dependencies (pinned for reproducibility).
+# Public market data, local storage, API, dashboard, and tests only.
+
+# Web API
+fastapi==0.128.0
+starlette==0.50.0
+uvicorn[standard]==0.34.0
+
+# Database
+SQLAlchemy==2.0.36
+# psycopg 3 ("psycopg") ships binary wheels (incl. Python 3.14); used via the
+# SQLAlchemy "postgresql+psycopg://" URL scheme.
+psycopg[binary]==3.3.4
+
+# Configuration
+pydantic==2.13.4
+python-dotenv==1.0.1
+
+# HTTP client for PUBLIC OKX market data
+requests==2.32.3
+
+# Dashboard + data handling
+streamlit==1.58.0
+altair==6.2.1
+pandas==2.2.3
+
+# Tests
+pytest==8.3.4
+httpx==0.28.1  # used by FastAPI's TestClient
