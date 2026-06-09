@@ -104,7 +104,8 @@ Useful endpoints:
 - SQLAlchemy creates the new table; a formal migration system is not present.
 - The current live candle channel is `candle1m`.
 - Book synchronization does not imply trading readiness.
-- Phase 4 local paper trading remains unauthorized.
+- At Phase 3B acceptance time, Phase 4 remained unauthorized. It was separately
+  authorized as WIP by the human owner on June 9, 2026.
 
 ## Builder verification
 

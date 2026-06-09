@@ -106,16 +106,28 @@ Phase 3B on June 9, 2026.
 
 Phase 3B remains public-data-only. It authorizes no live strategy evaluation,
 signals, paper/demo/live trading, authentication, accounts, private endpoints,
-orders, leverage, or withdrawals. Acceptance does not authorize Phase 4.
+orders, leverage, or withdrawals. Its acceptance did not by itself authorize
+Phase 4; the human owner separately authorized Phase 4 on June 9, 2026.
 
 ## Phase 4 - Local Paper Trading Loop
 
-**Status: Planned, not authorized**
+**Status: Accepted after final independent review on June 10, 2026**
 
-- Forward-time strategy evaluation on live public data.
-- Virtual balances, positions, orders, fills, fees, spread, and slippage.
-- Trade journal, reconciliation, daily reports, and risk vetoes.
-- No private OKX APIs and no exchange account.
+- Forward-time strategy evaluation on confirmed public `1m` candles.
+- Fresh synchronized bid/ask virtual fills with fees, spread, and slippage.
+- Long-only spot simulation with virtual balances and positions.
+- Deterministic risk vetoes, exposure limits, daily-loss lockout, and a local
+  kill switch.
+- Atomic trade journal, idempotency, restart reconciliation, and daily reports.
+- Read-only `/paper` observability.
+- No private OKX APIs, credentials, exchange account, demo orders, real orders,
+  leverage, shorting, or withdrawals.
+
+Implementation details and limitations are documented in
+`docs/PHASE4_LOCAL_PAPER_TRADING.md`. The independent review and resolved
+findings are recorded in `docs/PHASE4_REVIEW_NOTES.md`. The human owner
+supplied explicit approval on June 9, 2026; the final review cleared and the
+phase gate completed on June 10, 2026.
 
 ## Phase 5 - OKX Demo Trading
 

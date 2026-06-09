@@ -6,8 +6,9 @@ Run locally with::
 
 Interactive docs are then available at http://localhost:8000/docs
 
-Safety: this API is strictly read-only over PUBLIC market data. There are no
-endpoints for trading, orders, accounts, or withdrawals.
+Safety: this API is strictly read-only. It exposes PUBLIC market data and the
+local Phase 4 simulation ledger; it cannot place, modify, or cancel orders and
+has no exchange account, authentication, or withdrawal functionality.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from sqlalchemy import distinct, select
 from sqlalchemy.orm import Session
 
 from app.api.live import router as live_router
+from app.api.paper import router as paper_router
 from app.api.schemas import (
     CandleListResponse,
     CandleOut,
@@ -111,15 +113,17 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AI Trading Model - Research and Live Observation API",
     description=(
-        "Read-only API over stored and live PUBLIC OKX market data. "
-        "No trading, account, or order functionality."
+        "Read-only API over stored/live PUBLIC OKX market data and the local "
+        "paper-trading simulation ledger. No exchange execution or account access."
     ),
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
 # Read-only Phase 3 live public market-data endpoints (under /live).
 app.include_router(live_router)
+# Read-only Phase 4 paper-trading ledger endpoints (under /paper).
+app.include_router(paper_router)
 
 
 def get_db() -> Iterator[Session]:

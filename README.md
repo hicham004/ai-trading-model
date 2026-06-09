@@ -13,7 +13,9 @@ assistant.
 > unauthenticated WebSocket market-data observation only) was Codex-reviewed
 > and explicitly accepted by the human owner on June 9, 2026. Phase 3B
 > public-data hardening was independently reviewed and explicitly accepted by
-> the human owner on June 9, 2026. Phase 4 and later remain unapproved.
+> the human owner on June 9, 2026. Phase 4 local paper trading received final
+> independent review on June 10, 2026 and is accepted; the human owner supplied
+> explicit approval on June 9, 2026. Phase 5 and later remain unapproved.
 
 Read these before changing anything:
 
@@ -21,6 +23,7 @@ Read these before changing anything:
 - [`PROJECT_RULES.md`](PROJECT_RULES.md)
 - [`docs/PHASES.md`](docs/PHASES.md)
 - [`docs/PHASE2_REVIEW_NOTES.md`](docs/PHASE2_REVIEW_NOTES.md)
+- [`docs/PHASE4_REVIEW_NOTES.md`](docs/PHASE4_REVIEW_NOTES.md)
 - [`docs/AGENT_WORKFLOW.md`](docs/AGENT_WORKFLOW.md)
 
 ## Product Vision
@@ -109,6 +112,7 @@ app/
   backtest/             # accepted Phase 2 historical simulator
   exchange/             # Phase 3 public WebSocket adapters (protocol-isolated)
   live/                 # Phase 3 state, integrity, runtime, optional persistence
+  paper/                # Phase 4 local simulation engine, ledger, and runtime
 dashboard/
   streamlit_app.py      # local candle observability + live status panel
 scripts/
@@ -116,6 +120,7 @@ scripts/
   run_backtest.py
   run_strategy_backtest.py
   run_live_market_data.py   # Phase 3: stream live PUBLIC market data
+  run_paper_trading.py      # Phase 4: local forward simulation
 tests/
 docs/
   PHASES.md
@@ -267,8 +272,52 @@ Read-only observability includes `/live/order-books`, `/live/persistence`, and
 [`docs/PHASE3B_LIVE_DATA_HARDENING.md`](docs/PHASE3B_LIVE_DATA_HARDENING.md).
 The independent review is recorded in
 [`docs/PHASE3B_REVIEW_NOTES.md`](docs/PHASE3B_REVIEW_NOTES.md). Phase 3B
-remains WIP pending explicit human approval. It adds no strategy execution or
-trading path.
+was accepted on June 9, 2026. It adds no strategy execution or trading path.
+
+## Local Paper Trading (Phase 4, Accepted)
+
+Phase 4 runs approved strategies forward on confirmed public `1m` candles and
+uses fresh, sequence-valid public best bid/ask prices for virtual fills. It
+maintains virtual cash and long-only spot positions, applies fees/spread/
+slippage, routes entries through the deterministic risk manager, persists an
+atomic audit ledger, reconciles on restart, and fails closed on stale feeds,
+bad quotes, candle gaps, duplicate events, or inconsistent state.
+Processed OHLCV and immutable daily-equity baselines live in the paper ledger,
+so strategy history, marks, and daily-loss controls survive restart without
+requiring the optional Phase 3 public-data persistence worker.
+
+```bash
+python scripts/run_paper_trading.py --list
+python scripts/run_paper_trading.py \
+  --strategy ma_crossover \
+  --instruments BTC-USDT \
+  --timeframe 1m \
+  --duration 300
+```
+
+Local kill-switch control:
+
+```bash
+python scripts/run_paper_trading.py --account default --engage-kill-switch
+python scripts/run_paper_trading.py --account default --release-kill-switch
+python scripts/run_paper_trading.py --account default --release-stale-lock
+```
+
+Paper-account configuration is immutable. Change the account name when
+changing strategy, instruments, costs, risk limits, or runtime parameters.
+Runtime locks are never stolen automatically; releasing an expired lock is an
+explicit local operator action.
+
+Read-only observability is under `/paper`, including health, account, balances,
+positions, signals, risk decisions, virtual orders/fills, trades, events, and a
+daily report. There are no mutating HTTP routes.
+
+This is simulation only. It has no credentials, private OKX access, exchange
+account, demo orders, real orders, leverage, shorting, or withdrawals. See
+[`docs/PHASE4_LOCAL_PAPER_TRADING.md`](docs/PHASE4_LOCAL_PAPER_TRADING.md).
+The independent review and finding dispositions are recorded in
+[`docs/PHASE4_REVIEW_NOTES.md`](docs/PHASE4_REVIEW_NOTES.md). Phase 4 was
+accepted after final review on June 10, 2026. Phase 5 remains unauthorized.
 
 ## Tests
 

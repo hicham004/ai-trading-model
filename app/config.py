@@ -61,6 +61,43 @@ def _get_positive_int(name: str, default: int, *, maximum: int | None = None) ->
     return value
 
 
+def _get_nonnegative_unit_float(name: str, default: float) -> float:
+    """Read a fee/slippage fraction in [0.0, 1.0), failing closed otherwise."""
+    raw = os.getenv(name)
+    try:
+        value = default if raw is None else float(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a number in [0.0, 1.0)") from exc
+    if not isfinite(value) or not 0.0 <= value < 1.0:
+        raise ValueError(f"{name} must be a number in [0.0, 1.0)")
+    return value
+
+
+def _get_fraction(name: str, default: float) -> float:
+    """Read a fraction in (0.0, 1.0], failing closed on invalid configuration."""
+    raw = os.getenv(name)
+    try:
+        value = default if raw is None else float(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a number in (0.0, 1.0]") from exc
+    if not isfinite(value) or not 0.0 < value <= 1.0:
+        raise ValueError(f"{name} must be a number in (0.0, 1.0]")
+    return value
+
+
+def _get_instruments(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
+    """Read a comma-separated instrument list (membership validated downstream)."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    items = tuple(part.strip() for part in raw.split(",") if part.strip())
+    if not items:
+        raise ValueError(f"{name} must list at least one instrument")
+    if len(set(items)) != len(items):
+        raise ValueError(f"{name} must not contain duplicate instruments")
+    return items
+
+
 @dataclass(frozen=True)
 class Settings:
     """Strongly-typed view of the environment configuration."""
@@ -149,6 +186,66 @@ class Settings:
         default_factory=lambda: _get_positive_int(
             "LIVE_BACKFILL_MAX_BARS", 300, maximum=300
         )
+    )
+
+    # --- Phase 4: local paper trading (SIMULATION ONLY) --------------------
+    # Defaults for the opt-in paper-trading runner (scripts/run_paper_trading.py).
+    # Every value is a non-secret simulation parameter; the CLI can override
+    # them. None of these enable real, demo, authenticated, or order access -
+    # the runner only consumes PUBLIC market data and fills virtually.
+    paper_account_name: str = field(
+        default_factory=lambda: os.getenv("PAPER_ACCOUNT_NAME", "default")
+    )
+    paper_strategy: str = field(
+        default_factory=lambda: os.getenv("PAPER_STRATEGY", "ma_crossover")
+    )
+    paper_instruments: tuple = field(
+        default_factory=lambda: _get_instruments("PAPER_INSTRUMENTS", ("BTC-USDT",))
+    )
+    paper_timeframe: str = field(
+        default_factory=lambda: os.getenv("PAPER_TIMEFRAME", "1m")
+    )
+    paper_starting_cash: float = field(
+        default_factory=lambda: _get_positive_float("PAPER_STARTING_CASH", 10_000.0)
+    )
+    paper_fee_rate: float = field(
+        default_factory=lambda: _get_nonnegative_unit_float("PAPER_FEE_RATE", 0.001)
+    )
+    paper_slippage_rate: float = field(
+        default_factory=lambda: _get_nonnegative_unit_float("PAPER_SLIPPAGE_RATE", 0.0005)
+    )
+    paper_min_confidence: float = field(
+        default_factory=lambda: _get_fraction("PAPER_MIN_CONFIDENCE", 0.60)
+    )
+    paper_max_risk_per_trade: float = field(
+        default_factory=lambda: _get_fraction("PAPER_MAX_RISK_PER_TRADE", 0.01)
+    )
+    paper_max_position_size: float = field(
+        default_factory=lambda: _get_fraction("PAPER_MAX_POSITION_SIZE", 0.25)
+    )
+    paper_max_total_exposure: float = field(
+        default_factory=lambda: _get_fraction("PAPER_MAX_TOTAL_EXPOSURE", 0.50)
+    )
+    paper_max_daily_loss: float = field(
+        default_factory=lambda: _get_fraction("PAPER_MAX_DAILY_LOSS", 0.05)
+    )
+    paper_max_open_positions: int = field(
+        default_factory=lambda: _get_positive_int("PAPER_MAX_OPEN_POSITIONS", 1)
+    )
+    paper_max_quote_age_seconds: float = field(
+        default_factory=lambda: _get_positive_float("PAPER_MAX_QUOTE_AGE_SECONDS", 10.0)
+    )
+    paper_max_candle_age_seconds: float = field(
+        default_factory=lambda: _get_positive_float("PAPER_MAX_CANDLE_AGE_SECONDS", 180.0)
+    )
+    paper_poll_seconds: float = field(
+        default_factory=lambda: _get_positive_float("PAPER_POLL_SECONDS", 1.0)
+    )
+    paper_window_size: int = field(
+        default_factory=lambda: _get_positive_int("PAPER_WINDOW_SIZE", 300)
+    )
+    paper_lock_stale_seconds: float = field(
+        default_factory=lambda: _get_positive_float("PAPER_LOCK_STALE_SECONDS", 60.0)
     )
 
 

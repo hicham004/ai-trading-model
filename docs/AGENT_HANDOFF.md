@@ -54,7 +54,11 @@ veto.
   by the human owner on June 9, 2026.
 - Phase 3B public-data hardening was independently reviewed (no blocker, no
   required follow-up) and explicitly accepted by the human owner on June 9,
-  2026. Phase 4 and later are not authorized.
+  2026.
+- Phase 4 local paper trading was begun by Claude Code and completed and
+  hardened by Codex. All independent-review findings were resolved, final
+  review cleared on June 10, 2026, and the phase is accepted. The human owner
+  supplied explicit approval on June 9, 2026.
 
 ## Required Reading
 
@@ -74,6 +78,8 @@ For long-term context:
 - `docs/PHASE3A_LIVE_DATA.md`
 - `docs/PHASE3B_LIVE_DATA_HARDENING.md`
 - `docs/PHASE3B_REVIEW_NOTES.md`
+- `docs/PHASE4_LOCAL_PAPER_TRADING.md`
+- `docs/PHASE4_REVIEW_NOTES.md`
 
 ## Immediate Engineering Boundary
 
@@ -91,12 +97,16 @@ public candle/order-book writes, and read-only operational observability. It
 fails closed on malformed depth or a broken sequence chain and keeps
 persistence outside the WebSocket receive path.
 
-No further phase is authorized. The next phase (Phase 4 - local paper trading)
-requires a separate, explicit human authorization before any implementation.
+Phase 4 was accepted after final independent review on June 10, 2026. It is
+the current implemented boundary: local forward paper simulation on confirmed
+public `1m` candles, fresh sequence-valid public books, deterministic risk
+vetoes, virtual long-only spot balances/positions/fills, atomic local
+journaling, restart reconciliation, kill-switch control, and read-only API
+observability.
 
-Out of scope and still unauthorized: any strategy evaluation or signal
-generation from live data, any paper/demo/live trading loop, authenticated or
-private OKX access, orders, leverage, or withdrawals. Do not begin Phase 4.
+Out of scope and still unauthorized: OKX demo trading, authenticated/private
+OKX access, exchange accounts, real orders, leverage, shorting, withdrawals,
+Phase 5, and every later phase. Do not begin Phase 5.
 
 ## Permanent Safety Rules
 

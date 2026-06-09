@@ -189,11 +189,11 @@ def test_invalid_stale_threshold_fails_closed(monkeypatch, value):
         reset_default_market_state()
 
 
-def test_no_trading_or_order_routes_exist():
+def test_no_exchange_execution_or_mutating_routes_exist():
     for route in app.routes:
         segments = {segment for segment in route.path.lower().split("/") if segment}
-        assert "orders" not in segments
-        assert "account" not in segments
         assert "withdraw" not in segments
-        if route.path.startswith("/live/"):
+        if route.path.startswith(("/live/", "/paper/")):
             assert route.methods <= {"GET", "HEAD"}
+        if "orders" in segments or "account" in segments:
+            assert route.path.startswith("/paper/")

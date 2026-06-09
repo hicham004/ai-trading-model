@@ -58,7 +58,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from math import isclose, isfinite
+from math import isfinite
 from typing import List, Optional, Sequence
 
 from app.backtest.metrics import compute_metrics
@@ -70,6 +70,7 @@ from app.backtest.models import (
 from app.backtest.validation import validate_candles, validate_signals
 from app.broker.base import Broker, Fill, Order, OrderSide
 from app.broker.paper import PaperBroker
+from app.broker.validation import validate_simulated_fill
 from app.logging_config import get_logger
 from app.risk.manager import RiskContext, RiskLimits, RiskManager
 from app.strategy.base import MarketCandle, SignalAction, Strategy
@@ -78,46 +79,16 @@ from app.strategy.timeframes import resolve_max_signal_age
 logger = get_logger(__name__)
 
 
-# Relative/absolute tolerances for matching a fill's quantity to the order's.
-# Tight enough to catch real mismatches (e.g. a doubled quantity) while
-# tolerating only floating-point rounding.
-_QTY_REL_TOL = 1e-9
-_QTY_ABS_TOL = 1e-12
-
-
 def _execute_simulated(broker: Broker, order: Order) -> Fill:
     """Submit ``order`` and validate the fill BEFORE the caller accounts for it.
 
-    Raises ``ValueError`` (before any cash/position mutation by the caller) if
-    the broker returns a non-simulated fill, a fill that does not match the
-    order's instrument, side, quantity, or timestamp, or one containing
-    invalid/non-finite values. This keeps the backtest fail-closed and prevents
-    partial state mutation on a bad fill.
+    Delegates to the shared :func:`validate_simulated_fill` guard (also used by
+    the Phase 4 paper-trading engine) so both execution paths reject a
+    non-simulated or mismatched fill identically, before any cash/position
+    mutation. This keeps the backtest fail-closed with no partial state.
     """
     fill = broker.submit(order)
-    if not getattr(fill, "is_simulated", False):
-        raise ValueError(
-            "Backtest refused a non-simulated fill (fill.is_simulated is False)."
-        )
-    if fill.instrument != order.instrument:
-        raise ValueError("Broker fill instrument does not match the submitted order.")
-    if fill.side != order.side:
-        raise ValueError("Broker fill side does not match the submitted order.")
-    if not (isfinite(fill.price) and fill.price > 0):
-        raise ValueError("Broker fill price must be positive and finite.")
-    if not (isfinite(fill.quantity) and fill.quantity > 0):
-        raise ValueError("Broker fill quantity must be positive and finite.")
-    # Strict quantity match (tolerating only float rounding).
-    if not isclose(
-        fill.quantity, order.quantity, rel_tol=_QTY_REL_TOL, abs_tol=_QTY_ABS_TOL
-    ):
-        raise ValueError("Broker fill quantity does not match the submitted order.")
-    if fill.timestamp != order.timestamp:
-        raise ValueError("Broker fill timestamp does not match the submitted order.")
-    if not (isfinite(fill.fee) and fill.fee >= 0):
-        raise ValueError("Broker fill fee must be a non-negative finite number.")
-    if not (isfinite(fill.slippage_cost) and fill.slippage_cost >= 0):
-        raise ValueError("Broker fill slippage must be a non-negative finite number.")
+    validate_simulated_fill(fill, order)
     return fill
 
 
