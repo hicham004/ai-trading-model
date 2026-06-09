@@ -45,10 +45,15 @@ OKX APIs.
 - Phase 2 strategy/backtesting and the Phase 2B safety corrections were
   independently reviewed by Codex and explicitly accepted by the human owner
   on June 9, 2026.
-- Phase 2 acceptance covers historical simulation and research only. It does
-  not authorize live public streaming, paper trading, demo trading, private
-  OKX access, or real orders.
-- Do not begin Phase 3 or later work without explicit human approval.
+- Phase 2 acceptance covers historical simulation and research only.
+- Phase 3A (live, UNAUTHENTICATED public OKX WebSocket market-data observation
+  for BTC-USDT and ETH-USDT only) was reviewed by Codex and explicitly accepted
+  by the human owner on June 9, 2026. Acceptance covers real-time public-data
+  observation only: no strategy evaluation or signals from live data, no
+  paper/demo/live trading, no account access, no private endpoints, and no
+  orders.
+- Phase 3B and all later phases are NOT authorized. Do not begin them without
+  explicit human approval.
 
 See `PROJECT_RULES.md`, `docs/PHASES.md`, and
 `docs/PHASE2_REVIEW_NOTES.md`.

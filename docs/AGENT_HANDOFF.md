@@ -49,7 +49,9 @@ veto.
 - Codex independently verified the corrections with the full offline suite and
   targeted adversarial reproductions. The human owner explicitly accepted
   Phase 2/2B on June 9, 2026.
-- Phase 3 and later are not authorized.
+- Phase 3A (live, public, unauthenticated WebSocket market-data observation
+  only) completed the Codex correction/review pass and was explicitly accepted
+  by the human owner on June 9, 2026. Phase 3B and later are not authorized.
 
 ## Required Reading
 
@@ -69,12 +71,18 @@ For long-term context:
 
 ## Immediate Engineering Boundary
 
-Do not begin Phase 3 implementation yet. The next step is to define and approve
-a bounded Phase 3 plan for live **public** OKX WebSocket market data.
+Phase 3A was accepted on June 9, 2026. It is strictly live, UNAUTHENTICATED
+public OKX WebSocket market-data observation for BTC-USDT and ETH-USDT only:
+ticker, trades, and candle channels feeding a bounded in-memory state, with
+read-only API/dashboard status. No persistence is added. The implementation
+uses separate fail-closed health for the public ticker/trade feed and business
+candle feed, and does not report a feed connected until all required
+subscriptions are acknowledged.
 
-Until that separate approval, do not add WebSocket workers, authenticated or
-private OKX access, paper/demo execution, or live execution. Phase 2/2B
-acceptance authorizes historical simulation only.
+Out of scope and still unauthorized: any strategy evaluation or signal
+generation from live data, any paper/demo/live trading loop, authenticated or
+private OKX access, orders, leverage, or withdrawals. Do not begin Phase 3B or
+Phase 4.
 
 ## Permanent Safety Rules
 

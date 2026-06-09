@@ -64,12 +64,36 @@ separate scope requiring explicit human approval before implementation.
 
 ## Phase 3 - Live Public OKX WebSocket Data
 
+### Phase 3A - Live Public WebSocket Market-Data Observation
+
+**Status: Accepted on June 9, 2026**
+
+Real-time market observation only. Explicitly in scope:
+
+- live, UNAUTHENTICATED public OKX WebSocket streaming for BTC-USDT and
+  ETH-USDT only;
+- public ticker, trades, and candle channels;
+- protocol heartbeat/ping-pong and cancellation-safe reconnect with bounded
+  backoff;
+- message validation (type, instrument, channel, timestamp, numeric fields)
+  with rejection of malformed, unsupported, duplicate, or out-of-order data;
+- bounded, async/thread-safe in-memory latest-market state (no persistence);
+- connection/staleness tracking; read-only API and optional dashboard status;
+- structured logging and offline tests with fake connections.
+
+Explicitly OUT of scope for Phase 3A (still unauthorized): strategy evaluation
+or signals from live data, simulated/paper/demo/live trading, any account
+authentication, private endpoints, orders, leverage, or withdrawals. Phase 3A
+completed its Codex correction/review pass and was explicitly accepted by the
+human owner on June 9, 2026.
+
+### Phase 3B - Remaining Live-Data Hardening
+
 **Status: Planned, not authorized**
 
-- Public live candles, trades, tickers, and order-book streams.
-- Heartbeats, reconnects, sequence validation, and REST backfill.
-- Data freshness, duplicate, missing-bar, and clock checks.
-- No account authentication and no orders.
+- Public order-book streams and sequence validation.
+- REST backfill after gaps and missing-bar detection.
+- Durable writes and longer-running observability.
 
 ## Phase 4 - Local Paper Trading Loop
 

@@ -4,17 +4,18 @@ All settings come from environment variables (optionally loaded from a local
 ``.env`` file). Defaults are safe, non-secret, and point at the local Docker
 PostgreSQL service defined in ``docker-compose.yml``.
 
-IMPORTANT (Phase 1 safety):
+IMPORTANT (current safety boundary):
 - This file only configures PUBLIC market-data access and local storage.
 - It must never hold API keys, account credentials, or other secrets.
-- ``LIVE_TRADING_ENABLED`` is a hard lock that must stay ``False`` in Phase 1.
+- ``LIVE_TRADING_ENABLED`` is a hard lock that must stay ``False``.
 """
 
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
+from math import isfinite
 
 # Loading a local .env is optional. If python-dotenv is installed we use it so
 # beginners can keep settings in one place, but the app also works with plain
@@ -33,6 +34,18 @@ def _get_bool(name: str, default: bool) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _get_positive_float(name: str, default: float) -> float:
+    """Read a positive finite float, failing closed on invalid configuration."""
+    raw = os.getenv(name)
+    try:
+        value = default if raw is None else float(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a positive finite number") from exc
+    if not isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be a positive finite number")
+    return value
 
 
 @dataclass(frozen=True)
@@ -59,9 +72,38 @@ class Settings:
     app_env: str = os.getenv("APP_ENV", "development")
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
 
-    # Phase 1 hard safety lock. Keep this False. The codebase contains no live
+    # Hard safety lock. Keep this False. The codebase contains no live
     # execution path; this flag only documents and enforces that intent.
     live_trading_enabled: bool = _get_bool("LIVE_TRADING_ENABLED", False)
+
+    # --- Phase 3A: live PUBLIC market-data observation (no trading) ---------
+    # Public, UNAUTHENTICATED OKX WebSocket URLs. These are market-data only;
+    # they never carry credentials. Tickers/trades use the public endpoint and
+    # candles use the business endpoint (both public).
+    okx_public_ws_url: str = field(
+        default_factory=lambda: os.getenv(
+            "OKX_PUBLIC_WS_URL", "wss://ws.okx.com:8443/ws/v5/public"
+        )
+    )
+    okx_business_ws_url: str = field(
+        default_factory=lambda: os.getenv(
+            "OKX_BUSINESS_WS_URL", "wss://ws.okx.com:8443/ws/v5/business"
+        )
+    )
+
+    # When True, the FastAPI app opens the public stream in-process on startup
+    # so the read-only /live endpoints show live data. Default False so imports
+    # and tests never open a WebSocket; it must be opted into explicitly.
+    live_ws_autostart: bool = field(
+        default_factory=lambda: _get_bool("LIVE_WS_AUTOSTART", False)
+    )
+
+    # Seconds without accepted market data before the feed is reported stale.
+    live_stale_after_seconds: float = field(
+        default_factory=lambda: _get_positive_float(
+            "LIVE_STALE_AFTER_SECONDS", 30.0
+        )
+    )
 
 
 @lru_cache(maxsize=1)
@@ -72,7 +114,7 @@ def get_settings() -> Settings:
     # Defense in depth: refuse to ever run with the live-trading lock disabled.
     if settings.live_trading_enabled:
         raise RuntimeError(
-            "LIVE_TRADING_ENABLED is True, but Phase 1 forbids live trading. "
+            "LIVE_TRADING_ENABLED is True, but the current phases forbid live trading. "
             "This project has no live execution path. Set it back to false."
         )
     return settings
