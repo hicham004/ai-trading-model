@@ -1,4 +1,4 @@
-"""Exchange adapters for live PUBLIC market data (Phase 3A).
+"""Exchange adapters for live PUBLIC market data (Phase 3).
 
 This package isolates exchange-specific protocol details (currently OKX's
 public WebSocket) behind a neutral interface. Adapters here only consume

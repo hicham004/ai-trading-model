@@ -1,4 +1,4 @@
-"""Tests for configuration defaults and the Phase 1 safety lock (offline)."""
+"""Tests for safe configuration defaults and bounds (offline)."""
 
 from __future__ import annotations
 
@@ -41,3 +41,23 @@ def test_get_bool_parses_truthy_values(monkeypatch):
     assert config._get_bool("SOME_FLAG", True) is False
     monkeypatch.delenv("SOME_FLAG", raising=False)
     assert config._get_bool("SOME_FLAG", True) is True
+
+
+def test_live_persistence_is_opt_in_and_bounded_by_default():
+    settings = Settings()
+    assert settings.live_persistence_enabled is False
+    assert settings.live_order_book_depth == 20
+    assert settings.live_backfill_max_bars == 300
+
+
+def test_invalid_phase3b_environment_values_fail_closed(monkeypatch):
+    monkeypatch.setenv("LIVE_ORDER_BOOK_DEPTH", "401")
+    try:
+        raised = False
+        try:
+            Settings()
+        except ValueError:
+            raised = True
+        assert raised
+    finally:
+        monkeypatch.delenv("LIVE_ORDER_BOOK_DEPTH", raising=False)

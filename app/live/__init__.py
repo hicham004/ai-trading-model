@@ -1,7 +1,7 @@
-"""Phase 3A live public market-data observation (in-memory only).
+"""Phase 3 public market-data observation, integrity, and optional storage.
 
-This subpackage holds exchange-neutral live market state and its read models.
-It is observation only: it never evaluates strategies, produces actionable
-signals, simulates trades, accesses accounts, or places orders. No data is
-persisted (Phase 3A is in-memory only). See docs/PHASE3A_LIVE_DATA.md.
+This subpackage holds exchange-neutral live state, read models, and the
+optional Phase 3B worker for confirmed public candles and sampled public books.
+It never evaluates strategies, produces actionable signals, simulates trades,
+accesses accounts, or places orders.
 """

@@ -16,7 +16,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.main import app, get_db
-from app.db.models import Base, Candle
+from app.db.models import Base, Candle, OrderBookSnapshot
 
 
 @pytest.fixture()
@@ -55,6 +55,19 @@ def client():
                 volume=1200.0,
             ),
         ]
+    )
+    seed.add(
+        OrderBookSnapshot(
+            instrument="BTC-USDT",
+            channel="books",
+            exchange_time=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+            sequence_id=123,
+            depth=1,
+            best_bid=100.0,
+            best_ask=101.0,
+            bids_json="[[100.0,2.0,1]]",
+            asks_json="[[101.0,3.0,2]]",
+        )
     )
     seed.commit()
     seed.close()
@@ -110,3 +123,15 @@ def test_candles_endpoint_empty_for_unknown_instrument(client):
 def test_candles_endpoint_rejects_bad_limit(client):
     resp = client.get("/candles", params={"limit": 0})
     assert resp.status_code == 422  # FastAPI validation error
+
+
+def test_persisted_order_book_history_is_read_only_and_newest_first(client):
+    resp = client.get(
+        "/live/order-book-history",
+        params={"instrument": "BTC-USDT", "limit": 10},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["count"] == 1
+    assert body["snapshots"][0]["sequence_id"] == 123
+    assert body["snapshots"][0]["bids"][0] == [100.0, 2.0, 1]

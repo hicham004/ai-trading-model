@@ -29,7 +29,7 @@ def test_runner_rejects_invalid_timing_arguments(argv):
 
 
 def test_runner_returns_failure_when_stream_task_crashes(monkeypatch, capsys):
-    async def fail_stream(adapters, stop_event):
+    async def fail_stream(adapters, stop_event, persistence=None):
         raise RuntimeError("offline test failure")
 
     monkeypatch.setattr(
@@ -39,10 +39,11 @@ def test_runner_returns_failure_when_stream_task_crashes(monkeypatch, capsys):
             live_stale_after_seconds=30,
             okx_public_ws_url="wss://ws.okx.com:8443/ws/v5/public",
             okx_business_ws_url="wss://ws.okx.com:8443/ws/v5/business",
+            live_persistence_enabled=False,
         ),
     )
     monkeypatch.setattr(runner, "build_default_adapters", lambda *args, **kwargs: [])
-    monkeypatch.setattr(runner, "run_adapters", fail_stream)
+    monkeypatch.setattr(runner, "run_live_runtime", fail_stream)
 
     result = asyncio.run(
         runner._run(
@@ -59,7 +60,7 @@ def test_runner_returns_failure_when_stream_task_crashes(monkeypatch, capsys):
 
 
 def test_runner_duration_stops_cleanly(monkeypatch):
-    async def wait_for_stop(adapters, stop_event):
+    async def wait_for_stop(adapters, stop_event, persistence=None):
         await stop_event.wait()
 
     monkeypatch.setattr(
@@ -69,10 +70,11 @@ def test_runner_duration_stops_cleanly(monkeypatch):
             live_stale_after_seconds=30,
             okx_public_ws_url="wss://ws.okx.com:8443/ws/v5/public",
             okx_business_ws_url="wss://ws.okx.com:8443/ws/v5/business",
+            live_persistence_enabled=False,
         ),
     )
     monkeypatch.setattr(runner, "build_default_adapters", lambda *args, **kwargs: [])
-    monkeypatch.setattr(runner, "run_adapters", wait_for_stop)
+    monkeypatch.setattr(runner, "run_live_runtime", wait_for_stop)
 
     result = asyncio.run(
         runner._run(

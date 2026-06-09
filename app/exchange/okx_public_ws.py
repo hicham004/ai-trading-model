@@ -1,15 +1,16 @@
-"""OKX public WebSocket adapter (Phase 3A) - PUBLIC, UNAUTHENTICATED only.
+"""OKX public WebSocket adapter (Phase 3) - PUBLIC, UNAUTHENTICATED only.
 
 This adapter connects to OKX's public market-data WebSocket, subscribes to
-ticker / trades / candle channels for approved instruments, validates and
-normalizes messages, and writes them into a :class:`MarketState`.
+ticker / trades / candle / order-book channels for approved instruments,
+validates and normalizes messages, and writes them into a :class:`MarketState`.
 
 Safety:
 - It only ever connects to the UNAUTHENTICATED public/business market-data
   WebSocket URLs, and the production connect path validates the URL scheme,
   host, port, and path (no private/arbitrary/insecure URLs).
 - It sends no API key, login, or signature, and subscribes to no account or
-  order channels. Only ``tickers``, ``trades``, and ``candle1m`` are allowed.
+  trading-order channels. Only ``tickers``, ``trades``, ``candle1m``, and the
+  public market-depth ``books`` channel are allowed.
 - It never evaluates strategies, generates signals, or places orders.
 - Importing this module opens no connection; ``websockets`` is imported lazily
   inside the default connect factory, which only runs when ``run`` is awaited.
@@ -22,6 +23,7 @@ Connection correctness (Codex Phase 3A review):
 
 Endpoints (both public/unauthenticated):
 - ``tickers`` / ``trades``  -> public WS (``/ws/v5/public``)
+- ``books``                 -> public WS (``/ws/v5/public``)
 - ``candle1m``              -> business WS (``/ws/v5/business``)
 """
 
@@ -32,14 +34,18 @@ import json
 import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Awaitable, Callable, Dict, List, Optional, Sequence, Tuple, Union
 from urllib.parse import urlsplit
 
 from app.exchange.base import PublicMarketDataAdapter
-from app.live.market_state import MarketState
+from app.live.market_state import MarketState, OrderBookApplyStatus
 from app.live.schemas import (
     CandleUpdate,
     ConnectionStatus,
+    OrderBookAction,
+    OrderBookLevel,
+    OrderBookUpdate,
     TickerUpdate,
     TradeUpdate,
 )
@@ -55,7 +61,13 @@ SUPPORTED_INSTRUMENTS = ("BTC-USDT", "ETH-USDT")
 TICKERS_CHANNEL = "tickers"
 TRADES_CHANNEL = "trades"
 CANDLE_CHANNEL = "candle1m"
-APPROVED_CHANNELS = (TICKERS_CHANNEL, TRADES_CHANNEL, CANDLE_CHANNEL)
+ORDER_BOOK_CHANNEL = "books"
+APPROVED_CHANNELS = (
+    TICKERS_CHANNEL,
+    TRADES_CHANNEL,
+    CANDLE_CHANNEL,
+    ORDER_BOOK_CHANNEL,
+)
 
 PUBLIC_FEED_ID = "okx-public"
 BUSINESS_FEED_ID = "okx-business"
@@ -65,7 +77,7 @@ _APPROVED_WS_HOST = "ws.okx.com"
 _APPROVED_WS_PORTS = (None, 443, 8443)
 _APPROVED_WS_PATHS = ("/ws/v5/public", "/ws/v5/business")
 
-Update = Union[TickerUpdate, TradeUpdate, CandleUpdate]
+Update = Union[TickerUpdate, TradeUpdate, CandleUpdate, OrderBookUpdate]
 
 
 def validate_public_ws_url(url: str, *, expected_path: Optional[str] = None) -> str:
@@ -111,7 +123,7 @@ def candle_timeframe(channel: str) -> str:
 
 def endpoint_for_channel(channel: str, *, public_url: str, business_url: str) -> str:
     """Return the (public, unauthenticated) WS URL that serves ``channel``."""
-    if channel in (TICKERS_CHANNEL, TRADES_CHANNEL):
+    if channel in (TICKERS_CHANNEL, TRADES_CHANNEL, ORDER_BOOK_CHANNEL):
         return public_url
     if channel == CANDLE_CHANNEL:
         return business_url
@@ -127,6 +139,7 @@ class ParseOutcome:
     event_arg: Optional[dict] = None
     error_code: Optional[str] = None
     ignored: List[str] = field(default_factory=list)  # reasons
+    reconnect_required: bool = False
 
 
 def _to_finite_float(value: object) -> Optional[float]:
@@ -207,15 +220,36 @@ def parse_okx_message(
         outcome.ignored.append(f"unsupported_instrument:{instrument}")
         return outcome
 
+    action = payload.get("action")
+    if channel == ORDER_BOOK_CHANNEL and action not in {
+        OrderBookAction.SNAPSHOT.value,
+        OrderBookAction.UPDATE.value,
+    }:
+        outcome.ignored.append("invalid_order_book_action")
+        outcome.reconnect_required = True
+        return outcome
+    if channel == ORDER_BOOK_CHANNEL and not data:
+        outcome.ignored.append("empty_order_book_data")
+        outcome.reconnect_required = True
+        return outcome
+
     for row in data:
         if channel == TICKERS_CHANNEL:
             update = _parse_ticker_row(row, instrument)
         elif channel == TRADES_CHANNEL:
             update = _parse_trade_row(row, instrument)
-        else:  # CANDLE_CHANNEL
+        elif channel == CANDLE_CHANNEL:
             update = _parse_candle_row(row, instrument, candle_timeframe(channel))
+        else:
+            update = _parse_order_book_row(
+                row,
+                instrument,
+                OrderBookAction(action),
+            )
         if update is None:
             outcome.ignored.append(f"invalid_row:{channel}")
+            if channel == ORDER_BOOK_CHANNEL:
+                outcome.reconnect_required = True
         else:
             outcome.updates.append(update)
 
@@ -301,6 +335,96 @@ def _parse_candle_row(
         close=c,  # type: ignore[arg-type]
         volume=vol,  # type: ignore[arg-type]
         confirmed=confirmed,
+    )
+
+
+def _to_decimal(value: object) -> Optional[Decimal]:
+    try:
+        out = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+    return out if out.is_finite() else None
+
+
+def _parse_book_levels(
+    raw_levels: object,
+    *,
+    allow_deletes: bool,
+) -> Optional[Tuple[OrderBookLevel, ...]]:
+    if not isinstance(raw_levels, list):
+        return None
+    levels: List[OrderBookLevel] = []
+    seen_prices: set[Decimal] = set()
+    for raw in raw_levels:
+        if not isinstance(raw, (list, tuple)) or len(raw) < 4:
+            return None
+        price = _to_decimal(raw[0])
+        size = _to_decimal(raw[1])
+        try:
+            order_count = int(raw[3])
+        except (TypeError, ValueError):
+            return None
+        if (
+            price is None
+            or size is None
+            or price <= 0
+            or size < 0
+            or (not allow_deletes and size == 0)
+            or order_count < 0
+            or price in seen_prices
+        ):
+            return None
+        seen_prices.add(price)
+        levels.append(OrderBookLevel(price, size, order_count))
+    return tuple(levels)
+
+
+def _parse_order_book_row(
+    row: object,
+    instrument: str,
+    action: OrderBookAction,
+) -> Optional[OrderBookUpdate]:
+    if not isinstance(row, dict):
+        return None
+    timestamp = _to_utc_from_ms(row.get("ts"))
+    try:
+        previous_sequence_id = int(row.get("prevSeqId"))
+        sequence_id = int(row.get("seqId"))
+    except (TypeError, ValueError):
+        return None
+    if timestamp is None or sequence_id < 0:
+        return None
+    if action == OrderBookAction.SNAPSHOT:
+        if previous_sequence_id != -1:
+            return None
+    elif previous_sequence_id < 0:
+        return None
+
+    bids = _parse_book_levels(
+        row.get("bids"), allow_deletes=action == OrderBookAction.UPDATE
+    )
+    asks = _parse_book_levels(
+        row.get("asks"), allow_deletes=action == OrderBookAction.UPDATE
+    )
+    if bids is None or asks is None:
+        return None
+    if action == OrderBookAction.SNAPSHOT and (not bids or not asks):
+        return None
+    if (
+        action == OrderBookAction.UPDATE
+        and sequence_id == previous_sequence_id
+        and (bids or asks)
+    ):
+        # OKX's same-sequence keepalive is explicitly empty on both sides.
+        return None
+    return OrderBookUpdate(
+        instrument=instrument,
+        timestamp=timestamp,
+        action=action,
+        bids=bids,
+        asks=asks,
+        previous_sequence_id=previous_sequence_id,
+        sequence_id=sequence_id,
     )
 
 
@@ -404,7 +528,7 @@ class OKXPublicWebSocketAdapter(PublicMarketDataAdapter):
             raise ValueError("max_backoff must be greater than or equal to initial_backoff")
         if connect is None:
             channels = {subscription.channel for subscription in subscriptions}
-            if channels <= {TICKERS_CHANNEL, TRADES_CHANNEL}:
+            if channels <= {TICKERS_CHANNEL, TRADES_CHANNEL, ORDER_BOOK_CHANNEL}:
                 expected_path = "/ws/v5/public"
             elif channels == {CANDLE_CHANNEL}:
                 expected_path = "/ws/v5/business"
@@ -443,6 +567,7 @@ class OKXPublicWebSocketAdapter(PublicMarketDataAdapter):
             while not stop_event.is_set():
                 self._state.set_feed_status(self.feed_id, ConnectionStatus.CONNECTING)
                 self._state.reset_feed_acks(self.feed_id)
+                self._state.mark_feed_order_books_unsynchronized(self.feed_id)
                 try:
                     conn = await self._connect(self._url)
                 except asyncio.CancelledError:
@@ -583,6 +708,12 @@ class OKXPublicWebSocketAdapter(PublicMarketDataAdapter):
             return "ok"
 
         outcome = parse_okx_message(text, self._supported)
+        if outcome.reconnect_required:
+            logger.warning(
+                "invalid order-book frame; reconnecting for a fresh snapshot",
+                extra={"feed": self.feed_id, "reasons": outcome.ignored},
+            )
+            return "reconnect"
         if outcome.event == "error":
             logger.warning(
                 "okx error event; reconnecting",
@@ -613,12 +744,23 @@ class OKXPublicWebSocketAdapter(PublicMarketDataAdapter):
             return "ok"
 
         for update in outcome.updates:
-            self._apply_update(update)
+            result = self._apply_update(update)
+            if result == OrderBookApplyStatus.SEQUENCE_GAP:
+                logger.warning(
+                    "order-book sequence gap; reconnecting for a fresh snapshot",
+                    extra={
+                        "feed": self.feed_id,
+                        "instrument": update.instrument,
+                    },
+                )
+                return "reconnect"
         for reason in outcome.ignored:
             logger.debug("ignored live message", extra={"feed": self.feed_id, "reason": reason})
         return "ok"
 
-    def _apply_update(self, update: Update) -> bool:
+    def _apply_update(
+        self, update: Update
+    ) -> Union[bool, OrderBookApplyStatus]:
         # MarketState refreshes the feed's market-data freshness only on accept.
         if isinstance(update, TickerUpdate):
             return self._state.apply_ticker(update, self.feed_id)
@@ -626,6 +768,8 @@ class OKXPublicWebSocketAdapter(PublicMarketDataAdapter):
             return self._state.apply_trade(update, self.feed_id)
         if isinstance(update, CandleUpdate):
             return self._state.apply_candle(update, self.feed_id)
+        if isinstance(update, OrderBookUpdate):
+            return self._state.apply_order_book(update, self.feed_id)
         return False  # pragma: no cover - defensive
 
     async def _send_heartbeat(self, conn) -> bool:
@@ -703,11 +847,11 @@ def build_default_adapters(
     connect: Optional[Callable[[str], Awaitable["object"]]] = None,
     **adapter_kwargs,
 ) -> List[OKXPublicWebSocketAdapter]:
-    """Build the standard Phase 3A adapters (validates the production config).
+    """Build the standard Phase 3 public adapters (validates production config).
 
-    Tickers and trades use the public WS feed; the candle channel uses the
-    business WS feed. Both are public and unauthenticated. Returns one adapter
-    per feed, each with its own feed id and health.
+    Tickers, trades, and books use the public WS feed; candles use the business
+    WS feed. Both are public and unauthenticated. Returns one adapter per feed,
+    each with its own feed id and health.
     """
     # Validate the production endpoint scope up front (fail closed). A test may
     # still inject ``connect`` to use a fake connection without real URLs.
@@ -716,7 +860,10 @@ def build_default_adapters(
     if candle_channel != CANDLE_CHANNEL:
         raise ValueError(f"Unsupported candle channel: {candle_channel!r}")
 
-    public_subs = build_subscriptions(instruments, [TICKERS_CHANNEL, TRADES_CHANNEL])
+    public_subs = build_subscriptions(
+        instruments,
+        [TICKERS_CHANNEL, TRADES_CHANNEL, ORDER_BOOK_CHANNEL],
+    )
     business_subs = build_subscriptions(instruments, [candle_channel])
 
     return [

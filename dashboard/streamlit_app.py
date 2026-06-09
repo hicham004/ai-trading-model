@@ -1,4 +1,4 @@
-"""Read-only dashboard for stored candles and optional Phase 3A live status.
+"""Read-only dashboard for stored candles and optional Phase 3 live status.
 
 Run locally with::
 
@@ -73,12 +73,12 @@ def load_candles(instrument: str, timeframe: str, limit: int) -> pd.DataFrame:
 
 
 def render_live_status() -> None:
-    """Optional Phase 3A section: live PUBLIC market-data status (read-only).
+    """Optional Phase 3 section: live PUBLIC market-data status (read-only).
 
     Reads the FastAPI /live endpoints over HTTP. It never opens a WebSocket and
     degrades gracefully if the live API or stream is not running.
     """
-    st.subheader("Live public market data (Phase 3A, WIP)")
+    st.subheader("Live public market data (Phase 3B, WIP)")
     st.caption(
         "Read-only status of the live PUBLIC OKX stream. Observation only — "
         "no strategies, signals, or trading."
@@ -86,10 +86,17 @@ def render_live_status() -> None:
     try:
         health_response = requests.get(f"{LIVE_API_BASE}/live/health", timeout=2)
         ticker_response = requests.get(f"{LIVE_API_BASE}/live/tickers", timeout=2)
+        book_response = requests.get(
+            f"{LIVE_API_BASE}/live/order-books",
+            params={"depth": 5},
+            timeout=2,
+        )
         health_response.raise_for_status()
         ticker_response.raise_for_status()
+        book_response.raise_for_status()
         health = health_response.json()
         tickers = ticker_response.json()
+        order_books = book_response.json()
     except (requests.RequestException, ValueError):
         st.info(
             "Live status unavailable. Start the API with its in-process stream: "
@@ -98,10 +105,11 @@ def render_live_status() -> None:
         )
         return
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Connection", str(health.get("status", "unknown")))
-    col2.metric("Stale", str(health.get("stale", True)))
-    col3.metric("Since last msg (s)", str(health.get("seconds_since_last_message")))
+    col2.metric("Ready", str(health.get("ready", False)))
+    col3.metric("Stale", str(health.get("stale", True)))
+    col4.metric("Since last msg (s)", str(health.get("seconds_since_last_message")))
     feeds = health.get("feeds", [])
     if feeds:
         st.caption("Required feed health")
@@ -111,12 +119,35 @@ def render_live_status() -> None:
     else:
         st.write("No live tickers observed yet.")
 
+    if order_books:
+        st.caption("Sequence-validated public order books")
+        book_rows = []
+        for book in order_books:
+            bids = book.get("bids", [])
+            asks = book.get("asks", [])
+            book_rows.append(
+                {
+                    "instrument": book.get("instrument"),
+                    "synchronized": book.get("synchronized"),
+                    "sequence_id": book.get("sequence_id"),
+                    "sequence_gaps": book.get("sequence_gaps"),
+                    "best_bid": bids[0].get("price") if bids else None,
+                    "best_ask": asks[0].get("price") if asks else None,
+                }
+            )
+        st.dataframe(pd.DataFrame.from_records(book_rows), width="stretch")
+
+    persistence = health.get("persistence", {})
+    if persistence.get("enabled"):
+        st.caption("Durable public-data persistence")
+        st.json(persistence)
+
 
 def main() -> None:
     st.set_page_config(page_title="AI Trading Model - Candles", layout="wide")
     st.title("AI Trading Model — Candle Viewer")
     st.caption(
-        "Read-only research and Phase 3A observation dashboard over PUBLIC "
+        "Read-only research and Phase 3 public-data dashboard over PUBLIC "
         "market data. No trading or account features."
     )
 

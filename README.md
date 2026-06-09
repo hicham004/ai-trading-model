@@ -11,8 +11,9 @@ assistant.
 > must not access an OKX account, use private API keys, or place orders.
 > Phases 1 and 2/2B are accepted research baselines. Phase 3A (live, public,
 > unauthenticated WebSocket market-data observation only) was Codex-reviewed
-> and explicitly accepted by the human owner on June 9, 2026. Phase 3B and
-> later remain unapproved.
+> and explicitly accepted by the human owner on June 9, 2026. Phase 3B
+> public-data hardening was independently reviewed and explicitly accepted by
+> the human owner on June 9, 2026. Phase 4 and later remain unapproved.
 
 Read these before changing anything:
 
@@ -106,20 +107,22 @@ app/
   risk/                 # accepted Phase 2 research risk manager
   broker/               # accepted Phase 2 simulated broker
   backtest/             # accepted Phase 2 historical simulator
-  exchange/             # Phase 3A public WebSocket adapters (protocol-isolated)
-  live/                 # Phase 3A bounded in-memory live state + schemas
+  exchange/             # Phase 3 public WebSocket adapters (protocol-isolated)
+  live/                 # Phase 3 state, integrity, runtime, optional persistence
 dashboard/
   streamlit_app.py      # local candle observability + live status panel
 scripts/
   fetch_candles.py
   run_backtest.py
   run_strategy_backtest.py
-  run_live_market_data.py   # Phase 3A: stream live PUBLIC market data
+  run_live_market_data.py   # Phase 3: stream live PUBLIC market data
 tests/
 docs/
   PHASES.md
   PHASE2_REVIEW_NOTES.md
   PHASE3A_LIVE_DATA.md
+  PHASE3B_LIVE_DATA_HARDENING.md
+  PHASE3B_REVIEW_NOTES.md
   LIVE_TRADING_VISION.md
   AUTOMATED_TRADING_ROADMAP.md
   AGENT_WORKFLOW.md
@@ -214,7 +217,7 @@ values are rejected.
 
 Treat all output as historical simulation only. The review notes document the
 resolved findings and remaining modelling assumptions. Phase 2 acceptance is
-not evidence of profitability and does not authorize Phase 3 or any trading.
+not evidence of profitability and does not authorize any trading.
 
 ## Live Public Market Data (Phase 3A, Accepted)
 
@@ -236,13 +239,36 @@ imports/tests never open a socket):
 
 ```bash
 LIVE_WS_AUTOSTART=true uvicorn app.api.main:app --reload
-# GET /live/health · /live/feeds · /live/state · /live/tickers · /live/trades
+# GET /live/health · /live/state · /live/tickers · /live/trades
 ```
 
 The public ticker/trade feed and business candle feed have separate health,
 subscription acknowledgement, transport-liveness, and market-data freshness
 tracking. Aggregate health fails closed if either required feed is unavailable
 or stale. No database is used in Phase 3A; the state is in memory only.
+
+## Public Live-Data Hardening (Phase 3B, Accepted)
+
+Phase 3B adds the public `books` channel, reconstructs bounded BTC/ETH books,
+and validates `seqId`/`prevSeqId` continuity. A gap or malformed book frame
+marks the book unsynchronized and reconnects for a fresh snapshot.
+
+Optional persistence stores confirmed public candles and sampled,
+sequence-valid public books. It also detects missing confirmed candles and
+performs a bounded repair through OKX's public history-candle endpoint.
+
+```bash
+LIVE_PERSISTENCE_ENABLED=true \
+python scripts/run_live_market_data.py --duration 30
+```
+
+Read-only observability includes `/live/order-books`, `/live/persistence`, and
+`/live/order-book-history`. See
+[`docs/PHASE3B_LIVE_DATA_HARDENING.md`](docs/PHASE3B_LIVE_DATA_HARDENING.md).
+The independent review is recorded in
+[`docs/PHASE3B_REVIEW_NOTES.md`](docs/PHASE3B_REVIEW_NOTES.md). Phase 3B
+remains WIP pending explicit human approval. It adds no strategy execution or
+trading path.
 
 ## Tests
 

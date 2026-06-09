@@ -13,7 +13,7 @@ endpoints for trading, orders, accounts, or withdrawals.
 from __future__ import annotations
 
 import asyncio
-import contextlib
+import json
 from contextlib import asynccontextmanager
 from typing import Iterator, List
 
@@ -22,10 +22,16 @@ from sqlalchemy import distinct, select
 from sqlalchemy.orm import Session
 
 from app.api.live import router as live_router
-from app.api.schemas import CandleListResponse, CandleOut, HealthResponse
+from app.api.schemas import (
+    CandleListResponse,
+    CandleOut,
+    HealthResponse,
+    PersistedOrderBookListResponse,
+    PersistedOrderBookOut,
+)
 from app.config import get_settings
 from app.db.database import get_session_factory, init_db
-from app.db.models import Candle
+from app.db.models import Candle, OrderBookSnapshot
 from app.logging_config import configure_logging, get_logger
 from app.okx.client import ALLOWED_INSTRUMENTS
 
@@ -61,16 +67,26 @@ async def lifespan(app: FastAPI):
     live_stop = None
     if settings.live_ws_autostart:
         # Imported lazily so the WS machinery is only touched when opted in.
-        from app.exchange.okx_public_ws import build_default_adapters, run_adapters
+        from app.exchange.okx_public_ws import build_default_adapters
         from app.live.market_state import get_market_state
+        from app.live.persistence import build_persistence_from_settings
+        from app.live.runtime import run_live_runtime
 
         live_stop = asyncio.Event()
+        state = get_market_state()
         adapters = build_default_adapters(
-            get_market_state(),
+            state,
             public_url=settings.okx_public_ws_url,
             business_url=settings.okx_business_ws_url,
         )
-        live_task = asyncio.create_task(run_adapters(adapters, live_stop))
+        persistence = (
+            build_persistence_from_settings(state, settings)
+            if settings.live_persistence_enabled
+            else None
+        )
+        live_task = asyncio.create_task(
+            run_live_runtime(adapters, live_stop, persistence)
+        )
         live_task.add_done_callback(_report_live_task_result)
         logger.info("live public market-data stream autostarted")
 
@@ -80,9 +96,16 @@ async def lifespan(app: FastAPI):
         if live_stop is not None:
             live_stop.set()
         if live_task is not None:
-            live_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await live_task
+            if not live_task.done():
+                try:
+                    await asyncio.wait_for(live_task, timeout=15)
+                except asyncio.TimeoutError:
+                    live_task.cancel()
+                except Exception:
+                    # The done callback already reports the failure. Do not
+                    # let it mask API shutdown.
+                    pass
+            await asyncio.gather(live_task, return_exceptions=True)
 
 
 app = FastAPI(
@@ -95,7 +118,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Read-only Phase 3A live public market-data endpoints (under /live).
+# Read-only Phase 3 live public market-data endpoints (under /live).
 app.include_router(live_router)
 
 
@@ -153,4 +176,48 @@ def get_candles(
         timeframe=timeframe,
         count=len(rows),
         candles=[CandleOut.model_validate(row) for row in rows],
+    )
+
+
+@app.get(
+    "/live/order-book-history",
+    response_model=PersistedOrderBookListResponse,
+    tags=["live-market-data"],
+)
+def get_order_book_history(
+    instrument: str = Query("BTC-USDT", description="BTC-USDT or ETH-USDT"),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+) -> PersistedOrderBookListResponse:
+    """Return sampled, sequence-validated public books from local storage."""
+    if instrument not in ALLOWED_INSTRUMENTS:
+        return PersistedOrderBookListResponse(
+            instrument=instrument,
+            count=0,
+            snapshots=[],
+        )
+    rows = db.scalars(
+        select(OrderBookSnapshot)
+        .where(OrderBookSnapshot.instrument == instrument)
+        .order_by(OrderBookSnapshot.exchange_time.desc())
+        .limit(limit)
+    ).all()
+    snapshots = [
+        PersistedOrderBookOut(
+            instrument=row.instrument,
+            channel=row.channel,
+            exchange_time=row.exchange_time,
+            sequence_id=row.sequence_id,
+            depth=row.depth,
+            best_bid=row.best_bid,
+            best_ask=row.best_ask,
+            bids=json.loads(row.bids_json),
+            asks=json.loads(row.asks_json),
+        )
+        for row in rows
+    ]
+    return PersistedOrderBookListResponse(
+        instrument=instrument,
+        count=len(snapshots),
+        snapshots=snapshots,
     )

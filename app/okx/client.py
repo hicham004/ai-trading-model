@@ -1,7 +1,7 @@
 """Public OKX REST market-data client.
 
-Phase 1 safety notes
---------------------
+Public-data safety notes
+------------------------
 - This client only calls PUBLIC market-data endpoints (e.g. candlesticks).
 - It NEVER sends API keys, signatures, or authentication headers.
 - It NEVER calls account, trade, or withdrawal endpoints.
@@ -16,7 +16,9 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from math import isfinite
 from typing import List, Optional
+from urllib.parse import urlsplit
 
 import requests
 
@@ -28,8 +30,10 @@ logger = get_logger(__name__)
 # Public OKX candlestick endpoint. Documented at:
 # https://www.okx.com/docs-v5/en/#order-book-trading-market-data-get-candlesticks
 _CANDLES_PATH = "/api/v5/market/candles"
+_HISTORY_CANDLES_PATH = "/api/v5/market/history-candles"
+_APPROVED_REST_HOST = "www.okx.com"
 
-# Instruments we are allowed to fetch in Phase 1. Restricting the list keeps
+# Instruments this project is allowed to fetch. Restricting the list keeps
 # us within scope and makes accidental misuse harder.
 ALLOWED_INSTRUMENTS = ("BTC-USDT", "ETH-USDT")
 
@@ -74,6 +78,8 @@ class OKXPublicClient:
         self._settings = settings or get_settings()
         self._session = session or requests.Session()
         self._base_url = self._settings.okx_base_url.rstrip("/")
+        if session is None:
+            validate_public_rest_base_url(self._base_url)
 
     # -- public API ---------------------------------------------------------
 
@@ -100,16 +106,69 @@ class OKXPublicClient:
             ValueError: if the instrument is not allowed or limit is invalid.
             OKXClientError: on network failure or an invalid API response.
         """
+        return self._get_candle_data(
+            _CANDLES_PATH,
+            instrument,
+            timeframe,
+            limit,
+            confirmed_only=confirmed_only,
+        )
+
+    def get_history_candles(
+        self,
+        instrument: str,
+        timeframe: str = "1m",
+        limit: int = 100,
+        *,
+        after: Optional[datetime] = None,
+        before: Optional[datetime] = None,
+        confirmed_only: bool = True,
+    ) -> List[Candle]:
+        """Fetch public historical candles with optional timestamp pagination.
+
+        ``after`` requests records older than that timestamp; ``before``
+        requests records newer than it. At most one pagination direction may be
+        supplied so callers cannot accidentally create an ambiguous backfill.
+        """
+        if after is not None and before is not None:
+            raise ValueError("use at most one of after or before")
+        extra_params = {}
+        if after is not None:
+            extra_params["after"] = self._datetime_to_ms(after, "after")
+        if before is not None:
+            extra_params["before"] = self._datetime_to_ms(before, "before")
+        return self._get_candle_data(
+            _HISTORY_CANDLES_PATH,
+            instrument,
+            timeframe,
+            limit,
+            confirmed_only=confirmed_only,
+            extra_params=extra_params,
+        )
+
+    def _get_candle_data(
+        self,
+        path: str,
+        instrument: str,
+        timeframe: str,
+        limit: int,
+        *,
+        confirmed_only: bool,
+        extra_params: Optional[dict] = None,
+    ) -> List[Candle]:
         if instrument not in ALLOWED_INSTRUMENTS:
             raise ValueError(
-                f"Instrument {instrument!r} is not allowed in Phase 1. "
+                f"Instrument {instrument!r} is not allowed. "
                 f"Allowed: {', '.join(ALLOWED_INSTRUMENTS)}"
             )
+        if not timeframe or not timeframe.strip():
+            raise ValueError("timeframe must not be empty")
         if not 1 <= limit <= 300:
             raise ValueError("limit must be between 1 and 300")
 
         params = {"instId": instrument, "bar": timeframe, "limit": str(limit)}
-        payload = self._request(_CANDLES_PATH, params)
+        params.update(extra_params or {})
+        payload = self._request(path, params)
         rows = self._extract_data_rows(payload)
 
         candles: List[Candle] = []
@@ -131,6 +190,15 @@ class OKXPublicClient:
             },
         )
         return candles
+
+    @staticmethod
+    def _datetime_to_ms(value: datetime, label: str) -> str:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError(f"{label} must be timezone-aware")
+        milliseconds = int(value.astimezone(timezone.utc).timestamp() * 1000)
+        if milliseconds <= 0:
+            raise ValueError(f"{label} must be after the Unix epoch")
+        return str(milliseconds)
 
     # -- internal helpers ---------------------------------------------------
 
@@ -201,6 +269,14 @@ class OKXPublicClient:
             confirmed = row[8] == "1"
         except (TypeError, ValueError) as exc:
             raise OKXClientError(f"Could not parse candle row {row!r}: {exc}") from exc
+        if ts_ms <= 0:
+            raise OKXClientError("Candle timestamp must be after the Unix epoch")
+        if not all(isfinite(value) for value in (open_, high, low, close, volume)):
+            raise OKXClientError("Candle contains a non-finite numeric value")
+        if min(open_, high, low, close) <= 0 or volume < 0:
+            raise OKXClientError("Candle prices must be positive and volume non-negative")
+        if high < max(open_, close, low) or low > min(open_, close, high):
+            raise OKXClientError("Candle OHLC values are incoherent")
 
         # Store timestamps as timezone-aware UTC. OKX provides Unix milliseconds.
         timestamp = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc)
@@ -216,3 +292,26 @@ class OKXPublicClient:
             volume=volume,
             confirmed=confirmed,
         )
+
+
+def validate_public_rest_base_url(url: str) -> str:
+    """Allow only the approved HTTPS OKX public REST origin in production."""
+    try:
+        parts = urlsplit(url)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise ValueError(f"malformed OKX public REST URL: {type(exc).__name__}") from exc
+    if parts.scheme != "https":
+        raise ValueError("OKX public REST URL must use https")
+    if parts.username or parts.password:
+        raise ValueError("credentials are not allowed in the public REST URL")
+    if parts.hostname != _APPROVED_REST_HOST:
+        raise ValueError(f"OKX public REST host not approved: {parts.hostname!r}")
+    try:
+        port = parts.port
+    except ValueError as exc:
+        raise ValueError("malformed OKX public REST port") from exc
+    if port not in (None, 443):
+        raise ValueError(f"OKX public REST port not approved: {port!r}")
+    if parts.path not in ("", "/") or parts.query or parts.fragment:
+        raise ValueError("OKX public REST base URL must not include path/query/fragment")
+    return url

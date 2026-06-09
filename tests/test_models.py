@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.db.models import Candle
+from app.db.models import Candle, OrderBookSnapshot
 
 
 def _candle(**overrides) -> Candle:
@@ -51,3 +51,22 @@ def test_different_timeframe_is_allowed(db_session):
     db_session.commit()
 
     assert db_session.query(Candle).count() == 2
+
+
+def test_order_book_snapshot_identity_is_unique(db_session):
+    values = dict(
+        instrument="BTC-USDT",
+        channel="books",
+        exchange_time=datetime(2026, 1, 1, 0, tzinfo=timezone.utc),
+        sequence_id=10,
+        depth=1,
+        best_bid=100,
+        best_ask=101,
+        bids_json="[[100,2,1]]",
+        asks_json="[[101,3,1]]",
+    )
+    db_session.add(OrderBookSnapshot(**values))
+    db_session.commit()
+    db_session.add(OrderBookSnapshot(**values))
+    with pytest.raises(IntegrityError):
+        db_session.commit()

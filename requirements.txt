@@ -1,4 +1,4 @@
-# Phase 1 dependencies (pinned for reproducibility).
+# Public-data research dependencies (pinned for reproducibility).
 # Public market data, local storage, API, dashboard, and tests only.
 
 # Web API
@@ -19,7 +19,7 @@ python-dotenv==1.0.1
 # HTTP client for PUBLIC OKX market data
 requests==2.32.3
 
-# Phase 3A: client for the PUBLIC, UNAUTHENTICATED OKX market-data WebSocket.
+# Phase 3: client for the PUBLIC, UNAUTHENTICATED OKX market-data WebSocket.
 # Already present transitively via uvicorn[standard]; pinned here because it is
 # now a direct dependency. Market-data only; never used for auth or orders.
 websockets==16.0

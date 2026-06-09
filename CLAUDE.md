@@ -52,11 +52,17 @@ OKX APIs.
   observation only: no strategy evaluation or signals from live data, no
   paper/demo/live trading, no account access, no private endpoints, and no
   orders.
-- Phase 3B and all later phases are NOT authorized. Do not begin them without
+- Phase 3B public-data hardening was explicitly authorized by the human owner
+  on June 9, 2026 and is WIP. Its scope is public order-book sequencing,
+  candle-gap detection/public REST backfill, optional durable public-data
+  persistence, and read-only operational observability.
+- Phase 4 and all later phases are NOT authorized. Do not begin them without
   explicit human approval.
 
-See `PROJECT_RULES.md`, `docs/PHASES.md`, and
-`docs/PHASE2_REVIEW_NOTES.md`.
+See `PROJECT_RULES.md`, `docs/PHASES.md`,
+`docs/PHASE2_REVIEW_NOTES.md`, and
+`docs/PHASE3B_LIVE_DATA_HARDENING.md`. Phase 3B review findings and
+dispositions are in `docs/PHASE3B_REVIEW_NOTES.md`.
 
 ## Completion And Change Control
 

@@ -3,13 +3,22 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 import pytest
 
-from app.live.market_state import MarketState, MarketStateConfig
+from app.live.market_state import (
+    MarketState,
+    MarketStateConfig,
+    OrderBookApplyStatus,
+)
 from app.live.schemas import (
     CandleUpdate,
     ConnectionStatus,
+    OrderBookAction,
+    OrderBookLevel,
+    OrderBookUpdate,
+    PersistenceStatus,
     TickerUpdate,
     TradeUpdate,
 )
@@ -40,6 +49,29 @@ def _trade(ts: datetime, trade_id: str, price: float = 100.0) -> TradeUpdate:
 def _candle(ts: datetime, close: float, tf: str = "1m") -> CandleUpdate:
     return CandleUpdate(
         "BTC-USDT", tf, ts, 100.0, 110.0, 90.0, close, 12.0, confirmed=False
+    )
+
+
+def _level(price: str, size: str, orders: int = 1) -> OrderBookLevel:
+    return OrderBookLevel(Decimal(price), Decimal(size), orders)
+
+
+def _book(
+    *,
+    action: OrderBookAction = OrderBookAction.SNAPSHOT,
+    prev: int = -1,
+    seq: int = 10,
+    bids: tuple[OrderBookLevel, ...] = (_level("100", "2"),),
+    asks: tuple[OrderBookLevel, ...] = (_level("101", "3"),),
+) -> OrderBookUpdate:
+    return OrderBookUpdate(
+        instrument="BTC-USDT",
+        timestamp=T0,
+        action=action,
+        bids=bids,
+        asks=asks,
+        previous_sequence_id=prev,
+        sequence_id=seq,
     )
 
 
@@ -224,6 +256,138 @@ def test_feed_rejects_acknowledgements_it_did_not_request():
     assert state.feed_health(PUBLIC).acked_subscriptions == []
 
 
+def test_order_book_snapshot_and_incremental_merge_are_sorted_and_bounded():
+    state = MarketState(MarketStateConfig(max_order_book_levels=2))
+    state.register_feed(PUBLIC, ["books:BTC-USDT"])
+    snapshot = _book(
+        bids=(_level("99", "1"), _level("100", "2"), _level("98", "3")),
+        asks=(_level("102", "4"), _level("101", "5"), _level("103", "6")),
+    )
+    assert state.apply_order_book(snapshot, PUBLIC) == OrderBookApplyStatus.ACCEPTED
+
+    update = _book(
+        action=OrderBookAction.UPDATE,
+        prev=10,
+        seq=11,
+        bids=(_level("100", "0"), _level("99.5", "7", 2)),
+        asks=(_level("101", "8", 3),),
+    )
+    assert state.apply_order_book(update, PUBLIC) == OrderBookApplyStatus.ACCEPTED
+
+    book = state.latest_order_books()[0]
+    assert book.synchronized is True
+    assert book.sequence_id == 11
+    assert [level.price for level in book.bids] == [99.5, 99.0]
+    assert [level.price for level in book.asks] == [101.0, 102.0]
+    assert book.asks[0].size == 8.0
+
+
+def test_health_is_not_ready_until_every_required_order_book_is_synchronized():
+    state = MarketState()
+    required = ["books:BTC-USDT"]
+    state.register_feed(PUBLIC, required)
+    state.set_feed_acked(PUBLIC, required)
+    state.set_feed_status(PUBLIC, ConnectionStatus.CONNECTED)
+    state.mark_feed_market_data(PUBLIC)
+
+    health = state.health_snapshot()
+    assert health.connected is True
+    assert health.order_books_synchronized is False
+    assert health.ready is False
+
+    state.apply_order_book(_book(), PUBLIC)
+    health = state.health_snapshot()
+    assert health.order_books_synchronized is True
+    assert health.ready is True
+
+
+def test_order_book_sequence_gap_fails_closed_until_new_snapshot():
+    state = MarketState()
+    state.register_feed(PUBLIC, ["books:BTC-USDT"])
+    assert state.apply_order_book(_book(), PUBLIC) == OrderBookApplyStatus.ACCEPTED
+
+    gap = _book(
+        action=OrderBookAction.UPDATE,
+        prev=9,
+        seq=11,
+        bids=(_level("100", "4"),),
+        asks=(),
+    )
+    assert state.apply_order_book(gap, PUBLIC) == OrderBookApplyStatus.SEQUENCE_GAP
+    assert state.latest_order_books()[0].synchronized is False
+
+    chained_after_gap = _book(
+        action=OrderBookAction.UPDATE,
+        prev=10,
+        seq=11,
+        bids=(_level("100", "4"),),
+        asks=(),
+    )
+    assert (
+        state.apply_order_book(chained_after_gap, PUBLIC)
+        == OrderBookApplyStatus.SEQUENCE_GAP
+    )
+
+    fresh = _book(seq=20)
+    assert state.apply_order_book(fresh, PUBLIC) == OrderBookApplyStatus.ACCEPTED
+    book = state.latest_order_books()[0]
+    assert book.synchronized is True
+    assert book.sequence_id == 20
+    assert book.sequence_gaps == 2
+
+
+def test_order_book_accepts_empty_keepalive_and_documented_sequence_reset():
+    state = MarketState()
+    state.register_feed(PUBLIC, ["books:BTC-USDT"])
+    state.apply_order_book(_book(), PUBLIC)
+
+    keepalive = _book(
+        action=OrderBookAction.UPDATE,
+        prev=10,
+        seq=10,
+        bids=(),
+        asks=(),
+    )
+    assert state.apply_order_book(keepalive, PUBLIC) == OrderBookApplyStatus.NO_CHANGE
+
+    reset = _book(
+        action=OrderBookAction.UPDATE,
+        prev=10,
+        seq=3,
+        bids=(_level("100", "4"),),
+        asks=(),
+    )
+    assert state.apply_order_book(reset, PUBLIC) == OrderBookApplyStatus.ACCEPTED
+    book = state.latest_order_books()[0]
+    assert book.sequence_id == 3
+    assert book.sequence_resets == 1
+
+
+def test_reconnect_marks_existing_order_book_unsynchronized():
+    state = MarketState()
+    state.register_feed(PUBLIC, ["books:BTC-USDT"])
+    state.apply_order_book(_book(), PUBLIC)
+    state.mark_feed_order_books_unsynchronized(PUBLIC)
+    assert state.latest_order_books()[0].synchronized is False
+
+
+def test_persistence_health_is_observable_without_affecting_feed_health():
+    state = MarketState()
+    state.configure_persistence(True)
+    state.set_persistence_status(PersistenceStatus.RUNNING)
+    state.record_persisted_candles(
+        stored=2, backfilled=1, gaps_detected=1, unresolved_gaps=0
+    )
+    state.record_persisted_order_book()
+
+    persistence = state.health_snapshot().persistence
+    assert persistence.enabled is True
+    assert persistence.status == PersistenceStatus.RUNNING
+    assert persistence.stored_candles == 2
+    assert persistence.backfilled_candles == 1
+    assert persistence.stored_order_books == 1
+
+
 def test_state_snapshot_shapes():
     state = MarketState()
     state.apply_ticker(_ticker(T0, 100))
@@ -233,4 +397,5 @@ def test_state_snapshot_shapes():
     assert len(snap.tickers) == 1
     assert len(snap.candles) == 1
     assert len(snap.recent_trades) == 1
+    assert snap.order_books == []
     assert "Public market-data observation only" in snap.health.note

@@ -15,10 +15,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class UpdateType(str, Enum):
@@ -27,6 +28,7 @@ class UpdateType(str, Enum):
     TICKER = "ticker"
     TRADE = "trade"
     CANDLE = "candle"
+    ORDER_BOOK = "order_book"
 
 
 class ConnectionStatus(str, Enum):
@@ -36,6 +38,23 @@ class ConnectionStatus(str, Enum):
     CONNECTING = "connecting"
     CONNECTED = "connected"
     RECONNECTING = "reconnecting"
+    STOPPED = "stopped"
+
+
+class OrderBookAction(str, Enum):
+    """Whether an order-book message replaces or increments local depth."""
+
+    SNAPSHOT = "snapshot"
+    UPDATE = "update"
+
+
+class PersistenceStatus(str, Enum):
+    """Lifecycle status of the optional Phase 3B persistence worker."""
+
+    DISABLED = "disabled"
+    STARTING = "starting"
+    RUNNING = "running"
+    DEGRADED = "degraded"
     STOPPED = "stopped"
 
 
@@ -80,6 +99,28 @@ class CandleUpdate:
     confirmed: bool
 
 
+@dataclass(frozen=True)
+class OrderBookLevel:
+    """One price level from a public order book."""
+
+    price: Decimal
+    size: Decimal
+    order_count: int
+
+
+@dataclass(frozen=True)
+class OrderBookUpdate:
+    """A validated snapshot or incremental public order-book update."""
+
+    instrument: str
+    timestamp: datetime
+    action: OrderBookAction
+    bids: tuple[OrderBookLevel, ...]
+    asks: tuple[OrderBookLevel, ...]
+    previous_sequence_id: int
+    sequence_id: int
+
+
 # --- read-only API output models -------------------------------------------
 
 
@@ -112,6 +153,40 @@ class CandleOut(BaseModel):
     confirmed: bool
 
 
+class OrderBookLevelOut(BaseModel):
+    price: float
+    size: float
+    order_count: int
+
+
+class OrderBookOut(BaseModel):
+    """Current locally reconstructed public order book for one instrument."""
+
+    instrument: str
+    timestamp: Optional[datetime]
+    synchronized: bool
+    sequence_id: Optional[int]
+    sequence_gaps: int
+    sequence_resets: int
+    bids: List[OrderBookLevelOut]
+    asks: List[OrderBookLevelOut]
+
+
+class PersistenceHealthOut(BaseModel):
+    """Operational state of optional durable public-data persistence."""
+
+    enabled: bool = False
+    status: PersistenceStatus = PersistenceStatus.DISABLED
+    stored_candles: int = 0
+    stored_order_books: int = 0
+    backfilled_candles: int = 0
+    candle_gaps_detected: int = 0
+    unresolved_candle_gaps: int = 0
+    write_errors: int = 0
+    last_write_time: Optional[datetime] = None
+    last_error: Optional[str] = None
+
+
 class FeedHealthOut(BaseModel):
     """Per-feed (per-connection) health for one live public feed."""
 
@@ -140,12 +215,15 @@ class LiveHealthOut(BaseModel):
     status: ConnectionStatus
     connected: bool
     stale: bool
+    order_books_synchronized: bool
+    ready: bool
     # Latest accepted market-data time across feeds (freshness, not transport).
     last_message_time: Optional[datetime]
     seconds_since_last_message: Optional[float]
     # Union of every feed's required subscriptions (all retained, never lost).
     subscriptions: List[str]
     feeds: List[FeedHealthOut]
+    persistence: PersistenceHealthOut = Field(default_factory=PersistenceHealthOut)
     # Restated each response so the read-only contract is unmistakable.
     note: str = "Public market-data observation only. No trading or accounts."
 
@@ -157,3 +235,4 @@ class LiveStateOut(BaseModel):
     tickers: List[TickerOut]
     candles: List[CandleOut]
     recent_trades: List[TradeOut]
+    order_books: List[OrderBookOut]

@@ -3,8 +3,8 @@
 We emit one JSON object per log line. JSON logs are easy for both humans and
 tools to read, and they keep a consistent shape across the whole project.
 
-No secrets are ever logged: Phase 1 only handles public market data, and the
-configuration layer never stores credentials.
+No secrets are ever logged: current phases only handle public market data, and
+the configuration layer never stores exchange credentials.
 """
 
 from __future__ import annotations

@@ -1,17 +1,16 @@
-"""SQLAlchemy ORM models.
-
-Phase 1 stores only public OHLCV candle data. Timestamps are stored in UTC.
-"""
+"""SQLAlchemy ORM models for public candles and sampled public order books."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    BigInteger,
     DateTime,
     Float,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -70,3 +69,38 @@ class Candle(Base):
             f"<Candle {self.instrument} {self.timeframe} "
             f"{self.open_time.isoformat()} close={self.close}>"
         )
+
+
+class OrderBookSnapshot(Base):
+    """A sampled, sequence-validated public order-book snapshot.
+
+    Phase 3B stores only bounded depth from the reconstructed public book. The
+    JSON fields contain arrays of ``[price, size, order_count]`` values and no
+    account or order information.
+    """
+
+    __tablename__ = "order_book_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "instrument",
+            "exchange_time",
+            "sequence_id",
+            name="uq_order_book_snapshot_identity",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    instrument: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    channel: Mapped[str] = mapped_column(String(24), nullable=False, default="books")
+    exchange_time: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    sequence_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    depth: Mapped[int] = mapped_column(Integer, nullable=False)
+    best_bid: Mapped[float] = mapped_column(Float, nullable=False)
+    best_ask: Mapped[float] = mapped_column(Float, nullable=False)
+    bids_json: Mapped[str] = mapped_column(Text, nullable=False)
+    asks_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )

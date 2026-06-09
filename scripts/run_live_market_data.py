@@ -1,7 +1,7 @@
-"""Command-line entry point: stream live PUBLIC OKX market data (Phase 3A).
+"""Command-line entry point: stream live PUBLIC OKX market data (Phase 3).
 
 This opens UNAUTHENTICATED public OKX WebSocket connections for BTC-USDT and
-ETH-USDT, observes ticker / trades / candle channels, and prints a periodic
+ETH-USDT, observes ticker / trades / candle / book channels, and prints a periodic
 status snapshot from the in-memory state. It is observation only: it never
 authenticates, evaluates strategies, simulates trades, or places orders.
 
@@ -15,8 +15,8 @@ Stream until Ctrl-C::
 
     python scripts/run_live_market_data.py
 
-WARNING: This is live public market-data observation only (Phase 3A, WIP). It
-does not authorize paper, demo, or live trading. See docs/PHASE3A_LIVE_DATA.md.
+WARNING: This is live public market-data observation only (Phase 3B, WIP). It
+does not authorize paper, demo, or live trading.
 """
 
 from __future__ import annotations
@@ -31,8 +31,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import get_settings  # noqa: E402
-from app.exchange.okx_public_ws import build_default_adapters, run_adapters  # noqa: E402
+from app.db.database import init_db  # noqa: E402
+from app.exchange.okx_public_ws import build_default_adapters  # noqa: E402
 from app.live.market_state import MarketState, MarketStateConfig  # noqa: E402
+from app.live.persistence import build_persistence_from_settings  # noqa: E402
+from app.live.runtime import run_live_runtime  # noqa: E402
 from app.logging_config import configure_logging, get_logger  # noqa: E402
 from app.okx.client import ALLOWED_INSTRUMENTS  # noqa: E402
 
@@ -89,10 +92,13 @@ async def _print_status_periodically(
             pass
         health = state.health_snapshot()
         tickers = state.latest_tickers()
+        order_books = state.latest_order_books(depth=1)
         print(
-            f"[LIVE/PUBLIC] status={health.status.value} stale={health.stale} "
+            f"[LIVE/PUBLIC] status={health.status.value} ready={health.ready} "
+            f"stale={health.stale} books_synced={health.order_books_synchronized} "
             f"since_last={health.seconds_since_last_message} "
-            f"tickers={len(tickers)} trades={len(state.recent_trades())}"
+            f"tickers={len(tickers)} trades={len(state.recent_trades())} "
+            f"books={len(order_books)}"
         )
         for feed in health.feeds:
             print(
@@ -107,6 +113,22 @@ async def _print_status_periodically(
                 f"    {ticker.instrument} last={ticker.last} "
                 f"bid={ticker.bid} ask={ticker.ask} ts={ticker.timestamp.isoformat()}"
             )
+        for book in order_books:
+            print(
+                f"    book={book.instrument} synced={book.synchronized} "
+                f"seq={book.sequence_id} gaps={book.sequence_gaps} "
+                f"best_bid={book.bids[0].price if book.bids else None} "
+                f"best_ask={book.asks[0].price if book.asks else None}"
+            )
+        persistence = health.persistence
+        if persistence.enabled:
+            print(
+                f"    persistence={persistence.status.value} "
+                f"candles={persistence.stored_candles} "
+                f"backfilled={persistence.backfilled_candles} "
+                f"books={persistence.stored_order_books} "
+                f"errors={persistence.write_errors}"
+            )
 
 
 async def _run(args: argparse.Namespace) -> int:
@@ -120,6 +142,10 @@ async def _run(args: argparse.Namespace) -> int:
         public_url=settings.okx_public_ws_url,
         business_url=settings.okx_business_ws_url,
     )
+    persistence = None
+    if settings.live_persistence_enabled:
+        await asyncio.to_thread(init_db)
+        persistence = build_persistence_from_settings(state, settings)
 
     stop_event = asyncio.Event()
 
@@ -132,7 +158,8 @@ async def _run(args: argparse.Namespace) -> int:
             pass
 
     stream_task = asyncio.create_task(
-        run_adapters(adapters, stop_event), name="public-market-stream"
+        run_live_runtime(adapters, stop_event, persistence),
+        name="public-market-stream",
     )
     status_task = asyncio.create_task(
         _print_status_periodically(state, stop_event, args.status_interval),
@@ -181,12 +208,14 @@ async def _run(args: argparse.Namespace) -> int:
             stop_event.set()
     finally:
         stop_event.set()
-        for task in (stream_task, status_task, stop_task):
-            if not task.done():
-                task.cancel()
-        await asyncio.gather(
-            stream_task, status_task, stop_task, return_exceptions=True
-        )
+        status_task.cancel()
+        stop_task.cancel()
+        if not stream_task.done():
+            try:
+                await asyncio.wait_for(stream_task, timeout=15)
+            except asyncio.TimeoutError:
+                stream_task.cancel()
+        await asyncio.gather(stream_task, status_task, stop_task, return_exceptions=True)
 
     print("[LIVE/PUBLIC] stopped.")
     return result

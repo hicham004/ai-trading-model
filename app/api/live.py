@@ -1,4 +1,4 @@
-"""Read-only FastAPI router for live PUBLIC market-data observation (Phase 3A).
+"""Read-only FastAPI router for live PUBLIC market data (Phase 3).
 
 These endpoints expose the in-memory :class:`MarketState` only. They are
 strictly read-only: there are no endpoints that trade, place orders, touch an
@@ -18,6 +18,8 @@ from app.live.schemas import (
     FeedHealthOut,
     LiveHealthOut,
     LiveStateOut,
+    OrderBookOut,
+    PersistenceHealthOut,
     TickerOut,
     TradeOut,
 )
@@ -56,6 +58,23 @@ def live_state(
 def live_tickers(state: MarketState = Depends(get_state)) -> List[TickerOut]:
     """Latest ticker per observed instrument."""
     return [TickerOut(**vars(t)) for t in state.latest_tickers()]
+
+
+@router.get("/order-books", response_model=List[OrderBookOut])
+def live_order_books(
+    depth: int = Query(20, ge=1, le=400),
+    state: MarketState = Depends(get_state),
+) -> List[OrderBookOut]:
+    """Sequence-validated reconstructed public order books."""
+    return state.latest_order_books(depth=depth)
+
+
+@router.get("/persistence", response_model=PersistenceHealthOut)
+def live_persistence(
+    state: MarketState = Depends(get_state),
+) -> PersistenceHealthOut:
+    """Status and counters for optional durable public-data writes."""
+    return state.persistence_health()
 
 
 @router.get("/trades", response_model=List[TradeOut])

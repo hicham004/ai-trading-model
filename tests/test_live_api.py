@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,7 +16,15 @@ from app.live.market_state import (
     get_market_state,
     reset_default_market_state,
 )
-from app.live.schemas import ConnectionStatus, TickerUpdate, TradeUpdate
+from app.live.schemas import (
+    ConnectionStatus,
+    OrderBookAction,
+    OrderBookLevel,
+    OrderBookUpdate,
+    PersistenceStatus,
+    TickerUpdate,
+    TradeUpdate,
+)
 
 T0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
@@ -44,6 +53,8 @@ def test_live_health_empty_is_disconnected_and_stale(client_and_state):
     assert body["status"] == ConnectionStatus.DISCONNECTED.value
     assert body["connected"] is False
     assert body["stale"] is True
+    assert body["ready"] is False
+    assert body["order_books_synchronized"] is True
     assert body["last_message_time"] is None
     assert body["subscriptions"] == []
     assert body["feeds"] == []
@@ -112,10 +123,46 @@ def test_live_tickers_and_trades_endpoints(client_and_state):
     assert client.get("/live/trades", params={"limit": 10}).json()[0]["side"] == "sell"
 
 
+def test_live_order_books_endpoint_exposes_sequence_integrity(client_and_state):
+    client, state = client_and_state
+    state.register_feed("okx-public", ["books:BTC-USDT"])
+    state.apply_order_book(
+        OrderBookUpdate(
+            instrument="BTC-USDT",
+            timestamp=T0,
+            action=OrderBookAction.SNAPSHOT,
+            bids=(OrderBookLevel(Decimal("100"), Decimal("2"), 1),),
+            asks=(OrderBookLevel(Decimal("101"), Decimal("3"), 2),),
+            previous_sequence_id=-1,
+            sequence_id=10,
+        ),
+        "okx-public",
+    )
+
+    body = client.get("/live/order-books", params={"depth": 1}).json()
+    assert body[0]["synchronized"] is True
+    assert body[0]["sequence_id"] == 10
+    assert body[0]["bids"][0]["price"] == 100.0
+    assert body[0]["asks"][0]["price"] == 101.0
+
+
+def test_live_persistence_endpoint_is_read_only_operational_state(client_and_state):
+    client, state = client_and_state
+    state.configure_persistence(True)
+    state.set_persistence_status(PersistenceStatus.RUNNING)
+    state.record_persisted_order_book()
+
+    body = client.get("/live/persistence").json()
+    assert body["enabled"] is True
+    assert body["status"] == "running"
+    assert body["stored_order_books"] == 1
+
+
 def test_live_query_limits_are_validated(client_and_state):
     client, _ = client_and_state
     assert client.get("/live/trades", params={"limit": 0}).status_code == 422
     assert client.get("/live/state", params={"trade_limit": 501}).status_code == 422
+    assert client.get("/live/order-books", params={"depth": 0}).status_code == 422
 
 
 def test_default_api_state_uses_configured_stale_threshold(monkeypatch):
@@ -144,7 +191,9 @@ def test_invalid_stale_threshold_fails_closed(monkeypatch, value):
 
 def test_no_trading_or_order_routes_exist():
     for route in app.routes:
-        lowered = route.path.lower()
-        assert "order" not in lowered
-        assert "account" not in lowered
-        assert "withdraw" not in lowered
+        segments = {segment for segment in route.path.lower().split("/") if segment}
+        assert "orders" not in segments
+        assert "account" not in segments
+        assert "withdraw" not in segments
+        if route.path.startswith("/live/"):
+            assert route.methods <= {"GET", "HEAD"}

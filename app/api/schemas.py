@@ -33,3 +33,21 @@ class CandleListResponse(BaseModel):
     timeframe: str
     count: int
     candles: List[CandleOut]
+
+
+class PersistedOrderBookOut(BaseModel):
+    instrument: str
+    channel: str
+    exchange_time: datetime
+    sequence_id: int
+    depth: int
+    best_bid: float
+    best_ask: float
+    bids: List[List[float | int]]
+    asks: List[List[float | int]]
+
+
+class PersistedOrderBookListResponse(BaseModel):
+    instrument: str
+    count: int
+    snapshots: List[PersistedOrderBookOut]

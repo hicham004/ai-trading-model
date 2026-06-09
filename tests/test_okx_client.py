@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 import requests
 
 from app.config import Settings
-from app.okx.client import OKXClientError, OKXPublicClient
+from app.okx.client import (
+    OKXClientError,
+    OKXPublicClient,
+    validate_public_rest_base_url,
+)
 from tests.conftest import make_candle_row
 
 
@@ -57,7 +63,7 @@ def test_get_candles_parses_and_sorts_oldest_first():
         "msg": "",
         # OKX returns newest-first; client must sort oldest-first.
         "data": [
-            make_candle_row(2_000_000, close="200"),
+            make_candle_row(2_000_000, high="210", close="200"),
             make_candle_row(1_000_000, close="100"),
         ],
     }
@@ -96,6 +102,38 @@ def test_confirmed_only_filters_unconfirmed_candle():
     assert candles[0].confirmed is True
 
 
+def test_get_history_candles_uses_public_history_path_and_after_timestamp():
+    payload = {"code": "0", "data": [make_candle_row(1_700_000_000_000)]}
+    session = FakeSession([FakeResponse(payload)])
+    client = OKXPublicClient(settings=_settings(), session=session)
+    after = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    candles = client.get_history_candles(
+        "BTC-USDT",
+        timeframe="1m",
+        limit=42,
+        after=after,
+    )
+
+    assert len(candles) == 1
+    assert session.calls[0]["url"].endswith("/api/v5/market/history-candles")
+    assert session.calls[0]["params"] == {
+        "instId": "BTC-USDT",
+        "bar": "1m",
+        "limit": "42",
+        "after": str(int(after.timestamp() * 1000)),
+    }
+
+
+def test_history_candles_rejects_ambiguous_or_naive_pagination():
+    client = OKXPublicClient(settings=_settings(), session=FakeSession([]))
+    aware = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    with pytest.raises(ValueError, match="at most one"):
+        client.get_history_candles("BTC-USDT", after=aware, before=aware)
+    with pytest.raises(ValueError, match="timezone-aware"):
+        client.get_history_candles("BTC-USDT", after=datetime(2026, 1, 1))
+
+
 def test_disallowed_instrument_raises_value_error():
     client = OKXPublicClient(settings=_settings(), session=FakeSession([]))
     with pytest.raises(ValueError):
@@ -106,6 +144,25 @@ def test_invalid_limit_raises_value_error():
     client = OKXPublicClient(settings=_settings(), session=FakeSession([]))
     with pytest.raises(ValueError):
         client.get_candles("BTC-USDT", limit=999)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://www.okx.com",
+        "https://evil.example",
+        "https://www.okx.com/api/v5/trade/order",
+        "https://user:pass@www.okx.com",
+        "https://www.okx.com:444",
+    ],
+)
+def test_public_rest_base_url_rejects_unapproved_origins(url):
+    with pytest.raises(ValueError):
+        validate_public_rest_base_url(url)
+
+
+def test_public_rest_base_url_accepts_approved_origin():
+    assert validate_public_rest_base_url("https://www.okx.com") == "https://www.okx.com"
 
 
 def test_api_error_code_raises():
@@ -119,6 +176,22 @@ def test_api_error_code_raises():
 def test_malformed_row_raises():
     payload = {"code": "0", "data": [["only", "three", "cols"]]}
     session = FakeSession([FakeResponse(payload)])
+    client = OKXPublicClient(settings=_settings(), session=session)
+    with pytest.raises(OKXClientError):
+        client.get_candles("BTC-USDT")
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        make_candle_row(1_000_000, high="99", close="105"),
+        make_candle_row(1_000_000, volume="-1"),
+        make_candle_row(1_000_000, close="nan"),
+        make_candle_row(0),
+    ],
+)
+def test_invalid_candle_invariants_raise(row):
+    session = FakeSession([FakeResponse({"code": "0", "data": [row]})])
     client = OKXPublicClient(settings=_settings(), session=session)
     with pytest.raises(OKXClientError):
         client.get_candles("BTC-USDT")

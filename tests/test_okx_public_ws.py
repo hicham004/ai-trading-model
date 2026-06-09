@@ -10,6 +10,7 @@ import pytest
 from app.exchange.okx_public_ws import (
     BUSINESS_FEED_ID,
     CANDLE_CHANNEL,
+    ORDER_BOOK_CHANNEL,
     OKX_BUSINESS_WS_URL,
     OKX_PUBLIC_WS_URL,
     PUBLIC_FEED_ID,
@@ -25,7 +26,14 @@ from app.exchange.okx_public_ws import (
     validate_public_ws_url,
 )
 from app.live.market_state import MarketState
-from app.live.schemas import CandleUpdate, ConnectionStatus, TickerUpdate, TradeUpdate
+from app.live.schemas import (
+    CandleUpdate,
+    ConnectionStatus,
+    OrderBookAction,
+    OrderBookUpdate,
+    TickerUpdate,
+    TradeUpdate,
+)
 
 
 def _ack(channel: str, instrument: str = "BTC-USDT") -> str:
@@ -37,6 +45,7 @@ def _ack(channel: str, instrument: str = "BTC-USDT") -> str:
 TICKER_ACK = _ack("tickers")
 TRADE_ACK = _ack("trades")
 CANDLE_ACK = _ack("candle1m")
+BOOK_ACK = _ack("books")
 ERROR_EVENT = json.dumps({"event": "error", "code": "60012", "msg": "bad"})
 TICKER_MSG = json.dumps(
     {
@@ -71,6 +80,22 @@ CANDLE_MSG = json.dumps(
     {
         "arg": {"channel": CANDLE_CHANNEL, "instId": "BTC-USDT"},
         "data": [["1700000000000", "100", "110", "90", "105", "12", "0", "0", "1"]],
+    }
+)
+BOOK_SNAPSHOT = json.dumps(
+    {
+        "arg": {"channel": ORDER_BOOK_CHANNEL, "instId": "BTC-USDT"},
+        "action": "snapshot",
+        "data": [
+            {
+                "bids": [["100", "2", "0", "3"], ["99", "4", "0", "2"]],
+                "asks": [["101", "5", "0", "4"], ["102", "6", "0", "1"]],
+                "ts": "1700000000000",
+                "checksum": 0,
+                "prevSeqId": -1,
+                "seqId": 10,
+            }
+        ],
     }
 )
 
@@ -127,7 +152,12 @@ class ScriptedConn:
 
 @pytest.mark.parametrize(
     ("raw", "kind"),
-    [(TICKER_MSG, TickerUpdate), (TRADE_MSG, TradeUpdate), (CANDLE_MSG, CandleUpdate)],
+    [
+        (TICKER_MSG, TickerUpdate),
+        (TRADE_MSG, TradeUpdate),
+        (CANDLE_MSG, CandleUpdate),
+        (BOOK_SNAPSHOT, OrderBookUpdate),
+    ],
 )
 def test_parse_valid_market_updates(raw, kind):
     outcome = parse_okx_message(raw)
@@ -218,6 +248,49 @@ def test_parse_rejects_incoherent_candles(row):
     assert parse_okx_message(_message(CANDLE_CHANNEL, row)).updates == []
 
 
+def test_parse_order_book_snapshot_uses_sequence_ids_not_checksum():
+    update = parse_okx_message(BOOK_SNAPSHOT).updates[0]
+    assert isinstance(update, OrderBookUpdate)
+    assert update.action == OrderBookAction.SNAPSHOT
+    assert update.previous_sequence_id == -1
+    assert update.sequence_id == 10
+    assert update.bids[0].price == 100
+    assert update.asks[0].size == 5
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda body: body.pop("action"),
+        lambda body: body.update(action="partial"),
+        lambda body: body["data"][0].update(prevSeqId=9),
+        lambda body: body["data"][0].update(seqId=-1),
+        lambda body: body["data"][0].update(bids=[["100", "-1", "0", "1"]]),
+        lambda body: body["data"][0].update(asks=[["nan", "1", "0", "1"]]),
+        lambda body: body["data"][0].update(bids=[["100", "1", "0"]]),
+        lambda body: body["data"][0].update(
+            bids=[["100", "1", "0", "1"], ["100", "2", "0", "2"]]
+        ),
+    ],
+)
+def test_parse_rejects_invalid_order_book_messages(mutate):
+    body = json.loads(BOOK_SNAPSHOT)
+    mutate(body)
+    outcome = parse_okx_message(json.dumps(body))
+    assert outcome.updates == []
+    assert outcome.reconnect_required is True
+
+
+def test_parse_accepts_empty_same_sequence_order_book_keepalive():
+    body = json.loads(BOOK_SNAPSHOT)
+    body["action"] = "update"
+    body["data"][0].update(bids=[], asks=[], prevSeqId=10, seqId=10)
+    update = parse_okx_message(json.dumps(body)).updates[0]
+    assert update.action == OrderBookAction.UPDATE
+    assert update.bids == ()
+    assert update.asks == ()
+
+
 # -- production scope validation -------------------------------------------
 
 
@@ -255,6 +328,9 @@ def test_channel_helpers_and_subscription_scope():
     assert endpoint_for_channel(
         CANDLE_CHANNEL, public_url="P", business_url="B"
     ) == "B"
+    assert endpoint_for_channel(
+        ORDER_BOOK_CHANNEL, public_url="P", business_url="B"
+    ) == "P"
     assert candle_timeframe(CANDLE_CHANNEL) == "1m"
     with pytest.raises(ValueError):
         endpoint_for_channel("books5", public_url="P", business_url="B")
@@ -279,6 +355,9 @@ def test_default_adapters_bind_correct_urls_feeds_and_register_up_front():
         PUBLIC_FEED_ID,
         BUSINESS_FEED_ID,
     }
+    public = state.feed_health(PUBLIC_FEED_ID)
+    assert "books:BTC-USDT" in public.required_subscriptions
+    assert "books:ETH-USDT" in public.required_subscriptions
     assert state.health_snapshot().connected is False
 
 
@@ -659,3 +738,61 @@ def test_run_adapters_cancels_siblings_when_one_adapter_crashes():
         return blocking
 
     assert asyncio.run(drive()).cancelled is True
+
+
+def test_order_book_sequence_gap_forces_reconnect_and_marks_unsynchronized():
+    async def drive():
+        state = MarketState()
+        stop = asyncio.Event()
+        gap = json.loads(BOOK_SNAPSHOT)
+        gap["action"] = "update"
+        gap["data"][0].update(
+            bids=[["100", "3", "0", "2"]],
+            asks=[],
+            prevSeqId=8,
+            seqId=11,
+        )
+        conn = ScriptedConn(
+            [BOOK_ACK, BOOK_SNAPSHOT, json.dumps(gap)],
+            block_after=True,
+        )
+
+        def on_backoff(_delay):
+            stop.set()
+
+        adapter = OKXPublicWebSocketAdapter(
+            state,
+            "ws://fake",
+            [_Subscription(ORDER_BOOK_CHANNEL, "BTC-USDT")],
+            connect=lambda _url: asyncio.sleep(0, result=conn),
+            initial_backoff=0.001,
+            on_backoff=on_backoff,
+        )
+        await adapter.run(stop)
+        return state, conn
+
+    state, conn = asyncio.run(drive())
+    book = state.latest_order_books()[0]
+    assert book.synchronized is False
+    assert book.sequence_gaps == 1
+    assert conn.closed is True
+
+
+def test_malformed_order_book_frame_forces_immediate_reconnect():
+    async def drive():
+        state = MarketState()
+        adapter = OKXPublicWebSocketAdapter(
+            state,
+            "ws://fake",
+            [_Subscription(ORDER_BOOK_CHANNEL, "BTC-USDT")],
+            connect=lambda _url: None,
+        )
+        session = _SubscriptionSession(adapter._subscriptions)
+        session.record_ack({"channel": ORDER_BOOK_CHANNEL, "instId": "BTC-USDT"})
+        malformed = json.loads(BOOK_SNAPSHOT)
+        malformed["data"][0]["bids"] = [["100", "-1", "0", "1"]]
+        return await adapter._process_frame(
+            ScriptedConn(), json.dumps(malformed), session
+        )
+
+    assert asyncio.run(drive()) == "reconnect"

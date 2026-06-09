@@ -51,7 +51,10 @@ veto.
   Phase 2/2B on June 9, 2026.
 - Phase 3A (live, public, unauthenticated WebSocket market-data observation
   only) completed the Codex correction/review pass and was explicitly accepted
-  by the human owner on June 9, 2026. Phase 3B and later are not authorized.
+  by the human owner on June 9, 2026.
+- Phase 3B public-data hardening was independently reviewed (no blocker, no
+  required follow-up) and explicitly accepted by the human owner on June 9,
+  2026. Phase 4 and later are not authorized.
 
 ## Required Reading
 
@@ -68,6 +71,9 @@ For long-term context:
 
 - `docs/LIVE_TRADING_VISION.md`
 - `docs/AUTOMATED_TRADING_ROADMAP.md`
+- `docs/PHASE3A_LIVE_DATA.md`
+- `docs/PHASE3B_LIVE_DATA_HARDENING.md`
+- `docs/PHASE3B_REVIEW_NOTES.md`
 
 ## Immediate Engineering Boundary
 
@@ -79,10 +85,18 @@ uses separate fail-closed health for the public ticker/trade feed and business
 candle feed, and does not report a feed connected until all required
 subscriptions are acknowledged.
 
+Phase 3B was accepted on June 9, 2026: public order-book sequence integrity,
+bounded public REST backfill for missing confirmed candles, optional durable
+public candle/order-book writes, and read-only operational observability. It
+fails closed on malformed depth or a broken sequence chain and keeps
+persistence outside the WebSocket receive path.
+
+No further phase is authorized. The next phase (Phase 4 - local paper trading)
+requires a separate, explicit human authorization before any implementation.
+
 Out of scope and still unauthorized: any strategy evaluation or signal
 generation from live data, any paper/demo/live trading loop, authenticated or
-private OKX access, orders, leverage, or withdrawals. Do not begin Phase 3B or
-Phase 4.
+private OKX access, orders, leverage, or withdrawals. Do not begin Phase 4.
 
 ## Permanent Safety Rules
 

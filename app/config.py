@@ -48,6 +48,19 @@ def _get_positive_float(name: str, default: float) -> float:
     return value
 
 
+def _get_positive_int(name: str, default: int, *, maximum: int | None = None) -> int:
+    """Read a bounded positive integer, failing closed on invalid values."""
+    raw = os.getenv(name)
+    try:
+        value = default if raw is None else int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a positive integer") from exc
+    if value <= 0 or (maximum is not None and value > maximum):
+        suffix = f" no greater than {maximum}" if maximum is not None else ""
+        raise ValueError(f"{name} must be a positive integer{suffix}")
+    return value
+
+
 @dataclass(frozen=True)
 class Settings:
     """Strongly-typed view of the environment configuration."""
@@ -102,6 +115,39 @@ class Settings:
     live_stale_after_seconds: float = field(
         default_factory=lambda: _get_positive_float(
             "LIVE_STALE_AFTER_SECONDS", 30.0
+        )
+    )
+
+    # --- Phase 3B: optional durable PUBLIC market-data writes --------------
+    # Off by default so the Phase 3A observation path remains usable without a
+    # database. Enabling this stores confirmed candles and sampled, validated
+    # order-book snapshots only; it never stores account or order data.
+    live_persistence_enabled: bool = field(
+        default_factory=lambda: _get_bool("LIVE_PERSISTENCE_ENABLED", False)
+    )
+    live_persistence_poll_seconds: float = field(
+        default_factory=lambda: _get_positive_float(
+            "LIVE_PERSISTENCE_POLL_SECONDS", 1.0
+        )
+    )
+    live_order_book_snapshot_seconds: float = field(
+        default_factory=lambda: _get_positive_float(
+            "LIVE_ORDER_BOOK_SNAPSHOT_SECONDS", 5.0
+        )
+    )
+    live_order_book_depth: int = field(
+        default_factory=lambda: _get_positive_int(
+            "LIVE_ORDER_BOOK_DEPTH", 20, maximum=400
+        )
+    )
+    live_order_book_retention: int = field(
+        default_factory=lambda: _get_positive_int(
+            "LIVE_ORDER_BOOK_RETENTION", 10_000
+        )
+    )
+    live_backfill_max_bars: int = field(
+        default_factory=lambda: _get_positive_int(
+            "LIVE_BACKFILL_MAX_BARS", 300, maximum=300
         )
     )
 

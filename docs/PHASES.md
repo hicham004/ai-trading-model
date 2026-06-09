@@ -89,11 +89,24 @@ human owner on June 9, 2026.
 
 ### Phase 3B - Remaining Live-Data Hardening
 
-**Status: Planned, not authorized**
+**Status: Accepted on June 9, 2026**
 
 - Public order-book streams and sequence validation.
 - REST backfill after gaps and missing-bar detection.
 - Durable writes and longer-running observability.
+
+The implementation passed an independent adversarial review (Claude) that found
+no blocker and no required follow-up: the reviewer's order-book checksum
+question was resolved as a deliberate, documented design choice (OKX is
+deprecating the JSON checksum on June 23, 2026 and recommends `seqId`/`prevSeqId`
+continuity, which is implemented). The review is recorded in
+`docs/PHASE3B_REVIEW_NOTES.md`, and implementation detail and limitations are in
+`docs/PHASE3B_LIVE_DATA_HARDENING.md`. The human owner explicitly accepted
+Phase 3B on June 9, 2026.
+
+Phase 3B remains public-data-only. It authorizes no live strategy evaluation,
+signals, paper/demo/live trading, authentication, accounts, private endpoints,
+orders, leverage, or withdrawals. Acceptance does not authorize Phase 4.
 
 ## Phase 4 - Local Paper Trading Loop
 
