@@ -131,13 +131,48 @@ phase gate completed on June 10, 2026.
 
 ## Phase 5 - OKX Demo Trading
 
-**Status: Planned, not authorized**
+**Status: Accepted on June 10, 2026 (demo/simulated only)**
 
-- Authenticated access to OKX's simulated trading environment only.
-- Demo account reads, demo orders, updates, cancel/replace, and reconciliation.
-- Least-privilege simulated credentials and a security review.
-- Mandatory kill switch, limits, idempotency, and audit logs.
-- No real funds and no withdrawal permission.
+The human owner explicitly authorized Phase 5 implementation on June 10, 2026,
+and then explicitly accepted it on June 10, 2026: authenticated OKX **demo
+(simulated) trading only**, BTC-USDT and ETH-USDT SPOT cash, long-only. The
+independent Codex correction/review completed on June 10, 2026
+(`docs/PHASE5_REVIEW_NOTES.md`), and the human owner supplied explicit
+acceptance. Acceptance covers the implementation as reviewed and tested
+offline; it does not certify live-venue behaviour (Phase 5 was never run
+against the live OKX demo API in this work — see limitations).
+
+In scope (authorized):
+
+- environment-only demo API credentials with aggressive secret redaction;
+- authenticated REST signing and demo private WebSocket authentication, always
+  with `x-simulated-trading: 1`, against a strict regional-hostname allowlist;
+- account config, balances, fee rates, instrument metadata, open orders, order
+  history, fills, and private order/fill updates;
+- Decimal tick/lot/min/balance validation and deterministic client order IDs;
+- demo order placement, cancellation, and amendment with a durable
+  intent/outbox lifecycle, idempotency, and ambiguous-timeout query-by-clOrdId;
+- exchange-authoritative order/fill/account reconciliation and restart recovery;
+- persisted kill switch, expiring runtime arming, runtime ownership lock,
+  rate limiting, bounded retries, and reconnect handling;
+- read-only API observability and explicit local operator commands.
+
+Explicitly OUT of scope and still unauthorized (must be unrepresentable):
+
+- real-money trading, production API credentials, or production order endpoints;
+- `x-simulated-trading: 0` or any production-mode configuration;
+- withdrawals, deposits, funding, or transfers;
+- leverage, margin, derivatives, shorting, or borrowing;
+- account-mode mutation or automatic demo-balance reset;
+- any generic arbitrary-endpoint method exposed to callers;
+- any mutating HTTP API route or any LLM/AI order authority;
+- Phase 6 and every later phase.
+
+Implementation detail and limitations are in
+`docs/PHASE5_DEMO_TRADING.md`; the independent review is in
+`docs/PHASE5_REVIEW_NOTES.md`. Acceptance was the human owner's explicit
+decision; no agent may self-approve a phase. Phase 6 and every later phase
+remain unauthorized.
 
 ## Phase 6 - AI News And Event Research Agent
 

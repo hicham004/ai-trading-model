@@ -192,8 +192,12 @@ def test_invalid_stale_threshold_fails_closed(monkeypatch, value):
 def test_no_exchange_execution_or_mutating_routes_exist():
     for route in app.routes:
         segments = {segment for segment in route.path.lower().split("/") if segment}
-        assert "withdraw" not in segments
-        if route.path.startswith(("/live/", "/paper/")):
-            assert route.methods <= {"GET", "HEAD"}
+        for forbidden in ("withdraw", "withdrawal", "transfer", "funding", "deposit"):
+            assert forbidden not in segments
+        # The entire live/paper/demo observability surface is strictly read-only.
+        if route.path.startswith(("/live/", "/paper/", "/demo/")):
+            assert route.methods <= {"GET", "HEAD"}, route.path
+        # Anything named like an order book or account view must be a read-only
+        # paper/demo observation route (no execution route uses these segments).
         if "orders" in segments or "account" in segments:
-            assert route.path.startswith("/paper/")
+            assert route.path.startswith(("/paper/", "/demo/")), route.path

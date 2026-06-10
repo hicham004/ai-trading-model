@@ -22,6 +22,7 @@ from fastapi import Depends, FastAPI, Query
 from sqlalchemy import distinct, select
 from sqlalchemy.orm import Session
 
+from app.api.execution import router as execution_router
 from app.api.live import router as live_router
 from app.api.paper import router as paper_router
 from app.api.schemas import (
@@ -124,6 +125,8 @@ app = FastAPI(
 app.include_router(live_router)
 # Read-only Phase 4 paper-trading ledger endpoints (under /paper).
 app.include_router(paper_router)
+# Read-only Phase 5 demo-execution ledger endpoints (under /demo).
+app.include_router(execution_router)
 
 
 def get_db() -> Iterator[Session]:

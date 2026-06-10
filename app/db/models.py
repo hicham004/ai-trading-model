@@ -401,3 +401,245 @@ class PaperEvent(Base):
     severity: Mapped[str] = mapped_column(String(16), nullable=False, default="info")
     message: Mapped[str] = mapped_column(String(512), nullable=False, default="")
     payload_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+
+
+# ---------------------------------------------------------------------------
+# Phase 5: authenticated OKX DEMO (simulated) execution ledger (demo_* tables).
+#
+# These tables are the durable, auditable, restartable record of demo order
+# intents and their exchange outcomes. No credential or secret is ever stored
+# here (only a non-reversible key fingerprint hint). Monetary amounts and sizes
+# are stored as exact decimal STRINGS, never floats. Deterministic client order
+# ids give cross-restart idempotency; an ambiguous submission is resolved by
+# querying the exchange by client order id, never by blind retry.
+# ---------------------------------------------------------------------------
+
+
+class DemoAccount(Base):
+    """A named demo (simulated) execution account. No real funds, ever."""
+
+    __tablename__ = "demo_accounts"
+    __table_args__ = (UniqueConstraint("name", name="uq_demo_account_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # Non-reversible hint (sha256[:8]) so a changed API key is detectable across
+    # restarts WITHOUT storing any secret material.
+    key_fingerprint: Mapped[str] = mapped_column(String(32), nullable=True)
+    config_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+
+class DemoRuntimeStatus(Base):
+    """Cross-process runtime health, arming, kill switch, and the lock."""
+
+    __tablename__ = "demo_runtime_status"
+    __table_args__ = (UniqueConstraint("account_id", name="uq_demo_runtime_account"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("demo_accounts.id"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="idle")
+    # Disarmed by default; arming sets an expiry. Entries are blocked unless
+    # armed_until is in the future.
+    armed_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    kill_switch_engaged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Fail closed: a freshly created demo runtime is NOT consistent until a
+    # successful reconciliation sets it True.
+    reconciliation_consistent: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    feed_connected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    feed_stale: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    ws_authenticated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_error: Mapped[str] = mapped_column(String(256), nullable=True)
+    lock_token: Mapped[str] = mapped_column(String(64), nullable=True)
+    lock_heartbeat: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+
+class DemoOrderIntent(Base):
+    """The durable order outbox / state projection (one row per logical order).
+
+    ``client_order_id`` is deterministic and unique per account, giving
+    idempotency across retries, reconnects, and restarts. ``status`` is the
+    crash-safe lifecycle state.
+    """
+
+    __tablename__ = "demo_order_intents"
+    __table_args__ = (
+        UniqueConstraint(
+            "account_id", "client_order_id", name="uq_demo_intent_clordid"
+        ),
+        Index("ix_demo_intent_status", "account_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("demo_accounts.id"), nullable=False, index=True
+    )
+    client_order_id: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    signal_id: Mapped[str] = mapped_column(String(96), nullable=False)
+    instrument: Mapped[str] = mapped_column(String(32), nullable=False)
+    side: Mapped[str] = mapped_column(String(4), nullable=False)
+    intent: Mapped[str] = mapped_column(String(16), nullable=False)
+    td_mode: Mapped[str] = mapped_column(String(8), nullable=False, default="cash")
+    ord_type: Mapped[str] = mapped_column(String(12), nullable=False, default="limit")
+    price: Mapped[str] = mapped_column(String(40), nullable=True)
+    size: Mapped[str] = mapped_column(String(40), nullable=False)
+    stop_loss: Mapped[str] = mapped_column(String(40), nullable=True)
+    exchange_order_id: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending_submit")
+    filled_size: Mapped[str] = mapped_column(String(40), nullable=False, default="0")
+    avg_price: Mapped[str] = mapped_column(String(40), nullable=True)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_update_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str] = mapped_column(String(256), nullable=True)
+
+
+class DemoSubmission(Base):
+    """Append-only record of each place/cancel/amend attempt and its outcome."""
+
+    __tablename__ = "demo_submissions"
+    __table_args__ = (
+        UniqueConstraint(
+            "account_id",
+            "client_order_id",
+            "request_kind",
+            "attempt",
+            name="uq_demo_submission",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("demo_accounts.id"), nullable=False, index=True
+    )
+    client_order_id: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    request_kind: Mapped[str] = mapped_column(String(8), nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    exchange_order_id: Mapped[str] = mapped_column(String(64), nullable=True)
+    code: Mapped[str] = mapped_column(String(16), nullable=True)
+    message: Mapped[str] = mapped_column(String(256), nullable=True)
+
+
+class DemoOrderUpdate(Base):
+    """Append-only order-state update from a REST query or private WS."""
+
+    __tablename__ = "demo_order_updates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("demo_accounts.id"), nullable=False, index=True
+    )
+    client_order_id: Mapped[str] = mapped_column(String(32), nullable=True, index=True)
+    exchange_order_id: Mapped[str] = mapped_column(String(64), nullable=True)
+    state: Mapped[str] = mapped_column(String(24), nullable=False)
+    filled_size: Mapped[str] = mapped_column(String(40), nullable=True)
+    avg_price: Mapped[str] = mapped_column(String(40), nullable=True)
+    fee: Mapped[str] = mapped_column(String(40), nullable=True)
+    fee_ccy: Mapped[str] = mapped_column(String(16), nullable=True)
+    update_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source: Mapped[str] = mapped_column(String(12), nullable=False)
+
+
+class DemoFill(Base):
+    """Append-only exchange fill. ``fill_id`` is the venue tradeId (unique)."""
+
+    __tablename__ = "demo_fills"
+    __table_args__ = (
+        UniqueConstraint("account_id", "fill_id", name="uq_demo_fill_identity"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("demo_accounts.id"), nullable=False, index=True
+    )
+    fill_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    client_order_id: Mapped[str] = mapped_column(String(32), nullable=True, index=True)
+    exchange_order_id: Mapped[str] = mapped_column(String(64), nullable=True)
+    instrument: Mapped[str] = mapped_column(String(32), nullable=False)
+    side: Mapped[str] = mapped_column(String(4), nullable=False)
+    fill_size: Mapped[str] = mapped_column(String(40), nullable=False)
+    fill_price: Mapped[str] = mapped_column(String(40), nullable=False)
+    fee: Mapped[str] = mapped_column(String(40), nullable=True)
+    fee_ccy: Mapped[str] = mapped_column(String(16), nullable=True)
+    fill_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source: Mapped[str] = mapped_column(String(12), nullable=False, default="ws")
+
+
+class DemoBalanceSnapshot(Base):
+    """A snapshot of demo account balances (per-currency JSON). No secrets."""
+
+    __tablename__ = "demo_balance_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("demo_accounts.id"), nullable=False, index=True
+    )
+    snapshot_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    balances_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    source: Mapped[str] = mapped_column(String(12), nullable=False, default="rest")
+
+
+class DemoDailyBaseline(Base):
+    """Immutable UTC-day starting equity for the demo daily-loss gate."""
+
+    __tablename__ = "demo_daily_baselines"
+    __table_args__ = (
+        UniqueConstraint(
+            "account_id", "market_day", name="uq_demo_daily_baseline"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("demo_accounts.id"), nullable=False, index=True
+    )
+    market_day: Mapped[date] = mapped_column(Date, nullable=False)
+    starting_equity: Mapped[str] = mapped_column(String(40), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+
+class DemoReconciliation(Base):
+    """Result of one exchange-authoritative reconciliation run."""
+
+    __tablename__ = "demo_reconciliations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("demo_accounts.id"), nullable=False, index=True
+    )
+    run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consistent: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    foreign_orders: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    unexplained_balances: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    issues_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    summary_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+
+
+class DemoEvent(Base):
+    """An append-only operational event / failure record (no secrets)."""
+
+    __tablename__ = "demo_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("demo_accounts.id"), nullable=False, index=True
+    )
+    event_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False, default="info")
+    message: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")

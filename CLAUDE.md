@@ -59,14 +59,28 @@ OKX APIs.
   2026. Its scope is forward strategy evaluation on public data, virtual
   fills/balances/positions, deterministic risk vetoes, local
   journaling/reconciliation, and read-only observability.
-- Phase 5 and all later phases are NOT authorized. Do not begin them without
+- Phase 5 (authenticated OKX **demo/simulated** trading only, BTC-USDT and
+  ETH-USDT SPOT cash, long-only) was explicitly authorized by the human owner
+  on June 10, 2026, independently reviewed by Codex (June 10, 2026), and
+  explicitly accepted by the human owner on June 10, 2026. Acceptance covers
+  the implementation as reviewed and tested offline; it was never run against
+  the live OKX demo API in this work. Every demo request must send
+  `x-simulated-trading: 1` to a strict regional-hostname allowlist;
+  production mode, `x-simulated-trading: 0`, withdrawals/transfers, leverage,
+  margin, derivatives, shorting, account-mode mutation, demo-balance reset,
+  generic arbitrary-endpoint methods, mutating HTTP routes, and LLM order
+  authority are all forbidden and must be unrepresentable. No demo order may be
+  submitted except under an explicitly armed, separately opted-in smoke test.
+- Phase 6 and all later phases are NOT authorized. Do not begin them without
   explicit human approval.
 
 See `PROJECT_RULES.md`, `docs/PHASES.md`,
 `docs/PHASE2_REVIEW_NOTES.md`, and
 `docs/PHASE3B_LIVE_DATA_HARDENING.md`. Phase 4 implementation boundaries are
-in `docs/PHASE4_LOCAL_PAPER_TRADING.md`, and its review is recorded in
-`docs/PHASE4_REVIEW_NOTES.md`.
+in `docs/PHASE4_LOCAL_PAPER_TRADING.md`, its review is in
+`docs/PHASE4_REVIEW_NOTES.md`, and Phase 5 demo-trading boundaries are in
+`docs/PHASE5_DEMO_TRADING.md`; its review is in
+`docs/PHASE5_REVIEW_NOTES.md`.
 
 ## Completion And Change Control
 

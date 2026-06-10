@@ -7,15 +7,19 @@ through a controlled strategy, risk, and execution pipeline. This is not a
 dashboard-only project and it is not intended to remain a manual trading
 assistant.
 
-> **Current safety status:** real trading is not authorized. The repository
-> must not access an OKX account, use private API keys, or place orders.
-> Phases 1 and 2/2B are accepted research baselines. Phase 3A (live, public,
-> unauthenticated WebSocket market-data observation only) was Codex-reviewed
-> and explicitly accepted by the human owner on June 9, 2026. Phase 3B
-> public-data hardening was independently reviewed and explicitly accepted by
-> the human owner on June 9, 2026. Phase 4 local paper trading received final
-> independent review on June 10, 2026 and is accepted; the human owner supplied
-> explicit approval on June 9, 2026. Phase 5 and later remain unapproved.
+> **Current safety status:** real-money trading is not authorized. The
+> repository must not access a real OKX account, use production API keys, or
+> place real orders. Phases 1 and 2/2B are accepted research baselines. Phase
+> 3A/3B (live public WebSocket observation and hardening) and Phase 4 (local
+> paper-trading simulation) are accepted. Phase 5 (authenticated OKX
+> **demo/simulated** trading only, BTC-USDT and ETH-USDT SPOT cash, long-only)
+> was explicitly authorized, independently reviewed by Codex, and **explicitly
+> accepted by the human owner on June 10, 2026** (demo/simulated only; not
+> exercised against the live OKX demo API in this work). Every demo request sends
+> `x-simulated-trading: 1` to a strict
+> hostname allowlist; production mode, withdrawals, leverage, margin,
+> derivatives, and shorting are forbidden and unrepresentable. Phase 6 and
+> later remain unapproved.
 
 Read these before changing anything:
 
@@ -317,7 +321,11 @@ account, demo orders, real orders, leverage, shorting, or withdrawals. See
 [`docs/PHASE4_LOCAL_PAPER_TRADING.md`](docs/PHASE4_LOCAL_PAPER_TRADING.md).
 The independent review and finding dispositions are recorded in
 [`docs/PHASE4_REVIEW_NOTES.md`](docs/PHASE4_REVIEW_NOTES.md). Phase 4 was
-accepted after final review on June 10, 2026. Phase 5 remains unauthorized.
+accepted after final review on June 10, 2026. Phase 5 (authenticated OKX
+demo/simulated trading) was authorized, reviewed, and explicitly accepted by
+the human owner on June 10, 2026; see
+[`docs/PHASE5_DEMO_TRADING.md`](docs/PHASE5_DEMO_TRADING.md) and
+[`docs/PHASE5_REVIEW_NOTES.md`](docs/PHASE5_REVIEW_NOTES.md).
 
 ## Tests
 

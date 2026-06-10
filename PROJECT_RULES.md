@@ -34,7 +34,17 @@ live automation can be considered.
   9, 2026. It is limited to public data, virtual
   balances/positions/orders/fills, deterministic risk vetoes, local
   persistence/reconciliation, and read-only observability.
-- **Phase 5 and later:** not authorized.
+- **Phase 5:** authenticated OKX **demo (simulated) trading only** (BTC-USDT
+  and ETH-USDT SPOT cash, long-only) was explicitly authorized by the human
+  owner on June 10, 2026, independently reviewed by Codex (June 10, 2026), and
+  explicitly accepted by the human owner on June 10, 2026 (demo/simulated only;
+  not exercised against the live OKX demo API in this work). Every request sends
+  `x-simulated-trading: 1` to a strict hostname allowlist. Real-money trading,
+  production credentials/endpoints, `x-simulated-trading: 0`,
+  withdrawals/transfers, leverage/margin/derivatives/shorting, account-mode
+  mutation, demo-balance reset, generic arbitrary-endpoint methods, mutating
+  HTTP routes, and LLM order authority remain forbidden and unrepresentable.
+- **Phase 6 and later:** not authorized.
 
 Phase 2/2B acceptance does not authorize live data, local forward paper
 trading, authenticated OKX demo access, or real trading. Phase 3A authorizes
@@ -140,8 +150,10 @@ approval.
 
 - Ask before changing the agreed scope.
 - Do not begin a later phase because an earlier prototype exists.
-- Authenticated OKX demo access and live trading each require separate explicit
-  human approval. Phase 4 paper trading is local simulation only.
+- Authenticated OKX demo access (Phase 5) was explicitly authorized, reviewed,
+  and explicitly accepted by the human owner on June 10, 2026 for the
+  demo/simulated environment only. Real/live trading still requires separate
+  explicit human approval. Phase 4 paper trading is local simulation only.
 - Tiny live trading, if ever approved, requires strict capital limits,
   position limits, leverage limits, daily/weekly loss limits, stop-losses,
   reconciliation, idempotency, monitoring, a kill switch, and an emergency

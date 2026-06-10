@@ -59,6 +59,11 @@ veto.
   hardened by Codex. All independent-review findings were resolved, final
   review cleared on June 10, 2026, and the phase is accepted. The human owner
   supplied explicit approval on June 9, 2026.
+- Phase 5 (authenticated OKX demo/simulated trading only) was explicitly
+  authorized, independently reviewed by Codex, and explicitly accepted by the
+  human owner on June 10, 2026. It is built and tested offline with fake
+  transports; acceptance covers the reviewed implementation and does not
+  certify live-venue behaviour (it was not run against the live OKX demo API).
 
 ## Required Reading
 
@@ -97,16 +102,29 @@ public candle/order-book writes, and read-only operational observability. It
 fails closed on malformed depth or a broken sequence chain and keeps
 persistence outside the WebSocket receive path.
 
-Phase 4 was accepted after final independent review on June 10, 2026. It is
-the current implemented boundary: local forward paper simulation on confirmed
-public `1m` candles, fresh sequence-valid public books, deterministic risk
-vetoes, virtual long-only spot balances/positions/fills, atomic local
-journaling, restart reconciliation, kill-switch control, and read-only API
-observability.
+Phase 4 was accepted after final independent review on June 10, 2026: local
+forward paper simulation on confirmed public `1m` candles, fresh sequence-valid
+public books, deterministic risk vetoes, virtual long-only spot
+balances/positions/fills, atomic local journaling, restart reconciliation,
+kill-switch control, and read-only API observability.
 
-Out of scope and still unauthorized: OKX demo trading, authenticated/private
-OKX access, exchange accounts, real orders, leverage, shorting, withdrawals,
-Phase 5, and every later phase. Do not begin Phase 5.
+Phase 5 (authenticated OKX **demo/simulated** trading only) was authorized,
+reviewed, and explicitly accepted by the human owner on June 10, 2026
+(demo-only; not run against the live OKX demo API in this work). It adds
+environment-only demo
+credentials, signed REST + demo private WebSocket access (always
+`x-simulated-trading: 1`, strict hostname allowlist), a durable order-intent
+lifecycle with idempotency and ambiguous-timeout recovery,
+exchange-authoritative reconciliation, persisted kill switch, expiring arming,
+runtime locking, and read-only observability. Production trading is
+unrepresentable; no demo order is submitted outside an explicitly armed,
+separately opted-in smoke test. See `docs/PHASE5_DEMO_TRADING.md` and
+`docs/PHASE5_REVIEW_NOTES.md`.
+
+Out of scope and still unauthorized: real-money/live trading, production
+credentials or endpoints, `x-simulated-trading: 0`, withdrawals/transfers,
+leverage/margin/derivatives/shorting, account-mode mutation, Phase 6, and every
+later phase. Do not begin Phase 6.
 
 ## Permanent Safety Rules
 

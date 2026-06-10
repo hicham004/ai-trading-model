@@ -248,6 +248,125 @@ class Settings:
         default_factory=lambda: _get_positive_float("PAPER_LOCK_STALE_SECONDS", 60.0)
     )
 
+    # --- Phase 5: authenticated OKX DEMO (simulated) trading ----------------
+    # SECURITY: this block holds only NON-SECRET configuration. Demo API
+    # credentials are read ONLY from the environment by app.exchange.credentials
+    # (OKX_DEMO_API_KEY / OKX_DEMO_API_SECRET / OKX_DEMO_API_PASSPHRASE) and are
+    # never stored here, in the database, in logs, or in API responses. Every
+    # request is demo-only (x-simulated-trading: 1) against a strict hostname
+    # allowlist; there is no production mode anywhere.
+    okx_demo_rest_base_url: str = field(
+        default_factory=lambda: os.getenv(
+            "OKX_DEMO_REST_BASE_URL", "https://www.okx.com"
+        )
+    )
+    okx_demo_private_ws_url: str = field(
+        default_factory=lambda: os.getenv(
+            "OKX_DEMO_PRIVATE_WS_URL", "wss://wspap.okx.com:8443/ws/v5/private"
+        )
+    )
+    demo_account_name: str = field(
+        default_factory=lambda: os.getenv("DEMO_ACCOUNT_NAME", "demo")
+    )
+    demo_strategy: str = field(
+        default_factory=lambda: os.getenv("DEMO_STRATEGY", "ma_crossover")
+    )
+    demo_instruments: tuple = field(
+        default_factory=lambda: _get_instruments("DEMO_INSTRUMENTS", ("BTC-USDT",))
+    )
+    demo_timeframe: str = field(
+        default_factory=lambda: os.getenv("DEMO_TIMEFRAME", "1m")
+    )
+    demo_quote_currency: str = field(
+        default_factory=lambda: os.getenv("DEMO_QUOTE_CURRENCY", "USDT")
+    )
+    demo_order_type: str = field(
+        default_factory=lambda: os.getenv("DEMO_ORDER_TYPE", "limit")
+    )
+    # Risk limits (reuse the accepted Phase 4 deterministic risk manager).
+    demo_min_confidence: float = field(
+        default_factory=lambda: _get_fraction("DEMO_MIN_CONFIDENCE", 0.60)
+    )
+    demo_max_risk_per_trade: float = field(
+        default_factory=lambda: _get_fraction("DEMO_MAX_RISK_PER_TRADE", 0.01)
+    )
+    demo_max_position_size: float = field(
+        default_factory=lambda: _get_fraction("DEMO_MAX_POSITION_SIZE", 0.10)
+    )
+    demo_max_total_exposure: float = field(
+        default_factory=lambda: _get_fraction("DEMO_MAX_TOTAL_EXPOSURE", 0.25)
+    )
+    demo_max_daily_loss: float = field(
+        default_factory=lambda: _get_fraction("DEMO_MAX_DAILY_LOSS", 0.05)
+    )
+    demo_max_open_positions: int = field(
+        default_factory=lambda: _get_positive_int("DEMO_MAX_OPEN_POSITIONS", 1)
+    )
+    # Hard per-order notional ceiling (USDT). An extra demo safety cap.
+    demo_max_order_notional: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_MAX_ORDER_NOTIONAL", 100.0)
+    )
+    demo_max_quote_age_seconds: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_MAX_QUOTE_AGE_SECONDS", 10.0)
+    )
+    demo_max_candle_age_seconds: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_MAX_CANDLE_AGE_SECONDS", 180.0)
+    )
+    # Marketable-limit slippage cap fraction applied to the crossing price.
+    demo_price_band: float = field(
+        default_factory=lambda: _get_nonnegative_unit_float("DEMO_PRICE_BAND", 0.002)
+    )
+    # Transport / signing controls.
+    demo_request_timeout: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_REQUEST_TIMEOUT", 10.0)
+    )
+    demo_max_retries: int = field(
+        default_factory=lambda: _get_positive_int("DEMO_MAX_RETRIES", 3, maximum=10)
+    )
+    demo_clock_drift_max_seconds: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_CLOCK_DRIFT_MAX_SECONDS", 5.0)
+    )
+    demo_rate_limit_per_2s: int = field(
+        default_factory=lambda: _get_positive_int("DEMO_RATE_LIMIT_PER_2S", 8, maximum=10)
+    )
+    demo_poll_seconds: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_POLL_SECONDS", 1.0)
+    )
+    demo_lock_stale_seconds: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_LOCK_STALE_SECONDS", 60.0)
+    )
+    # Arming is disarmed by default and expires; the runtime must be explicitly
+    # armed (with a TTL) before it may submit any demo order.
+    demo_arm_ttl_seconds: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_ARM_TTL_SECONDS", 900.0)
+    )
+    # Long-running driver controls.
+    demo_heartbeat_seconds: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_HEARTBEAT_SECONDS", 10.0)
+    )
+    demo_reconcile_interval_seconds: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_RECONCILE_INTERVAL_SECONDS", 60.0)
+    )
+    # Seconds without an accepted private-WS message before the private stream is
+    # considered stale (which blocks new entries).
+    demo_private_stale_seconds: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_PRIVATE_STALE_SECONDS", 30.0)
+    )
+    # Approved OKX account levels for SPOT cash execution. Phase 5 hard-limits
+    # this to "1" (Simple/Spot mode); margin-capable levels remain forbidden.
+    demo_allowed_acct_levels: tuple = field(
+        default_factory=lambda: tuple(
+            part.strip()
+            for part in os.getenv("DEMO_ALLOWED_ACCT_LEVELS", "1").split(",")
+            if part.strip()
+        )
+    )
+    # The optional live demo smoke test requires THIS opt-in AND an explicit CLI
+    # flag AND valid demo credentials. It stays false for imports, API, tests.
+    demo_smoke_test_enabled: bool = field(
+        default_factory=lambda: _get_bool("OKX_DEMO_SMOKE_TEST", False)
+    )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
