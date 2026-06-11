@@ -222,6 +222,7 @@ def _run_gate_and(driver, settings, *, arm: bool, arm_ttl, smoke: bool, place_te
         )
         for issue in gate.issues:
             print(f"        - {issue}")
+        _print_positions(driver, settings)
         if arm:
             armed_until = driver.runtime.arm(ttl_seconds=arm_ttl)
             if armed_until is None:
@@ -240,6 +241,34 @@ def _run_gate_and(driver, settings, *, arm: bool, arm_ttl, smoke: bool, place_te
         return 0
     finally:
         driver.release_lock()
+
+
+def _print_positions(driver, settings) -> None:
+    """Read-only per-instrument position report using lot-precision flatness.
+
+    A fully exited position can keep unsellable sub-lot fee dust (e.g. 1.2E-10
+    BTC), so "flat" here means floor(position, lot_size) == 0, never an exact
+    zero. Reporting only; it changes no gating or order behavior.
+    """
+    from app.exchange.instruments import parse_instruments
+    from app.execution.precision import is_flat
+
+    try:
+        metas = parse_instruments(driver.rest.get_instruments())
+    except Exception as exc:
+        print(f"[DEMO] position report skipped (instruments unavailable: {type(exc).__name__})")
+        return
+    for inst in settings.demo_instruments:
+        position, stop = driver.store.position_summary(driver.account_id, inst)
+        meta = metas.get(inst)
+        if meta is None:
+            print(f"[DEMO] position {inst}: {position} (raw net; lot size unknown)")
+            continue
+        if is_flat(position, meta.lot_size):
+            dust = f", sub-lot dust {position}" if position > 0 else ""
+            print(f"[DEMO] position {inst}: FLAT at lot precision{dust}")
+        else:
+            print(f"[DEMO] position {inst}: {position} OPEN (stop={stop})")
 
 
 def _smoke_place_and_cancel(driver, settings) -> None:

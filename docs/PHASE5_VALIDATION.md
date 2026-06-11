@@ -82,16 +82,102 @@ To make that ambiguity impossible to hit silently again:
 These changes are deterministic and offline; they add no network capability and
 do not relax any safety gate.
 
+## Session 2: bounded armed run (June 11, 2026)
+
+A 4-hour owner-authorized armed run (BTC-USDT, 10 USDT per-order cap, max 2
+entries, software stop) completed with **zero orders placed**. This is accepted
+as a valid, honest outcome: the infrastructure goals were proven (4 hours of
+continuous public + private WebSocket operation, 481/481 periodic
+reconciliations consistent, clean disarm/shutdown), and every one of the 117
+`ma_crossover` LONG signals generated during the run was deterministically
+vetoed by the risk manager at the 0.60 confidence floor. No retuning was
+performed in response.
+
+**Open research question (analysis only, not action):** what is the historical
+clearance rate of the current `ma_crossover` configuration against the 0.60
+demo confidence floor (`DEMO_MIN_CONFIDENCE`)? If signals essentially never
+clear the floor on 1m BTC-USDT data, the organic demo order path can never be
+exercised by waiting. This is a research/backtest question for the historical
+dataset; any parameter or floor change would be a scope change requiring
+explicit owner approval and is NOT authorized by this note.
+
+## Session 2b: operator-authorized fillable round-trip (June 11, 2026)
+
+A bounded, owner-authorized operator smoke test (explicitly NOT a strategy
+signal; every intent tagged `op2b` in its persisted `signal_id`) exercised the
+remaining live paths end to end: one marketable limit BUY (~9.98 USDT notional,
+BTC-USDT, 0.2% price band), filled in ~2 seconds and confirmed via both REST
+and the private WebSocket; fill-derived position sync matched exactly
+(including the base-currency entry fee); the position was held with the
+persisted software stop active (9 heartbeats, 3 confirmed-candle
+candle-low-vs-stop evaluations, no breach; plus one log-only hypothetical
+would-trigger evaluation - the stored stop was never mutated); an
+operator-triggered full exit through the protective-exit path filled in three
+partial fills accumulated correctly; and the post-exit reconciliation was
+consistent with foreign=0 and unexplained=0, the USDT balance delta matching
+the fill-derived PnL to the last digit. Round-trip cost ~0.032 USDT (two taker
+fees + spread). The ma_crossover strategy was replaced for this run only by a
+HOLD-emitting stub so no organic entry/exit could interfere; no reviewed code
+was modified.
+
+**Finding (sub-lot fee dust):** because OKX charges the SPOT entry fee in the
+base currency at finer precision than the lot size, a full exit (floored to
+the lot) can leave an unsellable sub-lot residue - here 1.2E-10 BTC. The
+ledger and reconciliation handle it coherently (balances were exactly
+explained), but fill-derived "position zero" is only reachable at lot
+precision. The run harness's exact-zero flatness assertion flagged this and
+aborted fail-closed (kill switch engaged), which incidentally live-validated
+the abort path; the kill switch was then released through its fail-closed CLI
+path after a consistent reconciliation. Future tooling should treat
+"flat" as floor(position, lot_size) == 0.
+
 ## Limitations / still open
 
 - The organic, strategy-generated demo order path (a real `ma_crossover` signal
   driving entry -> fill -> position sync -> exit -> reconcile) has not yet run
-  against the venue. It is the subject of a separate bounded armed run.
-- Long-running private-WebSocket operation over hours remains unverified.
+  against the venue (see the Session 2 outcome and the open research question
+  above). Per the owner's June 11, 2026 decision it is deferred to the Phase 6
+  shadow period as a tracked open item.
 - Persistence uses `create_all`; no production migration workflow is present.
 
-## Status
+## Status: Phase 5 COMPLETE (owner declaration, June 11, 2026)
 
-Validation accepted by the human owner for Goals 1-6. Phase 5 is **not** marked
-complete; completion depends on the organic-path run or an explicit owner
-decision to defer it. No agent may self-approve the phase.
+The human owner explicitly declared Phase 5 COMPLETE on June 11, 2026, after
+Session 2b passed all five validation goals (fill handling, position sync,
+software-stop live tracking, exit path, post-exit reconciliation). The
+exit-path PASS was accepted by the owner under the **lot-precision flatness
+definition**, which is hereby the official definition for this project:
+
+> A position is flat when `floor(position, lot_size) == 0`. Exact-zero
+> fill-derived positions are structurally unreachable whenever the
+> base-currency entry fee is not a lot multiple; sub-lot residue is
+> unsellable dust, not an open position.
+
+The definition is codified as `is_flat()` in `app/execution/precision.py`
+(unit-tested against the live 1.2E-10 BTC dust case) and used by operator
+reporting. The safety core (driver stop check / exit gating via
+`position_summary`) still treats `position > 0` as open; migrating it to
+lot-precision flatness is a tracked future change requiring independent
+review.
+
+This declaration was made by the human owner; no agent self-approved the
+phase. Completion does NOT authorize Phase 6 or any live trading.
+
+### Deferred / open items carried forward (tracked)
+
+1. **Organic strategy-generated demo round-trip** (a real `ma_crossover`
+   signal driving entry -> fill -> exit -> reconcile) - explicitly deferred to
+   the Phase 6 shadow period as a tracked open item.
+2. **Exchange-side protective stops** (`slTriggerPx`/`slOrdPx` or
+   `attachAlgoOrds`) - HARD BLOCKER for any live phase; must be implemented,
+   independently reviewed, and validated on demo first.
+3. **Stale empty `demo` account row** (the default-named local account sharing
+   the demo API-key fingerprint, source of the Part A partition incident) -
+   delete via a reviewed cleanup; the account-partition guard fails closed in
+   the meantime.
+4. **Research question**: historical clearance rate of the current
+   `ma_crossover` configuration against the 0.60 confidence floor (analysis
+   only; no retuning authorized).
+5. **Safety-core adoption of lot-precision flatness** (see above) - future
+   reviewed change.
+6. Persistence uses `create_all`; no production migration workflow exists.

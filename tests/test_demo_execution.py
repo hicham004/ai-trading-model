@@ -48,6 +48,7 @@ from app.execution.lifecycle import INTENT_ENTRY, INTENT_EXIT, OrderLifecycle
 from app.execution.precision import (
     PrecisionError,
     floor_size,
+    is_flat,
     quantize_price,
     validate_buy,
     validate_sell,
@@ -420,6 +421,21 @@ def test_get_retried_post_not_retried_on_transport_error():
 def test_quantize_and_floor():
     assert quantize_price(Decimal("50000.07"), Decimal("0.1")) == Decimal("50000.1")
     assert floor_size(Decimal("0.123456789"), Decimal("0.0001")) == Decimal("0.1234")
+
+
+def test_is_flat_lot_precision_dust():
+    lot = Decimal("0.00000001")  # OKX BTC-USDT SPOT lot size
+    # The exact Session 2b residue: the base-ccy entry fee (-0.00000015988 BTC)
+    # is finer than the lot, so a full exit floored to the lot left 1.2E-10 BTC
+    # of unsellable dust. That MUST count as flat.
+    assert is_flat(Decimal("1.2E-10"), lot) is True
+    assert is_flat(Decimal("0"), lot) is True
+    assert is_flat(Decimal("0.0000000099"), lot) is True  # just under one lot
+    assert is_flat(Decimal("-0.00000001"), lot) is True  # defensive: no shorts
+    assert is_flat(lot, lot) is False  # exactly one sellable lot
+    assert is_flat(Decimal("0.00015972012"), lot) is False  # Session 2b open position
+    with pytest.raises(PrecisionError):
+        is_flat(Decimal("0.1"), Decimal("0"))  # lot size must be positive
 
 
 def test_validate_buy_enforces_min_notional_and_balance():

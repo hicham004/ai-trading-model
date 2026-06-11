@@ -128,6 +128,26 @@ def validate_sell(
     )
 
 
+def is_flat(position: Decimal, lot_size: Decimal) -> bool:
+    """True when no sellable position remains at the instrument's lot size.
+
+    OKX charges SPOT buy fees in the base currency at finer precision than the
+    lot size, so a fully exited position can carry an unsellable sub-lot
+    residue (observed live: 1.2E-10 BTC after a 0.00015988 BTC round trip).
+    Operationally "flat" therefore means floor(position, lot_size) == 0, never
+    position == 0, which is unreachable whenever the entry fee is not a lot
+    multiple.
+
+    Currently used by reporting/operator-tooling paths only. The safety core
+    still treats position > 0 as open (DemoStore.position_summary consumers:
+    the driver's per-candle stop check and exit gating); adopting this
+    definition there is a future, separately reviewed change.
+    """
+    if position <= 0:
+        return True
+    return floor_size(position, lot_size) == 0
+
+
 def decimal_to_str(value: Decimal) -> str:
     """Render a Decimal as a plain (non-exponent) string for OKX params."""
     return format(value.normalize(), "f")

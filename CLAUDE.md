@@ -1,86 +1,107 @@
 # AI Agent Rules
 
 These rules apply to Claude Code, Codex, ChatGPT, and every other AI agent
-working on this repository.
+working on this repository. Read this file before doing anything else; it is
+loaded at the start of every session.
 
-## Product Goal
+## Project Summary
 
-This is an AI-assisted automated OKX trading-system project. The long-term
-goal is a controlled system that can eventually place trades automatically.
-It is not merely a dashboard and it is not a manual trading assistant.
+An AI-assisted automated OKX trading system, built in human-approved phases.
+The long-term goal is a controlled system that can eventually place trades
+automatically. It is not merely a dashboard and not a manual trading
+assistant. The current validated capability is authenticated **demo
+(simulated)** trading only; live automation remains a future capability. The
+repository is NOT authorized to place real trades or touch real funds.
 
-Live automation is a future capability only. The current repository is not
-authorized to place real trades, access an exchange account, or use private
-OKX APIs.
+## Phase Status
 
-## Agent Authority
+Phases 1-5 are COMPLETE and explicitly accepted by the human owner:
 
-- AI agents may build approved code, tests, documentation, research tooling,
-  public-data collectors, databases, backtests, simulations, and dashboards.
-- AI agents may use public OKX market-data endpoints for approved research.
-- AI and LLM components may research markets, classify news, explain signals,
-  identify regimes, and adjust a bounded confidence input.
-- An AI or LLM must never directly place, approve, modify, or cancel an order.
-- Future orders may be authorized only by the strategy engine, risk manager,
-  and controlled execution module for an explicitly approved phase.
-- No agent may approve its own implementation or declare its phase complete.
+- **Phase 1** - data foundation (baseline).
+- **Phase 2/2B** - strategy engine + backtesting with safety corrections;
+  historical simulation and research only (accepted June 9, 2026).
+- **Phase 3A/3B** - live UNAUTHENTICATED public OKX WebSocket market data
+  (BTC-USDT, ETH-USDT) + hardening (accepted June 9, 2026).
+- **Phase 4** - local paper trading: forward strategy evaluation on public
+  data, virtual fills/balances, deterministic risk vetoes, local
+  journaling/reconciliation (accepted June 9-10, 2026).
+- **Phase 5** - authenticated OKX **demo/simulated** trading (BTC-USDT and
+  ETH-USDT SPOT cash, long-only). Independently reviewed by Codex and accepted
+  June 10, 2026; validated against the live OKX demo API June 10-11, 2026
+  (authenticated reads, sustained 4-hour private WebSocket run, 481/481
+  consistent reconciliations, kill switch, account-partition guard, and an
+  owner-authorized operator round-trip validating fill handling, position
+  sync, live software-stop tracking, the exit path, and post-exit
+  reconciliation). Declared COMPLETE by the human owner on June 11, 2026.
+  Records: `docs/PHASE5_DEMO_TRADING.md`, `docs/PHASE5_REVIEW_NOTES.md`,
+  `docs/PHASE5_VALIDATION.md`.
 
-## Absolute Restrictions
+**Phase 6 is NEXT but NOT authorized.** Do not begin Phase 6 or any later
+phase without explicit human approval. Phase 5 completion authorizes nothing
+beyond the validated demo scope.
 
-- Do not place real trades.
-- Do not add or enable live order execution without explicit human phase
-  approval and a separate security review.
-- Do not request or use OKX private API keys in the current approved scope.
-- Do not request, store, print, log, screenshot, prompt, or commit secrets.
-- Never implement withdrawals or request withdrawal permissions.
-- Do not implement martingale, doubling down, or automated loss chasing.
-- Do not claim that a strategy or backtest guarantees future performance.
-- A passing backtest never authorizes paper, demo, or live execution.
-- The risk manager has final veto over every future simulated, paper, demo, or
-  live trading action.
+## Standing Safety Contract
 
-## Current Phase Boundary
+- **Demo-only until the human operator explicitly says otherwise.** Every
+  authenticated request sends `x-simulated-trading: 1` to a strict
+  regional-hostname allowlist. Production mode, `x-simulated-trading: 0`,
+  withdrawals/transfers, leverage, margin, derivatives, shorting,
+  account-mode mutation, demo-balance reset, generic arbitrary-endpoint
+  methods, and mutating HTTP routes are forbidden and must stay
+  unrepresentable in code.
+- **SPOT cash, long-only, leverage locked at 1.0**, BTC-USDT/ETH-USDT only.
+- **An AI or LLM must never directly place, approve, modify, or cancel an
+  order.** Orders flow only through the strategy engine, deterministic risk
+  manager (final veto), and controlled execution module for an explicitly
+  approved phase. No demo order may be submitted except under an explicitly
+  armed, separately opted-in, operator-authorized smoke test.
+- **Fail closed on ambiguity**: inconsistent reconciliation, ambiguous
+  account selection, unknown order outcomes, stale feeds, or lost locks block
+  new entries; never guess, never blind-retry a submission.
+- **No real/production API keys.** Never request, store, print, log,
+  screenshot, prompt, or commit secrets. Never implement withdrawals or
+  request withdrawal permissions.
+- **No retuning of live/running strategies.** Strategy or risk-parameter
+  changes (including the 0.60 confidence floor) are scope changes requiring
+  explicit owner approval; research analysis is fine, acting on it is not.
+- **No martingale, doubling down, or automated loss chasing.**
+- **Exchange-side protective stops are a HARD BLOCKER for any live phase.**
+  The current stop is software-only (enforced only while the runtime process
+  is alive), accepted for demo only. See `docs/PHASE5_DEMO_TRADING.md`.
+- **No auto-commit.** Commit only when the operator asks. A passing backtest
+  or test suite never authorizes paper, demo, or live execution, and no agent
+  may approve its own implementation or declare a phase complete.
+- **Stop and ask** before changing agreed scope, adding authenticated
+  exchange access, advancing phases, or on any conflict between instructions
+  and this contract.
 
-- Phase 1 data-foundation work exists and is accepted as the current baseline.
-- Phase 2 strategy/backtesting and the Phase 2B safety corrections were
-  independently reviewed by Codex and explicitly accepted by the human owner
-  on June 9, 2026.
-- Phase 2 acceptance covers historical simulation and research only.
-- Phase 3A (live, UNAUTHENTICATED public OKX WebSocket market-data observation
-  for BTC-USDT and ETH-USDT only) was reviewed by Codex and explicitly accepted
-  by the human owner on June 9, 2026. Acceptance covers real-time public-data
-  observation only: no strategy evaluation or signals from live data, no
-  paper/demo/live trading, no account access, no private endpoints, and no
-  orders.
-- Phase 3B public-data hardening was independently reviewed and explicitly
-  accepted by the human owner on June 9, 2026.
-- Phase 4 local paper trading received final independent review on June 10,
-  2026 and is accepted; the human owner supplied explicit approval on June 9,
-  2026. Its scope is forward strategy evaluation on public data, virtual
-  fills/balances/positions, deterministic risk vetoes, local
-  journaling/reconciliation, and read-only observability.
-- Phase 5 (authenticated OKX **demo/simulated** trading only, BTC-USDT and
-  ETH-USDT SPOT cash, long-only) was explicitly authorized by the human owner
-  on June 10, 2026, independently reviewed by Codex (June 10, 2026), and
-  explicitly accepted by the human owner on June 10, 2026. Acceptance covers
-  the implementation as reviewed and tested offline; it was never run against
-  the live OKX demo API in this work. Every demo request must send
-  `x-simulated-trading: 1` to a strict regional-hostname allowlist;
-  production mode, `x-simulated-trading: 0`, withdrawals/transfers, leverage,
-  margin, derivatives, shorting, account-mode mutation, demo-balance reset,
-  generic arbitrary-endpoint methods, mutating HTTP routes, and LLM order
-  authority are all forbidden and must be unrepresentable. No demo order may be
-  submitted except under an explicitly armed, separately opted-in smoke test.
-- Phase 6 and all later phases are NOT authorized. Do not begin them without
-  explicit human approval.
+## Operational State
 
-See `PROJECT_RULES.md`, `docs/PHASES.md`,
-`docs/PHASE2_REVIEW_NOTES.md`, and
-`docs/PHASE3B_LIVE_DATA_HARDENING.md`. Phase 4 implementation boundaries are
-in `docs/PHASE4_LOCAL_PAPER_TRADING.md`, its review is in
-`docs/PHASE4_REVIEW_NOTES.md`, and Phase 5 demo-trading boundaries are in
-`docs/PHASE5_DEMO_TRADING.md`; its review is in
-`docs/PHASE5_REVIEW_NOTES.md`.
+- Active demo account: **`demo-seeded`** (`DEMO_ACCOUNT_NAME` in `.env`).
+  Account selection must be explicit; the account-partition guard fails
+  closed when several local accounts share a key fingerprint.
+- **Flatness definition (official):** a position is flat when
+  `floor(position, lot_size) == 0` (`is_flat()` in
+  `app/execution/precision.py`). Base-currency fees are finer than the lot
+  size, so exact-zero is unreachable; sub-lot residue is unsellable dust.
+- Operator CLI: `scripts/run_demo_trading.py`
+  (`--status/--reconcile/--arm/--disarm/--engage-kill-switch/...`).
+
+## Deferred / Open Items (tracked)
+
+1. Organic strategy-generated demo round-trip - deferred to the Phase 6
+   shadow period.
+2. Exchange-side protective stops (`slTriggerPx`/`slOrdPx` or
+   `attachAlgoOrds`) - implement + independent review + demo validation
+   before ANY live phase.
+3. Delete the stale empty `demo` account row sharing the demo key
+   fingerprint (reviewed cleanup; the partition guard fails closed until
+   then).
+4. Research: historical clearance rate of the current `ma_crossover` config
+   vs the 0.60 confidence floor (analysis only; no retuning authorized).
+5. Safety-core adoption of lot-precision flatness (driver stop check / exit
+   gating still treat `position > 0` as open) - future reviewed change.
+6. Persistence uses `create_all`; no production migration workflow.
 
 ## Completion And Change Control
 
@@ -96,3 +117,6 @@ A phase is complete only when all of the following are true:
 
 Tests alone are never phase approval. Stop and ask before changing the agreed
 scope, adding authenticated exchange access, or advancing to another phase.
+
+See `PROJECT_RULES.md`, `docs/PHASES.md`, and the per-phase review/validation
+documents referenced above.
