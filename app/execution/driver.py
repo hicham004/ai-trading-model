@@ -89,9 +89,11 @@ class DemoTradingDriver:
         clock: Callable[[], datetime] = lambda: datetime.now(tz=timezone.utc),
         private_ws_factory: Optional[Callable] = None,
         public_stream_factory: Optional[Callable] = None,
+        account_selection_explicit: bool = True,
     ) -> None:
         self._settings = settings or get_settings()
         self._credentials = credentials
+        self._account_selection_explicit = account_selection_explicit
         self._rest = rest
         self._session_factory = session_factory
         self._clock = clock
@@ -114,7 +116,9 @@ class DemoTradingDriver:
         )
         self._reconciler = DemoReconciler(
             self._store, rest, session_factory, self._account_id,
-            instruments=self._instruments, clock=clock,
+            instruments=self._instruments,
+            key_fingerprint=credentials.key_fingerprint(),
+            clock=clock,
         )
         self._runtime = DemoExecutionRuntime(
             store=self._store, lifecycle=self._lifecycle, reconciler=self._reconciler,
@@ -207,8 +211,35 @@ class DemoTradingDriver:
 
     # -- the ONE fail-closed startup gate ----------------------------------
 
+    def _account_partition_issue(self) -> Optional[str]:
+        """Return a fail-closed issue if the account selection is ambiguous."""
+        from app.execution.account_guard import (
+            AmbiguousDemoAccountError,
+            assert_unambiguous_demo_account,
+        )
+
+        try:
+            assert_unambiguous_demo_account(
+                self._session_factory,
+                account_name=self._settings.demo_account_name,
+                fingerprint=self._credentials.key_fingerprint(),
+                explicit=self._account_selection_explicit,
+            )
+        except AmbiguousDemoAccountError as exc:
+            return str(exc)
+        return None
+
     def startup_gate(self) -> GateOutcome:
         now = self._clock()
+        # Account-partition guard: never silently run under the default name when
+        # several local accounts share this API key (fail closed before locking).
+        guard_issue = self._account_partition_issue()
+        if guard_issue is not None:
+            self._store.record_event(
+                self._account_id, "ambiguous_demo_account", "error",
+                guard_issue, now=now,
+            )
+            return GateOutcome(False, False, False, False, [guard_issue])
         if not self._store.acquire_lock(self._account_id, self._token, now=now):
             self._store.record_event(
                 self._account_id, "lock_unavailable", "error",

@@ -979,3 +979,159 @@ def test_deterministic_client_order_id_is_stable_and_alnum():
     b = derive_client_order_id("demo", "BTC-USDT", "entry", "sig-1")
     assert a == b and a.isalnum() and len(a) <= 32 and a.startswith("d5")
     assert derive_client_order_id("demo", "BTC-USDT", "exit", "sig-1") != a
+
+
+# --------------------------------------------------------------------------
+# account-partition guard + wrong-account-scope reconciliation
+# (regression for the Part A live-validation incident: an empty default
+# account shadowing a populated sibling account on the SAME demo API key)
+# --------------------------------------------------------------------------
+
+FP = CREDS.key_fingerprint()
+
+
+def _seed_two_accounts_same_key(session_factory):
+    """Empty 'demo' (acct 1) + populated 'demo-seeded' (acct 2), same key.
+
+    Returns the two stores/ids and the list of (clOrdId, side) the exchange will
+    report fills for - all owned by 'demo-seeded'.
+    """
+    from app.execution.store import IntentInput
+
+    cfg = {"strategy": "ma_crossover", "instruments": ["BTC-USDT"], "timeframe": "1m"}
+    empty = DemoStore(session_factory, "demo")
+    empty_id = empty.ensure_account(FP, cfg)
+    seeded = DemoStore(session_factory, "demo-seeded")
+    seeded_id = seeded.ensure_account(FP, cfg)
+    cls = []
+    for sig in ("roundtrip-buy", "roundtrip-topup", "roundtrip-exit"):
+        side = "sell" if sig.endswith("exit") else "buy"
+        intent = "exit" if side == "sell" else "entry"
+        cl = derive_client_order_id("demo-seeded", "BTC-USDT", intent, sig)
+        seeded.create_intent(
+            seeded_id,
+            IntentInput(cl, sig, "BTC-USDT", side, intent, "limit", "61000", "0.00005"),
+            now=T0,
+        )
+        cls.append((cl, side))
+    return empty, empty_id, seeded, seeded_id, cls
+
+
+def _fills_for(cls):
+    return [
+        {"tradeId": f"T{i}", "clOrdId": cl, "instId": "BTC-USDT", "side": side,
+         "fillSz": "0.00005", "fillPx": "61000"}
+        for i, (cl, side) in enumerate(cls)
+    ]
+
+
+def test_reconcile_reports_wrong_account_scope_not_foreign(session_factory):
+    empty, empty_id, _seeded, _seeded_id, cls = _seed_two_accounts_same_key(session_factory)
+    rest = FakeRest()
+    rest.fills = _fills_for(cls)
+    rec = DemoReconciler(
+        empty, rest, session_factory, empty_id, instruments=("BTC-USDT",), clock=lambda: T0
+    )
+    result = rec.reconcile()
+    # The exchange's own orders are NOT foreign - they belong to a sibling
+    # account on the same key. Reconciliation stays fail-closed but names it.
+    assert result.consistent is False
+    assert result.wrong_scope == 3
+    assert result.foreign_orders == 0
+    fill_issues = [i for i in result.issues if "fill" in i]
+    assert fill_issues and all("WRONG ACCOUNT SCOPE" in i for i in fill_issues)
+    assert any("demo-seeded" in i for i in result.issues)
+
+
+def test_reconcile_under_owning_account_is_not_wrong_scope(session_factory):
+    _empty, _empty_id, seeded, seeded_id, cls = _seed_two_accounts_same_key(session_factory)
+    rest = FakeRest()
+    rest.fills = _fills_for(cls)
+    rec = DemoReconciler(
+        seeded, rest, session_factory, seeded_id, instruments=("BTC-USDT",), clock=lambda: T0
+    )
+    result = rec.reconcile()
+    # Under the owning account the fills match local intents: not foreign, not
+    # wrong-scope (a balance delta may still flag separately - not asserted here).
+    assert result.wrong_scope == 0
+    assert result.foreign_orders == 0
+    assert not any("WRONG ACCOUNT SCOPE" in i for i in result.issues)
+
+
+def test_account_guard_blocks_ambiguous_default(session_factory):
+    from app.execution.account_guard import (
+        AmbiguousDemoAccountError,
+        assert_unambiguous_demo_account,
+    )
+
+    _seed_two_accounts_same_key(session_factory)
+    with pytest.raises(AmbiguousDemoAccountError) as exc:
+        assert_unambiguous_demo_account(
+            session_factory, account_name="demo", fingerprint=FP, explicit=False
+        )
+    assert "demo-seeded" in str(exc.value) and "--account" in str(exc.value)
+
+
+def test_account_guard_allows_explicit_selection(session_factory):
+    from app.execution.account_guard import assert_unambiguous_demo_account
+
+    _seed_two_accounts_same_key(session_factory)
+    # An explicit choice (--account or DEMO_ACCOUNT_NAME) is allowed.
+    assert_unambiguous_demo_account(
+        session_factory, account_name="demo-seeded", fingerprint=FP, explicit=True
+    )
+
+
+def test_account_guard_allows_single_account(session_factory):
+    from app.execution.account_guard import assert_unambiguous_demo_account
+
+    DemoStore(session_factory, "demo").ensure_account(FP, {"strategy": "ma"})
+    assert_unambiguous_demo_account(
+        session_factory, account_name="demo", fingerprint=FP, explicit=False
+    )
+
+
+def test_account_selection_source_classification():
+    from app.execution.account_guard import account_selection_source
+
+    assert account_selection_source("demo-seeded", None) == "flag"
+    assert account_selection_source("demo-seeded", "env-value") == "flag"  # flag wins
+    assert account_selection_source(None, "demo-seeded") == "env"
+    assert account_selection_source(None, "   ") == "default"  # blank env is not a choice
+    assert account_selection_source(None, None) == "default"
+
+
+def test_log_account_selection_records_account_and_source(caplog):
+    import logging
+
+    from app.execution.account_guard import log_account_selection
+
+    logger = logging.getLogger("test.account.selection")
+    with caplog.at_level(logging.INFO, logger="test.account.selection"):
+        log_account_selection(logger, "demo-seeded", "env")
+    record = next(r for r in caplog.records if r.message == "demo account selected")
+    assert record.account == "demo-seeded"
+    assert record.selection_source == "env"
+
+
+def test_driver_startup_gate_fails_closed_on_ambiguous_account(session_factory):
+    from app.execution.driver import DemoTradingDriver
+
+    # A sibling row already exists on the same key; the driver creates 'demo'.
+    DemoStore(session_factory, "demo-seeded").ensure_account(FP, {"strategy": "ma"})
+    driver = DemoTradingDriver(
+        credentials=CREDS, rest=FakeRest(), session_factory=session_factory,
+        settings=_settings(demo_account_name="demo"),
+        account_selection_explicit=False, clock=lambda: T0,
+    )
+    assert driver._account_partition_issue() is not None
+    gate = driver.startup_gate()
+    assert gate.lock_acquired is False and gate.account_valid is False
+    assert any("API key fingerprint" in i for i in gate.issues)
+    # An explicit selection passes the guard (no issue).
+    explicit_driver = DemoTradingDriver(
+        credentials=CREDS, rest=FakeRest(), session_factory=session_factory,
+        settings=_settings(demo_account_name="demo"),
+        account_selection_explicit=True, clock=lambda: T0,
+    )
+    assert explicit_driver._account_partition_issue() is None

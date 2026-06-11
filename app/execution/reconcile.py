@@ -52,6 +52,7 @@ class ReconcileResult:
     consistent: bool
     foreign_orders: int = 0
     unexplained_balances: int = 0
+    wrong_scope: int = 0
     issues: List[str] = field(default_factory=list)
     summary: dict = field(default_factory=dict)
 
@@ -75,6 +76,7 @@ class DemoReconciler:
         account_id: int,
         *,
         instruments: tuple[str, ...],
+        key_fingerprint: Optional[str] = None,
         clock: Callable[[], datetime] = lambda: datetime.now(tz=timezone.utc),
     ) -> None:
         self._store = store
@@ -82,6 +84,7 @@ class DemoReconciler:
         self._session_factory = session_factory
         self._account_id = account_id
         self._instruments = instruments
+        self._key_fingerprint = key_fingerprint
         self._clock = clock
 
     def reconcile(self) -> ReconcileResult:
@@ -89,6 +92,10 @@ class DemoReconciler:
         issues: List[str] = []
         intents = self._load_intents()
         known = set(intents)
+        # Sibling accounts on the SAME API key: a clOrdId they own is "wrong
+        # account scope" (running under the wrong --account), not foreign.
+        sibling_owner = self._sibling_clordid_owners()
+        wrong_scope = 0
 
         # 1) Foreign or locally incompatible open orders (never cancelled here).
         foreign = 0
@@ -99,6 +106,16 @@ class DemoReconciler:
                 continue
             cl = str(order.get("clOrdId", "") or "")
             if not cl or not cl.startswith(CLIENT_ORDER_PREFIX) or cl not in known:
+                owner = sibling_owner.get(cl)
+                if owner is not None:
+                    wrong_scope += 1
+                    issues.append(
+                        f"WRONG ACCOUNT SCOPE: open order on {inst} "
+                        f"ordId={order.get('ordId')} clOrdId={cl} belongs to local "
+                        f"account {owner!r} on this same API key; run under "
+                        f"--account {owner} (NOT foreign; NOT auto-cancelled)"
+                    )
+                    continue
                 foreign += 1
                 issues.append(
                     f"foreign open order on {inst} ordId={order.get('ordId')} "
@@ -157,6 +174,15 @@ class DemoReconciler:
                     or price is None
                     or price <= 0
                 ):
+                    owner = sibling_owner.get(cl)
+                    if owner is not None and intent is None:
+                        wrong_scope += 1
+                        issues.append(
+                            f"WRONG ACCOUNT SCOPE: fill tradeId={trade_id} on {inst} "
+                            f"clOrdId={cl} belongs to local account {owner!r} on this "
+                            f"same API key; run under --account {owner} (NOT foreign)"
+                        )
+                        continue
                     foreign += 1
                     issues.append(
                         f"foreign or mismatched fill tradeId={trade_id} "
@@ -201,11 +227,12 @@ class DemoReconciler:
         baseline = self._load_or_create_baseline(balance_list, now)
         unexplained = self._check_balances(balance_list, baseline, issues)
 
-        consistent = foreign == 0 and unexplained == 0
+        consistent = foreign == 0 and wrong_scope == 0 and unexplained == 0
         summary = {
             "instruments": list(self._instruments),
             "pending_orders": len(pending),
             "recorded_fills": recorded_fills,
+            "wrong_scope": wrong_scope,
             "balances": balance_list,
         }
         self._store.record_reconciliation(
@@ -220,9 +247,35 @@ class DemoReconciler:
         if not consistent:
             logger.warning(
                 "demo reconciliation INCONSISTENT; new entries blocked",
-                extra={"foreign_orders": foreign, "unexplained": unexplained},
+                extra={
+                    "foreign_orders": foreign,
+                    "wrong_scope": wrong_scope,
+                    "unexplained": unexplained,
+                },
             )
-        return ReconcileResult(consistent, foreign, unexplained, issues, summary)
+        return ReconcileResult(
+            consistent, foreign, unexplained, wrong_scope, issues, summary
+        )
+
+    def _sibling_clordid_owners(self) -> dict[str, str]:
+        """Map clOrdId -> sibling account name for same-key accounts (not self).
+
+        Lets reconciliation report a clOrdId owned by another local account on
+        the SAME API key as 'wrong account scope' rather than 'foreign'.
+        """
+        from app.execution.account_guard import (
+            account_fingerprint,
+            clordid_owners_for_fingerprint,
+        )
+
+        fp = self._key_fingerprint or account_fingerprint(
+            self._session_factory, self._account_id
+        )
+        if not fp:
+            return {}
+        return clordid_owners_for_fingerprint(
+            self._session_factory, fp, exclude_account_id=self._account_id
+        )
 
     def _load_intents(self) -> dict[str, DemoOrderIntent]:
         session = self._session_factory()

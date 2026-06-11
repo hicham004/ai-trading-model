@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import signal
 import sys
 from dataclasses import replace
@@ -82,6 +83,45 @@ def _account_name(args, settings) -> str:
     return args.account or settings.demo_account_name
 
 
+def _selection_source(args) -> str:
+    """Return how the account name was chosen: 'flag' | 'env' | 'default'."""
+    from app.execution.account_guard import account_selection_source
+
+    return account_selection_source(args.account, os.environ.get("DEMO_ACCOUNT_NAME"))
+
+
+def _account_selection_explicit(args) -> bool:
+    """True when the operator chose the account on purpose (flag or env)."""
+    return _selection_source(args) != "default"
+
+
+def _guard_account(account_name: str, args) -> int:
+    """Fail closed (exit 2) when the account selection is ambiguous.
+
+    Only checks when demo credentials are present (the fingerprint is needed).
+    Returns 0 when safe to proceed, 2 when ambiguous.
+    """
+    from app.execution.account_guard import (
+        AmbiguousDemoAccountError,
+        assert_unambiguous_demo_account,
+    )
+
+    if not demo_credentials_available():
+        return 0
+    fingerprint = load_demo_credentials().key_fingerprint()
+    try:
+        assert_unambiguous_demo_account(
+            get_session_factory(),
+            account_name=account_name,
+            fingerprint=fingerprint,
+            explicit=_account_selection_explicit(args),
+        )
+    except AmbiguousDemoAccountError as exc:
+        print(f"[DEMO] {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
 def _build_store(account_name: str):
     from app.execution.store import DemoStore
 
@@ -100,7 +140,7 @@ def _settings_for_account(settings, account_name: str):
     return replace(settings, demo_account_name=account_name)
 
 
-def _build_driver(account_name: str, settings):
+def _build_driver(account_name: str, settings, *, explicit: bool = True):
     """Build the full driver (requires demo credentials in the environment)."""
     from app.exchange.okx_demo_rest import OKXDemoRestClient
     from app.execution.driver import DemoTradingDriver
@@ -111,7 +151,7 @@ def _build_driver(account_name: str, settings):
     rest = OKXDemoRestClient(creds, settings=settings)
     driver = DemoTradingDriver(
         credentials=creds, rest=rest, session_factory=get_session_factory(),
-        settings=settings,
+        settings=settings, account_selection_explicit=explicit,
     )
     return driver
 
@@ -344,6 +384,11 @@ def main(argv: list[str] | None = None) -> int:
     init_db()
     account_name = _account_name(args, settings)
 
+    # Audit: record which account was selected and the mechanism that chose it.
+    from app.execution.account_guard import log_account_selection
+
+    log_account_selection(logger, account_name, _selection_source(args))
+
     if args.status:
         store = _build_store(account_name)
         aid = store.find_account_id()
@@ -368,8 +413,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.engage_kill_switch:
+        guard = _guard_account(account_name, args)
+        if guard:
+            return guard
         return _engage_kill_switch(account_name, settings)
     if args.release_kill_switch:
+        guard = _guard_account(account_name, args)
+        if guard:
+            return guard
         return _release_kill_switch(account_name, settings)
 
     # Network commands require demo credentials and explicit opt-in.
@@ -381,13 +432,16 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 2
+        guard = _guard_account(account_name, args)
+        if guard:
+            return guard
         if args.smoke_test and not settings.demo_smoke_test_enabled:
             print(
                 "[DEMO] the smoke test also requires OKX_DEMO_SMOKE_TEST=1. Aborting.",
                 file=sys.stderr,
             )
             return 2
-        driver = _build_driver(account_name, settings)
+        driver = _build_driver(account_name, settings, explicit=_account_selection_explicit(args))
         if args.run:
             print("[DEMO] starting long-running demo driver (DISARMED unless armed gate valid)...")
             return asyncio.run(_run_driver(driver, args.duration))
