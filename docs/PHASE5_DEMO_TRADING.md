@@ -279,6 +279,18 @@ invalid account.
 
 ## Known Limitations
 
+- **HARD REQUIREMENT (protective stops) — blocks any live phase.** The current
+  stop-loss is enforced in software only: the persisted stop is stored on the
+  local intent and the running driver submits a protective SELL when a confirmed
+  `1m` candle's low breaches it. No stop is attached on the exchange, and the
+  order-parameter whitelist deliberately forbids stop params. This means a stop
+  is only as available as the running process: if the driver dies while holding
+  a position, no resting exchange order protects it. This is accepted for
+  demo/simulated trading only (validated under a 10 USDT notional cap on
+  June 11, 2026). Before ANY live trading phase (Phase 8), exchange-side
+  protective stops (`slTriggerPx`/`slOrdPx` or `attachAlgoOrds`) MUST be
+  implemented, independently reviewed by Codex, and validated on demo.
+  Software-only stops are a hard blocker for live trading.
 - A bounded OKX demo integration check completed on June 10, 2026: authenticated
   account reads, instrument metadata, balances, pending orders, fills, and
   reconciliation succeeded. One explicitly armed smoke order was placed far
