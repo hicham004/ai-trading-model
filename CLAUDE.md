@@ -36,9 +36,22 @@ Phases 1-5 are COMPLETE and explicitly accepted by the human owner:
   Records: `docs/PHASE5_DEMO_TRADING.md`, `docs/PHASE5_REVIEW_NOTES.md`,
   `docs/PHASE5_VALIDATION.md`.
 
-**Phase 6 is NEXT but NOT authorized.** Do not begin Phase 6 or any later
-phase without explicit human approval. Phase 5 completion authorizes nothing
-beyond the validated demo scope.
+**Phase 6a is AUTHORIZED** (human owner, June 11, 2026) — the mechanical
+shadow period ONLY: a long-running unattended demo shadow run on the
+`demo-seeded` account, SPOT BTC-USDT, long-only 1x, `x-simulated-trading: 1`,
+software stop (accepted for demo per the documented live blocker),
+`ma_crossover` UNTOUCHED. Scope: hardened shadow supervisor (gated
+auto-restart, bounded restart budget, heartbeat file, daily log rollover),
+decision journal, daily summary reports, persisted shadow risk caps
+(10 USDT/entry, 1 open position, 3 entries/day, 1 USDT max daily loss then
+disarm-for-day), and the offline `ma_crossover` clearance-rate study. The
+supervisor may re-arm after a clean gated restart; ANY reconcile
+inconsistency, wrong-scope, or foreign detection means permanent disarm until
+the operator intervenes. No changes to the reviewed safety core; the live run
+is started only by the human operator.
+
+**Phase 6b (news agent, log-only) is designed but NOT authorized.** Phase 6b
+and all later phases require explicit human approval before any work begins.
 
 ## Standing Safety Contract
 
