@@ -28,7 +28,12 @@ from sqlalchemy.pool import StaticPool
 from app.config import Settings
 from app.db.models import Base, DemoRuntimeStatus
 from app.execution.driver import GateOutcome
-from app.shadow.config import ShadowConfig, ShadowConfigError, load_shadow_config
+from app.shadow.config import (
+    ShadowConfig,
+    ShadowConfigError,
+    load_shadow_config,
+    shadow_settings,
+)
 from app.shadow.journal import DailyJsonlWriter, DecisionJournal
 from app.shadow.policy import CapBreach, GateDecision, ShadowPolicy
 from app.shadow.report import generate_daily_report
@@ -54,6 +59,7 @@ def session_factory():
 def make_config(tmp_path: Path, **overrides) -> ShadowConfig:
     values = dict(
         instrument="BTC-USDT",
+        timeframe="1H",
         max_order_notional_usdt=10.0,
         max_open_positions=1,
         max_entries_per_day=3,
@@ -78,6 +84,7 @@ def make_config(tmp_path: Path, **overrides) -> ShadowConfig:
 def _write_cfg(tmp_path: Path, **overrides) -> Path:
     data = {
         "instrument": "BTC-USDT",
+        "timeframe": "1H",
         "max_order_notional_usdt": 10.0,
         "max_open_positions": 1,
         "max_entries_per_day": 3,
@@ -130,6 +137,35 @@ def test_shadow_config_rejects_unapproved_instrument(tmp_path):
 def test_shadow_config_missing_file_fails_closed(tmp_path):
     with pytest.raises(ShadowConfigError):
         load_shadow_config(Settings(), tmp_path / "missing.json")
+
+
+def test_shadow_timeframe_comes_from_config_not_code(tmp_path):
+    """The strategy timeframe is persisted config; shadow_settings() carries it
+    into the runtime settings every consumer reads (one timeframe everywhere)."""
+    settings = Settings()
+    cfg = load_shadow_config(settings, _write_cfg(tmp_path, timeframe="1H"))
+    assert cfg.timeframe == "1H"
+    assert shadow_settings(settings, cfg).demo_timeframe == "1H"
+    # 1m remains valid config too (it is on the candle-channel allowlist).
+    cfg_1m = load_shadow_config(settings, _write_cfg(tmp_path, timeframe="1m"))
+    assert shadow_settings(settings, cfg_1m).demo_timeframe == "1m"
+
+
+def test_shadow_timeframe_rejects_unapproved_or_malformed(tmp_path):
+    settings = Settings()
+    # Parses fine but candle5m is NOT on the approved public-WS allowlist.
+    with pytest.raises(ShadowConfigError):
+        load_shadow_config(settings, _write_cfg(tmp_path, timeframe="5m"))
+    # Malformed timeframe strings fail parse_timeframe (fail closed).
+    with pytest.raises(ShadowConfigError):
+        load_shadow_config(settings, _write_cfg(tmp_path, timeframe="1Q"))
+    # Missing key fails closed.
+    path = _write_cfg(tmp_path)
+    data = json.loads(path.read_text())
+    del data["timeframe"]
+    path.write_text(json.dumps(data))
+    with pytest.raises(ShadowConfigError):
+        load_shadow_config(settings, path)
 
 
 # --------------------------------------------------------------------------
@@ -349,7 +385,10 @@ def make_supervisor(tmp_path, session_factory, driver_factory, *, tasks_factory,
     config = make_config(tmp_path, **cfg)
     journal = DecisionJournal(DailyJsonlWriter(config.shadow_dir, "journal"))
     return ShadowSupervisor(
-        settings=Settings(),
+        # Mirror the launcher: the strategy timeframe flows from the persisted
+        # shadow config into the runtime settings (supervisor refuses on
+        # mismatch).
+        settings=shadow_settings(Settings(), config),
         config=config,
         session_factory=session_factory,
         driver_factory=driver_factory,
@@ -442,6 +481,16 @@ def test_restart_budget_exhaustion_halts_with_alert(tmp_path, session_factory):
         assert driver.runtime.arm_calls >= 1
         assert driver.runtime.disarm_calls >= 1
         assert driver.shutdown_calls == 1
+    # The journal's start line records the configured timeframe and account.
+    journal_files = sorted(config.shadow_dir.glob("journal-*.jsonl"))
+    assert journal_files
+    lines = [json.loads(l) for f in journal_files for l in f.read_text().splitlines()]
+    start = next(
+        l for l in lines if l.get("kind") == "supervisor" and l.get("event") == "start"
+    )
+    assert start["timeframe"] == "1H"
+    assert start["instrument"] == "BTC-USDT"
+    assert "account" in start
 
 
 def test_unacknowledged_alert_blocks_startup(tmp_path, session_factory):

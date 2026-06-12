@@ -8,7 +8,7 @@ settings: the shadow period may only tighten them.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from app.config import Settings
@@ -26,6 +26,7 @@ class ShadowConfig:
     """Validated Phase 6a caps and supervisor limits."""
 
     instrument: str
+    timeframe: str
     max_order_notional_usdt: float
     max_open_positions: int
     max_entries_per_day: int
@@ -87,6 +88,23 @@ def load_shadow_config(
             f"instruments {tuple(settings.demo_instruments)!r}"
         )
 
+    # The strategy timeframe is persisted config (owner decision, June 12,
+    # 2026: 1H per the clearance study). It must parse AND its candle channel
+    # must be on the public-WS fail-closed allowlist; anything else refuses.
+    timeframe = str(_require(data, "timeframe"))
+    from app.exchange.okx_public_ws import SUPPORTED_CANDLE_CHANNELS
+    from app.strategy.timeframes import parse_timeframe
+
+    try:
+        parse_timeframe(timeframe)
+    except ValueError as exc:
+        raise ShadowConfigError(f"shadow timeframe invalid: {exc}") from exc
+    if f"candle{timeframe}" not in SUPPORTED_CANDLE_CHANNELS:
+        raise ShadowConfigError(
+            f"shadow timeframe {timeframe!r} has no approved public candle "
+            f"channel (allowed: {SUPPORTED_CANDLE_CHANNELS})"
+        )
+
     notional = _positive(_require(data, "max_order_notional_usdt"), "max_order_notional_usdt")
     if notional > settings.demo_max_order_notional:
         raise ShadowConfigError(
@@ -102,6 +120,7 @@ def load_shadow_config(
 
     return ShadowConfig(
         instrument=instrument,
+        timeframe=timeframe,
         max_order_notional_usdt=notional,
         max_open_positions=open_positions,
         max_entries_per_day=_positive_int(_require(data, "max_entries_per_day"), "max_entries_per_day"),
@@ -115,3 +134,15 @@ def load_shadow_config(
         report_refresh_seconds=_positive(_require(data, "report_refresh_seconds"), "report_refresh_seconds"),
         shadow_dir=Path(str(data.get("shadow_dir", "logs/shadow"))),
     )
+
+
+def shadow_settings(settings: Settings, cfg: ShadowConfig) -> Settings:
+    """Return the runtime settings for the shadow run.
+
+    The strategy timeframe comes from the persisted shadow config (never a
+    code constant). The replaced value flows into EVERY consumer — the
+    driver's candle filter/interval/gap checks, the immutable account
+    identity, the warmup loader, and the supervisor's shadow evaluation — so
+    there is one timeframe everywhere (no mixed-timeframe logic).
+    """
+    return replace(settings, demo_timeframe=cfg.timeframe)

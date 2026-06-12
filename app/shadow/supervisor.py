@@ -87,11 +87,36 @@ def _dec(value) -> Optional[Decimal]:
     return out if out.is_finite() else None
 
 
+async def _public_stream_for_timeframe(driver, stop_event: asyncio.Event) -> None:
+    """Public market-data stream subscribed to the driver's OWN timeframe.
+
+    The reviewed ``driver._public_stream`` subscribes the default candle
+    channel (``candle1m``); the shadow run's timeframe is persisted config, so
+    the channel is derived from the same ``settings.demo_timeframe`` the
+    driver filters on — one timeframe everywhere, validated against the
+    public-WS fail-closed candle-channel allowlist.
+    """
+    from app.exchange.okx_public_ws import build_default_adapters
+    from app.live.runtime import run_live_runtime
+
+    adapters = build_default_adapters(
+        driver._market_state,
+        instruments=driver._instruments,
+        public_url=driver._settings.okx_public_ws_url,
+        business_url=driver._settings.okx_business_ws_url,
+        candle_channel=f"candle{driver._settings.demo_timeframe}",
+    )
+    await run_live_runtime(adapters, stop_event)
+
+
 def default_driver_tasks(driver, stop_event: asyncio.Event) -> list:
     """The reviewed driver's supervised task set, minus warmup (see module
-    docstring). Identical composition to the accepted Session 2/2b runners."""
+    docstring). Identical composition to the accepted Session 2/2b runners,
+    except the public stream subscribes the configured shadow timeframe."""
     return [
-        asyncio.create_task(driver._public_stream(stop_event), name="shadow-public"),
+        asyncio.create_task(
+            _public_stream_for_timeframe(driver, stop_event), name="shadow-public"
+        ),
         asyncio.create_task(driver._private_stream(stop_event), name="shadow-private"),
         asyncio.create_task(driver._heartbeat_loop(stop_event), name="shadow-heartbeat"),
         asyncio.create_task(driver._trading_loop(stop_event), name="shadow-trading"),
@@ -421,9 +446,19 @@ class ShadowSupervisor:
             print("[SHADOW] refusing to start: DEMO_INSTRUMENTS must equal the "
                   f"shadow instrument ({self._cfg.instrument!r}) for Phase 6a.")
             return 2
+        if self._settings.demo_timeframe != self._cfg.timeframe:
+            # The launcher must build settings via shadow_settings(); a
+            # mismatch would split the feed subscription from the driver's
+            # candle filter (mixed timeframes) — refuse outright.
+            print("[SHADOW] refusing to start: settings timeframe "
+                  f"({self._settings.demo_timeframe!r}) != shadow config "
+                  f"timeframe ({self._cfg.timeframe!r}).")
+            return 2
         self._journal.write(
             "supervisor", event="start", phase="6a",
             instrument=self._cfg.instrument,
+            timeframe=self._settings.demo_timeframe,
+            account=self._settings.demo_account_name,
             caps={
                 "max_order_notional_usdt": self._cfg.max_order_notional_usdt,
                 "max_open_positions": self._cfg.max_open_positions,

@@ -30,7 +30,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.config import get_settings  # noqa: E402
 from app.db.database import get_session_factory, init_db  # noqa: E402
 from app.logging_config import configure_logging, get_logger  # noqa: E402
-from app.shadow.config import DEFAULT_CONFIG_PATH, ShadowConfigError, load_shadow_config  # noqa: E402
+from app.shadow.config import (  # noqa: E402
+    DEFAULT_CONFIG_PATH,
+    ShadowConfigError,
+    load_shadow_config,
+    shadow_settings,
+)
 
 logger = get_logger("scripts.run_shadow_period")
 
@@ -191,12 +196,15 @@ def cmd_run(settings, session_factory, cfg) -> int:
 def main(argv=None) -> int:
     configure_logging()
     args = parse_args(argv)
-    settings = get_settings()
+    base_settings = get_settings()
     try:
-        cfg = load_shadow_config(settings, Path(args.config))
+        cfg = load_shadow_config(base_settings, Path(args.config))
     except ShadowConfigError as exc:
         print(f"[SHADOW] config error (fail closed): {exc}", file=sys.stderr)
         return 2
+    # The shadow strategy timeframe comes from the persisted config (owner
+    # decision: 1H per the clearance study), never from a code constant.
+    settings = shadow_settings(base_settings, cfg)
     if args.acknowledge_alert:
         return cmd_acknowledge_alert(cfg)
     init_db()

@@ -37,18 +37,37 @@ Phases 1-5 are COMPLETE and explicitly accepted by the human owner:
   `docs/PHASE5_VALIDATION.md`.
 
 **Phase 6a is AUTHORIZED** (human owner, June 11, 2026) — the mechanical
-shadow period ONLY: a long-running unattended demo shadow run on the
-`demo-seeded` account, SPOT BTC-USDT, long-only 1x, `x-simulated-trading: 1`,
-software stop (accepted for demo per the documented live blocker),
-`ma_crossover` UNTOUCHED. Scope: hardened shadow supervisor (gated
-auto-restart, bounded restart budget, heartbeat file, daily log rollover),
-decision journal, daily summary reports, persisted shadow risk caps
-(10 USDT/entry, 1 open position, 3 entries/day, 1 USDT max daily loss then
-disarm-for-day), and the offline `ma_crossover` clearance-rate study. The
+shadow period ONLY: a long-running unattended demo shadow run, SPOT BTC-USDT,
+long-only 1x, `x-simulated-trading: 1`, software stop (accepted for demo per
+the documented live blocker), `ma_crossover` UNTOUCHED. Scope: hardened shadow
+supervisor (gated auto-restart, bounded restart budget, heartbeat file, daily
+log rollover), decision journal, daily summary reports, persisted shadow risk
+caps (10 USDT/entry, 1 open position, 3 entries/day, 1 USDT max daily loss
+then disarm-for-day), and the offline `ma_crossover` clearance-rate study. The
 supervisor may re-arm after a clean gated restart; ANY reconcile
 inconsistency, wrong-scope, or foreign detection means permanent disarm until
-the operator intervenes. No changes to the reviewed safety core; the live run
-is started only by the human operator.
+the operator intervenes. No changes to the reviewed safety core beyond the
+explicitly owner-approved `candle1H` public-channel allowlist entry; the live
+run is started only by the human operator.
+
+Phase 6a amendments (owner, June 12, 2026):
+
+- **Strategy timeframe is 1H**, set in `config/shadow_period.json` (never a
+  code constant), per the clearance study (stored 1H history clears the 0.60
+  floor 87.5% vs 0/117 on live 1m). The 0.60 floor and the strategy logic are
+  untouched; 1m evidence remains an open research question. One timeframe
+  flows everywhere (feed subscription, driver candle filter/gap checks, stop
+  evaluation on confirmed 1H closes — i.e. hourly, account identity, shadow
+  evaluation); warm-up needs ~30 live 1H candles, so the first possible
+  signal is ~30h after a (re)start.
+- **The run uses account `demo-shadow-1h`** (timeframe is part of the
+  immutable demo account identity, which requires a new account name;
+  `demo-seeded` keeps the 1m Phase 5 history intact). LAUNCH IS GATED: until
+  the June 11 fills age out of the venue's 3-day fills window (~June 14,
+  17:25 UTC), `--gate-check` under the new account fails closed with
+  "wrong account scope" naming `demo-seeded` — that is CORRECT fail-closed
+  behavior, not an error. The owner runs gate-check and starts the run after
+  that window.
 
 **Phase 6b (news agent, log-only) is designed but NOT authorized.** Phase 6b
 and all later phases require explicit human approval before any work begins.
@@ -90,9 +109,11 @@ and all later phases require explicit human approval before any work begins.
 
 ## Operational State
 
-- Active demo account: **`demo-seeded`** (`DEMO_ACCOUNT_NAME` in `.env`).
-  Account selection must be explicit; the account-partition guard fails
-  closed when several local accounts share a key fingerprint.
+- Active demo account: **`demo-shadow-1h`** (`DEMO_ACCOUNT_NAME` in `.env`)
+  for the Phase 6a 1H shadow run; **`demo-seeded`** holds the accepted Phase 5
+  1m history (identities are immutable, so each timeframe has its own
+  account). Account selection must be explicit; the account-partition guard
+  fails closed when several local accounts share a key fingerprint.
 - **Flatness definition (official):** a position is flat when
   `floor(position, lot_size) == 0` (`is_flat()` in
   `app/execution/precision.py`). Base-currency fees are finer than the lot

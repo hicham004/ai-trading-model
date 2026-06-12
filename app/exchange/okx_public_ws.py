@@ -9,8 +9,9 @@ Safety:
   WebSocket URLs, and the production connect path validates the URL scheme,
   host, port, and path (no private/arbitrary/insecure URLs).
 - It sends no API key, login, or signature, and subscribes to no account or
-  trading-order channels. Only ``tickers``, ``trades``, ``candle1m``, and the
-  public market-depth ``books`` channel are allowed.
+  trading-order channels. Only ``tickers``, ``trades``, the approved candle
+  channels (``candle1m``, ``candle1H``), and the public market-depth ``books``
+  channel are allowed.
 - It never evaluates strategies, generates signals, or places orders.
 - Importing this module opens no connection; ``websockets`` is imported lazily
   inside the default connect factory, which only runs when ``run`` is awaited.
@@ -24,7 +25,7 @@ Connection correctness (Codex Phase 3A review):
 Endpoints (both public/unauthenticated):
 - ``tickers`` / ``trades``  -> public WS (``/ws/v5/public``)
 - ``books``                 -> public WS (``/ws/v5/public``)
-- ``candle1m``              -> business WS (``/ws/v5/business``)
+- ``candle1m``/``candle1H`` -> business WS (``/ws/v5/business``)
 """
 
 from __future__ import annotations
@@ -61,11 +62,15 @@ SUPPORTED_INSTRUMENTS = ("BTC-USDT", "ETH-USDT")
 TICKERS_CHANNEL = "tickers"
 TRADES_CHANNEL = "trades"
 CANDLE_CHANNEL = "candle1m"
+# Fail-closed candle-channel allowlist. ``candle1H`` was approved by the human
+# owner on June 12, 2026 for the Phase 6a shadow period (clearance study);
+# every other candle granularity is still rejected.
+SUPPORTED_CANDLE_CHANNELS = ("candle1m", "candle1H")
 ORDER_BOOK_CHANNEL = "books"
 APPROVED_CHANNELS = (
     TICKERS_CHANNEL,
     TRADES_CHANNEL,
-    CANDLE_CHANNEL,
+    *SUPPORTED_CANDLE_CHANNELS,
     ORDER_BOOK_CHANNEL,
 )
 
@@ -125,7 +130,7 @@ def endpoint_for_channel(channel: str, *, public_url: str, business_url: str) ->
     """Return the (public, unauthenticated) WS URL that serves ``channel``."""
     if channel in (TICKERS_CHANNEL, TRADES_CHANNEL, ORDER_BOOK_CHANNEL):
         return public_url
-    if channel == CANDLE_CHANNEL:
+    if channel in SUPPORTED_CANDLE_CHANNELS:
         return business_url
     raise ValueError(f"Unsupported channel: {channel!r}")
 
@@ -238,7 +243,7 @@ def parse_okx_message(
             update = _parse_ticker_row(row, instrument)
         elif channel == TRADES_CHANNEL:
             update = _parse_trade_row(row, instrument)
-        elif channel == CANDLE_CHANNEL:
+        elif channel in SUPPORTED_CANDLE_CHANNELS:
             update = _parse_candle_row(row, instrument, candle_timeframe(channel))
         else:
             update = _parse_order_book_row(
@@ -530,7 +535,7 @@ class OKXPublicWebSocketAdapter(PublicMarketDataAdapter):
             channels = {subscription.channel for subscription in subscriptions}
             if channels <= {TICKERS_CHANNEL, TRADES_CHANNEL, ORDER_BOOK_CHANNEL}:
                 expected_path = "/ws/v5/public"
-            elif channels == {CANDLE_CHANNEL}:
+            elif channels <= set(SUPPORTED_CANDLE_CHANNELS):
                 expected_path = "/ws/v5/business"
             else:
                 raise ValueError(
@@ -857,7 +862,7 @@ def build_default_adapters(
     # still inject ``connect`` to use a fake connection without real URLs.
     validate_public_ws_url(public_url, expected_path="/ws/v5/public")
     validate_public_ws_url(business_url, expected_path="/ws/v5/business")
-    if candle_channel != CANDLE_CHANNEL:
+    if candle_channel not in SUPPORTED_CANDLE_CHANNELS:
         raise ValueError(f"Unsupported candle channel: {candle_channel!r}")
 
     public_subs = build_subscriptions(

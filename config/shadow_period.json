@@ -2,6 +2,7 @@
   "_comment": "Phase 6a shadow-period risk caps and supervisor limits (persisted config, not run flags). Caps may only TIGHTEN the reviewed demo settings; the loader fails closed if any value would loosen them. Demo-only.",
   "phase": "6a",
   "instrument": "BTC-USDT",
+  "timeframe": "1H",
   "max_order_notional_usdt": 10.0,
   "max_open_positions": 1,
   "max_entries_per_day": 3,

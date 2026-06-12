@@ -375,6 +375,24 @@ def test_default_adapters_reject_swapped_paths_and_non_candle_channel():
         )
 
 
+def test_default_adapters_candle_channel_allowlist():
+    """candle1H is approved (Phase 6a shadow, owner June 12 2026); every other
+    candle granularity must keep failing closed."""
+    state = MarketState()
+    adapters = build_default_adapters(
+        state, instruments=("BTC-USDT",), candle_channel="candle1H",
+        connect=lambda _url: None,
+    )
+    business = adapters[1]
+    assert business.feed_id == BUSINESS_FEED_ID
+    assert "candle1H:BTC-USDT" in state.feed_health(BUSINESS_FEED_ID).required_subscriptions
+    for rejected in ("candle5m", "candle15m", "candle4H", "candle1D", "candleXX"):
+        with pytest.raises(ValueError):
+            build_default_adapters(
+                MarketState(), candle_channel=rejected, connect=lambda _url: None
+            )
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [
