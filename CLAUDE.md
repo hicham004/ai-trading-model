@@ -114,7 +114,11 @@ and all later phases require explicit human approval before any work begins.
    vs the 0.60 confidence floor (analysis only; no retuning authorized).
 5. Safety-core adoption of lot-precision flatness (driver stop check / exit
    gating still treat `position > 0` as open) - future reviewed change.
-6. Persistence uses `create_all`; no production migration workflow.
+6. Position persistence across restarts requires a reviewed change before any
+   live phase: today a restart rebuilds the strategy window from live candles,
+   so the warm-up FLAT closes any open position via the reviewed exit path
+   (accepted for demo, June 12, 2026; crash churn = real fees live).
+7. Persistence uses `create_all`; no production migration workflow.
 
 ## Completion And Change Control
 
