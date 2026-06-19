@@ -181,3 +181,57 @@ phase. Completion does NOT authorize Phase 6 or any live trading.
 5. **Safety-core adoption of lot-precision flatness** (see above) - future
    reviewed change.
 6. Persistence uses `create_all`; no production migration workflow exists.
+
+---
+
+## Known issues — Phase 6a gap-recovery fix (commit 4b63bde, reviewed June 19 2026)
+
+The following two edge cases were identified during independent code review of
+the candle-gap recovery implementation. Neither is a safety blocker for the
+Phase 6a demo shadow run; both are documented here for future reviewed
+resolution.
+
+### KI-1: Double-gap-in-same-batch confirmation counting
+
+**What it is:** If two independent gaps appear in the same `out` batch during a
+single `_new_confirmed_candle_items` call (e.g., T2 missing and T4 missing,
+both detected in one driver step), the second `_handle_candle_gap` call
+overwrites the `pending` state that the first set. The live candle after the
+first gap (T3 — now processed before T4's backfill overwrites state) carries
+`confirms_recovery=True` and counts as a confirmation toward the *second*
+backfill's `confirmations_remaining`, not its own. Net effect: recovery can
+clear after 2 total confirmations split across two backfills, rather than 2
+confirmations per individual backfill.
+
+**Why it is not a blocker:** On 1H candles in a well-connected run, two
+independent gaps in a single one-second poll cycle is extremely unlikely. The
+24h recovery cap (3/24h) and REST/WS OHLC divergence detection
+(`_check_recovered_overlap`) provide independent backstops. Entry blocking is
+maintained throughout — the continuity latch is never cleared prematurely, only
+the confirmation count is underestimated relative to ideal.
+
+**Future fix:** Batch confirmation accounting should be keyed per individual
+backfill event (by `expected_missing` set), not shared across a single `state`
+object that can be overwritten within the same batch.
+
+### KI-2: `_check_recovered_overlap` runs before the watermark filter
+
+**What it is:** In `_new_confirmed_candle_items`, `_check_recovered_overlap` is
+called for every confirmed WS update *before* the `update.timestamp <=
+watermark` filter discards already-processed candles. If OKX re-delivers a
+confirmed candle for a slot that was previously backfilled via public REST (e.g.
+a late WS redelivery of a confirmed bar), and its OHLC differs from the REST
+version by even one LSB, `_check_recovered_overlap` fires divergence and latches
+`_market_continuity[inst] = False`, blocking new entries.
+
+**Why it is not a blocker:** OKX REST and WS return the same OHLC string
+representation for confirmed bars. The `_ohlc()` comparison uses
+`Decimal(str(...))` throughout — floating-point re-interpretation is
+not in the path. A false-positive latch would be visible in the journal as
+`market_candle_backfill_divergence`, surfaced as a readiness ALERT requiring
+operator review before re-arming, which is the correct conservative outcome.
+
+**Future fix:** Restrict the divergence check to candles with
+`update.timestamp > watermark` (i.e., candles that would be newly added to the
+window), or clear `_recovered_ohlc` entries once a slot has been committed and
+the watermark has advanced past it.
