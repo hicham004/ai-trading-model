@@ -62,12 +62,25 @@ Phase 6a amendments (owner, June 12, 2026):
   signal is ~30h after a (re)start.
 - **The run uses account `demo-shadow-1h`** (timeframe is part of the
   immutable demo account identity, which requires a new account name;
-  `demo-seeded` keeps the 1m Phase 5 history intact). LAUNCH IS GATED: until
-  the June 11 fills age out of the venue's 3-day fills window (~June 14,
-  17:25 UTC), `--gate-check` under the new account fails closed with
-  "wrong account scope" naming `demo-seeded` — that is CORRECT fail-closed
-  behavior, not an error. The owner runs gate-check and starts the run after
-  that window.
+  `demo-seeded` keeps the 1m Phase 5 history intact). The earlier wrong-scope
+  gating window (June 11 fills aging out of the venue's 3-day window, ~June 14
+  17:25 UTC) has PASSED, and `demo-shadow-1h` has zero fills, so wrong-scope
+  no longer applies. The account has had no successful authenticated contact
+  yet, so its first clean `--gate-check` doubles as the live integration smoke
+  test of the 1H change (1H identity + `candle1H` feed + warm-up together) and
+  the first `--run` heartbeat is the proof of 1H candle delivery.
+
+**OKX IP whitelist (error 50110): RESOLVED (June 17, 2026).** The operator
+whitelisted the egress IP on the demo key; `--gate-check` returned
+`armable=True`. NOTE for future reference: a dynamic residential IP will
+rotate and re-trigger 50110 mid-run; the supervisor would burn its restart
+budget and halt with an ALERT (safe). A stable egress IP (e.g. a static-IP
+host) is the durable fix for a long unattended run — VPS planning is deferred.
+
+**Current state (June 19, 2026):** Gap-recovery fix (1H candle-gap recovery —
+entry-only latch, bounded public REST backfill, exit-path independence, sticky
+ALERT, REST/WS divergence guard) committed and code-reviewed. Awaiting clean
+operator relaunch: `--gate-check` then `--run`.
 
 **Phase 6b (news agent, log-only) is designed but NOT authorized.** Phase 6b
 and all later phases require explicit human approval before any work begins.
