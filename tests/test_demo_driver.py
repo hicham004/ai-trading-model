@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Optional
 
 import pytest
 from sqlalchemy import create_engine, func, select
@@ -22,6 +23,7 @@ from app.config import Settings
 from app.db.models import (
     Base,
     DemoDailyBaseline,
+    DemoEvent,
     DemoFill,
     DemoOrderIntent,
     DemoRuntimeStatus,
@@ -29,13 +31,14 @@ from app.db.models import (
 from app.exchange.credentials import DemoCredentials
 from app.exchange.okx_demo_ws import OKXDemoPrivateWebSocket
 from app.execution.account_validation import validate_demo_account
-from app.execution.driver import DemoTradingDriver
+from app.execution.driver import DemoTradingDriver, GapRecoveryState
 from app.execution.identity import demo_identity_config
 from app.execution.lifecycle import INTENT_ENTRY, OrderLifecycle
 from app.execution.reconcile import DemoReconciler
 from app.execution.runtime import DemoExecutionRuntime
 from app.execution.store import DemoStore, STATUS_CANCELED, STATUS_LIVE, STATUS_UNKNOWN
 from app.exchange.okx_demo_rest import OKXDemoError, OKXDemoTransportError
+from app.okx.client import Candle
 from app.live.market_state import MarketState
 from app.live.schemas import (
     CandleUpdate,
@@ -44,6 +47,7 @@ from app.live.schemas import (
     OrderBookLevel,
     OrderBookUpdate,
 )
+from app.strategy.base import Signal, SignalAction
 from scripts.run_demo_trading import _settings_for_account
 
 T0 = datetime(2026, 6, 10, 12, 0, tzinfo=timezone.utc)
@@ -152,21 +156,31 @@ def session_factory():
         engine.dispose()
 
 
-def _connected_state() -> MarketState:
+def _connected_state(timeframe: str = "1m") -> MarketState:
     state = MarketState()
-    for fid, subs in [("okx-public", ["books:BTC-USDT"]), ("okx-business", ["candle1m:BTC-USDT"])]:
+    for fid, subs in [
+        ("okx-public", ["books:BTC-USDT"]),
+        ("okx-business", [f"candle{timeframe}:BTC-USDT"]),
+    ]:
         state.register_feed(fid, subs)
         state.set_feed_acked(fid, subs)
         state.set_feed_status(fid, ConnectionStatus.CONNECTED)
     return state
 
 
-def _driver(session_factory, rest=None, state=None, clock_box=None, **settings_overrides):
+def _driver(
+    session_factory,
+    rest=None,
+    state=None,
+    clock_box=None,
+    public_candle_client=None,
+    **settings_overrides,
+):
     clock_box = clock_box if clock_box is not None else {"t": T0}
     return DemoTradingDriver(
         credentials=CREDS, rest=rest or FakeRest(), session_factory=session_factory,
         settings=_settings(**settings_overrides), market_state=state or _connected_state(),
-        clock=lambda: clock_box["t"],
+        clock=lambda: clock_box["t"], public_candle_client=public_candle_client,
     ), clock_box
 
 
@@ -184,6 +198,82 @@ def _feed_candles(state, clock_box, n=40, start=T0, base=100.0):
             (OrderBookLevel(Decimal(str(round(price + 0.01, 2))), Decimal("5"), 1),),
             -1, 500 + i), "okx-public")
         yield now
+
+
+class FakePublicCandleClient:
+    def __init__(self, rows=None, error: Optional[Exception] = None):
+        self.rows = list(rows or [])
+        self.error = error
+        self.calls = []
+
+    def get_history_candles(self, instrument, **kwargs):
+        self.calls.append((instrument, kwargs))
+        if self.error is not None:
+            raise self.error
+        return list(self.rows)
+
+
+def _rest_candle(ts: datetime, *, timeframe: str = "1H", close: float = 100.0) -> Candle:
+    return Candle(
+        instrument="BTC-USDT",
+        timeframe=timeframe,
+        timestamp=ts,
+        open=100.0,
+        high=101.0,
+        low=99.0,
+        close=close,
+        volume=10.0,
+        confirmed=True,
+    )
+
+
+def _event_types(session_factory) -> list[str]:
+    session = session_factory()
+    try:
+        return list(
+            session.scalars(select(DemoEvent.event_type).order_by(DemoEvent.id.asc()))
+        )
+    finally:
+        session.close()
+
+
+def _open_demo_position(driver: DemoTradingDriver) -> None:
+    entry = driver.lifecycle.submit(
+        signal_id="seed-open-position",
+        instrument="BTC-USDT",
+        intent=INTENT_ENTRY,
+        side="buy",
+        ord_type="limit",
+        price="100",
+        size="0.001",
+        stop_loss="95",
+    )
+    driver.project_private_orders([{
+        "instId": "BTC-USDT",
+        "clOrdId": entry.client_order_id,
+        "ordId": entry.exchange_order_id,
+        "state": "filled",
+        "side": "buy",
+        "accFillSz": "0.001",
+        "tradeId": f"fill-{entry.client_order_id}",
+        "fillSz": "0.001",
+        "fillPx": "100",
+    }])
+
+
+def _fresh_book(state: MarketState, cb: dict, bid: str = "99.9", ask: str = "100.1") -> None:
+    state.apply_order_book(
+        OrderBookUpdate(
+            "BTC-USDT",
+            cb["t"] - timedelta(milliseconds=100),
+            OrderBookAction.SNAPSHOT,
+            (OrderBookLevel(Decimal(bid), Decimal("5"), 1),),
+            (OrderBookLevel(Decimal(ask), Decimal("5"), 1),),
+            -1,
+            900,
+        ),
+        "okx-public",
+    )
 
 
 # -- account validation ----------------------------------------------------
@@ -359,11 +449,15 @@ def test_step_places_entry_when_all_healthy(session_factory):
     assert rest.placed[-1]["tdMode"] == "cash" and rest.placed[-1]["side"] == "buy"
 
 
-def test_candle_gap_blocks_processing_for_recovery(session_factory):
+def test_candle_gap_latches_entries_but_keeps_live_candles_for_exits(session_factory):
     rest = FakeRest()
     state = _connected_state()
     cb = {"t": T0 + timedelta(minutes=1, seconds=1)}
-    driver, _ = _driver(session_factory, rest=rest, state=state, clock_box=cb)
+    backfill = FakePublicCandleClient(rows=[])
+    driver, _ = _driver(
+        session_factory, rest=rest, state=state, clock_box=cb,
+        public_candle_client=backfill,
+    )
     driver.startup_gate()
     driver.runtime.arm(ttl_seconds=10 ** 9)
     driver._set_private_authenticated(True)
@@ -380,15 +474,417 @@ def test_candle_gap_blocks_processing_for_recovery(session_factory):
     driver.step(cb["t"])
     add(2)
     driver.step(cb["t"])
-    assert driver._watermark["BTC-USDT"] == T0
+    assert driver._watermark["BTC-USDT"] == T0 + timedelta(minutes=2)
     assert not driver._market_continuity_ok
+    assert backfill.calls
     add(1)
     driver.step(cb["t"])
     # MarketState correctly rejects the late out-of-order bar. The driver
-    # remains fail-closed until a supervised feed recovery/restart rebuilds
-    # contiguous history.
-    assert driver._watermark["BTC-USDT"] == T0
+    # keeps processing live candles for exits, but entries remain fail-closed
+    # without exact public REST recovery.
+    assert driver._watermark["BTC-USDT"] == T0 + timedelta(minutes=2)
     assert not driver._market_continuity_ok
+    assert "market_candle_backfill_failed" in _event_types(session_factory)
+
+
+def test_candle_gap_recovers_after_exact_backfill_and_two_live_closes(session_factory):
+    rest = FakeRest()
+    state = _connected_state("1H")
+    cb = {"t": T0 + timedelta(hours=1, seconds=1)}
+    missing = T0 + timedelta(hours=1)
+    observed = T0 + timedelta(hours=2)
+    backfill = FakePublicCandleClient(rows=[_rest_candle(missing)])
+    driver, _ = _driver(
+        session_factory, rest=rest, state=state, clock_box=cb,
+        public_candle_client=backfill, demo_timeframe="1H",
+    )
+    driver.startup_gate()
+    driver.runtime.arm(ttl_seconds=10 ** 9)
+    driver._set_private_authenticated(True)
+    driver._private_last_msg = cb["t"]
+
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", T0, 100, 101, 99, 100, 10, True),
+        "okx-business",
+    )
+    driver.step(cb["t"])
+    assert driver._watermark["BTC-USDT"] == T0
+
+    cb["t"] = observed + timedelta(hours=1, seconds=1)
+    driver._private_last_msg = cb["t"]
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", observed, 102, 103, 101, 102, 10, True),
+        "okx-business",
+    )
+    driver.step(cb["t"])
+
+    assert driver._watermark["BTC-USDT"] == observed
+    assert not driver._market_continuity_ok
+    assert driver._gap_recovery["BTC-USDT"].confirmations_remaining == 1
+    assert backfill.calls == [
+        (
+            "BTC-USDT",
+            {
+                "timeframe": "1H",
+                "limit": 1,
+                "after": observed,
+                "confirmed_only": True,
+            },
+        )
+    ]
+
+    driver.step(cb["t"])
+    assert driver._watermark["BTC-USDT"] == observed
+    assert not driver._market_continuity_ok
+    assert driver._gap_recovery["BTC-USDT"].confirmations_remaining == 1
+
+    third = T0 + timedelta(hours=3)
+    cb["t"] = third + timedelta(hours=1, seconds=1)
+    driver._private_last_msg = cb["t"]
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", third, 103, 104, 102, 103, 10, True),
+        "okx-business",
+    )
+    driver.step(cb["t"])
+
+    assert driver._watermark["BTC-USDT"] == third
+    assert driver._market_continuity_ok
+    events = _event_types(session_factory)
+    assert "market_candle_backfill_succeeded" in events
+    assert "market_candle_recovery_cleared" in events
+
+
+def test_candle_gap_preserves_received_prefix_and_observed_batch_candle(session_factory):
+    rest = FakeRest()
+    state = _connected_state("1H")
+    cb = {"t": T0 + timedelta(hours=1, seconds=1)}
+    first = T0
+    live_prefix = T0 + timedelta(hours=1)
+    missing = T0 + timedelta(hours=2)
+    observed = T0 + timedelta(hours=3)
+    backfill = FakePublicCandleClient(rows=[_rest_candle(missing)])
+    driver, _ = _driver(
+        session_factory, rest=rest, state=state, clock_box=cb,
+        public_candle_client=backfill, demo_timeframe="1H",
+    )
+    driver.startup_gate()
+    driver.runtime.arm(ttl_seconds=10 ** 9)
+    driver._set_private_authenticated(True)
+    driver._private_last_msg = cb["t"]
+
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", first, 100, 101, 99, 100, 10, True),
+        "okx-business",
+    )
+    driver.step(cb["t"])
+
+    cb["t"] = observed + timedelta(hours=1, seconds=1)
+    driver._private_last_msg = cb["t"]
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", live_prefix, 101, 102, 100, 101, 10, True),
+        "okx-business",
+    )
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", observed, 103, 104, 102, 103, 10, True),
+        "okx-business",
+    )
+
+    driver.step(cb["t"])
+
+    assert [c.timestamp for c in driver._windows["BTC-USDT"]] == [
+        first,
+        live_prefix,
+        missing,
+        observed,
+    ]
+    assert driver._watermark["BTC-USDT"] == observed
+    assert not driver._market_continuity_ok
+    assert driver._gap_recovery["BTC-USDT"].expected_missing == [missing]
+    assert driver._gap_recovery["BTC-USDT"].confirmations_remaining == 1
+    assert backfill.calls == [
+        (
+            "BTC-USDT",
+            {
+                "timeframe": "1H",
+                "limit": 1,
+                "after": observed,
+                "confirmed_only": True,
+            },
+        )
+    ]
+
+
+def test_gap_latch_blocks_long_entry_on_same_candle_as_successful_backfill(session_factory):
+    class AlwaysLong:
+        def generate_signals(self, candles):
+            return [
+                Signal(
+                    timestamp=candle.timestamp,
+                    instrument=candle.instrument,
+                    action=SignalAction.LONG,
+                    confidence=1.0,
+                    reason="test long",
+                    stop_loss=candle.close * 0.98,
+                )
+                for candle in candles
+            ]
+
+    rest = FakeRest()
+    state = _connected_state("1H")
+    cb = {"t": T0 + timedelta(hours=3, seconds=1)}
+    missing = T0 + timedelta(hours=1)
+    observed = T0 + timedelta(hours=2)
+    backfill = FakePublicCandleClient(rows=[_rest_candle(missing)])
+    driver, _ = _driver(
+        session_factory, rest=rest, state=state, clock_box=cb,
+        public_candle_client=backfill, demo_timeframe="1H",
+    )
+    driver.startup_gate()
+    driver.runtime.arm(ttl_seconds=10 ** 9)
+    driver._set_private_authenticated(True)
+    driver._private_last_msg = cb["t"]
+    driver._strategy = AlwaysLong()
+    driver._watermark["BTC-USDT"] = T0
+    _fresh_book(state, cb)
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", observed, 102, 103, 101, 102, 10, True),
+        "okx-business",
+    )
+
+    results = driver.step(cb["t"])
+
+    assert results == []
+    assert rest.placed == []
+    assert driver._gap_recovery["BTC-USDT"].status == "pending"
+    assert driver._gap_recovery["BTC-USDT"].confirmations_remaining == 1
+    assert not driver._market_continuity_ok
+
+
+def test_candle_gap_oversized_stays_latched_without_backfill(session_factory):
+    rest = FakeRest()
+    state = _connected_state("1H")
+    cb = {"t": T0 + timedelta(hours=1, seconds=1)}
+    backfill = FakePublicCandleClient(rows=[_rest_candle(T0 + timedelta(hours=1))])
+    driver, _ = _driver(
+        session_factory, rest=rest, state=state, clock_box=cb,
+        public_candle_client=backfill, demo_timeframe="1H",
+    )
+    driver.startup_gate()
+    driver.runtime.arm(ttl_seconds=10 ** 9)
+    driver._set_private_authenticated(True)
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", T0, 100, 101, 99, 100, 10, True),
+        "okx-business",
+    )
+    driver.step(cb["t"])
+
+    observed = T0 + timedelta(hours=5)
+    cb["t"] = observed + timedelta(hours=1, seconds=1)
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", observed, 105, 106, 104, 105, 10, True),
+        "okx-business",
+    )
+    driver.step(cb["t"])
+
+    assert not driver._market_continuity_ok
+    assert backfill.calls == []
+    assert "market_candle_gap_too_large" in _event_types(session_factory)
+
+
+def test_candle_gap_backfill_requires_exact_missing_open_time(session_factory):
+    rest = FakeRest()
+    state = _connected_state("1H")
+    cb = {"t": T0 + timedelta(hours=1, seconds=1)}
+    wrong_slot = T0 + timedelta(hours=1, minutes=5)
+    backfill = FakePublicCandleClient(rows=[_rest_candle(wrong_slot)])
+    driver, _ = _driver(
+        session_factory, rest=rest, state=state, clock_box=cb,
+        public_candle_client=backfill, demo_timeframe="1H",
+    )
+    driver.startup_gate()
+    driver.runtime.arm(ttl_seconds=10 ** 9)
+    driver._set_private_authenticated(True)
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", T0, 100, 101, 99, 100, 10, True),
+        "okx-business",
+    )
+    driver.step(cb["t"])
+
+    observed = T0 + timedelta(hours=2)
+    cb["t"] = observed + timedelta(hours=1, seconds=1)
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", observed, 102, 103, 101, 102, 10, True),
+        "okx-business",
+    )
+    driver.step(cb["t"])
+
+    assert not driver._market_continuity_ok
+    assert "market_candle_backfill_failed" in _event_types(session_factory)
+
+
+def test_candle_gap_recovery_cap_blocks_chronic_auto_recovery(session_factory):
+    rest = FakeRest()
+    state = _connected_state("1H")
+    cb = {"t": T0 + timedelta(hours=1, seconds=1)}
+    backfill = FakePublicCandleClient(rows=[_rest_candle(T0 + timedelta(hours=1))])
+    driver, _ = _driver(
+        session_factory, rest=rest, state=state, clock_box=cb,
+        public_candle_client=backfill, demo_timeframe="1H",
+    )
+    driver.startup_gate()
+    driver.runtime.arm(ttl_seconds=10 ** 9)
+    driver._set_private_authenticated(True)
+    for i in range(3):
+        driver.store.record_event(
+            driver.account_id,
+            "market_candle_recovery_cleared",
+            "info",
+            f"prior recovery {i}",
+            now=cb["t"] - timedelta(hours=i),
+        )
+
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", T0, 100, 101, 99, 100, 10, True),
+        "okx-business",
+    )
+    driver.step(cb["t"])
+    observed = T0 + timedelta(hours=2)
+    cb["t"] = observed + timedelta(hours=1, seconds=1)
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", observed, 102, 103, 101, 102, 10, True),
+        "okx-business",
+    )
+    driver.step(cb["t"])
+
+    assert not driver._market_continuity_ok
+    assert backfill.calls == []
+    assert "market_candle_recovery_cap_exceeded" in _event_types(session_factory)
+
+
+def test_candle_backfill_divergence_stays_latched(session_factory):
+    rest = FakeRest()
+    state = _connected_state("1H")
+    cb = {"t": T0 + timedelta(hours=1, seconds=1)}
+    missing = T0 + timedelta(hours=1)
+    observed = T0 + timedelta(hours=2)
+    backfill = FakePublicCandleClient(rows=[_rest_candle(missing, close=100.0)])
+    driver, _ = _driver(
+        session_factory, rest=rest, state=state, clock_box=cb,
+        public_candle_client=backfill, demo_timeframe="1H",
+    )
+    driver.startup_gate()
+    driver.runtime.arm(ttl_seconds=10 ** 9)
+    driver._set_private_authenticated(True)
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", T0, 100, 101, 99, 100, 10, True),
+        "okx-business",
+    )
+    driver.step(cb["t"])
+    cb["t"] = observed + timedelta(hours=1, seconds=1)
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1H", observed, 102, 103, 101, 102, 10, True),
+        "okx-business",
+    )
+    driver.step(cb["t"])
+
+    driver._check_recovered_overlap(
+        "BTC-USDT",
+        CandleUpdate("BTC-USDT", "1H", missing, 100, 101, 99, 100.5, 10, True),
+    )
+
+    assert not driver._market_continuity_ok
+    assert "market_candle_backfill_divergence" in _event_types(session_factory)
+
+
+@pytest.mark.parametrize("status", ["failed", "too_large", "cap_exceeded", "diverged"])
+@pytest.mark.parametrize("exit_kind", ["stop", "flat"])
+def test_terminal_gap_latch_does_not_gate_stop_or_flat_exits(
+    session_factory, status, exit_kind
+):
+    rest = FakeRest()
+    state = _connected_state()
+    cb = {"t": T0 + timedelta(minutes=3, seconds=1)}
+    driver, _ = _driver(session_factory, rest=rest, state=state, clock_box=cb)
+    driver.startup_gate()
+    driver.runtime.arm(ttl_seconds=10 ** 9)
+    driver._set_private_authenticated(True)
+    driver._private_last_msg = cb["t"]
+    _open_demo_position(driver)
+
+    driver._watermark["BTC-USDT"] = T0
+    driver._market_continuity["BTC-USDT"] = False
+    driver._gap_recovery["BTC-USDT"] = GapRecoveryState(
+        status=status,
+        expected_missing=[T0 + timedelta(minutes=1)],
+        observed_at=T0 + timedelta(minutes=2),
+        last_error=f"test_{status}",
+    )
+    _fresh_book(state, cb, bid="91.9" if exit_kind == "stop" else "99.9",
+                ask="92.1" if exit_kind == "stop" else "100.1")
+    candle_ts = T0 + timedelta(minutes=2)
+    low = 90 if exit_kind == "stop" else 96
+    close = 92 if exit_kind == "stop" else 100
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1m", candle_ts, 100, 101, low, close, 10, True),
+        "okx-business",
+    )
+
+    before = len(rest.placed)
+    results = driver.step(cb["t"])
+
+    assert results
+    assert len(rest.placed) == before + 1
+    assert rest.placed[-1]["side"] == "sell"
+    assert {p["side"] for p in rest.placed[before:]} == {"sell"}
+    assert not driver._market_continuity_ok
+    assert not driver._effective_feed_status(cb["t"]).usable
+    assert driver._effective_feed_status(
+        cb["t"], require_market_continuity=False
+    ).usable
+
+
+def test_market_continuity_gap_blocks_entries_only_not_exit_readiness(session_factory):
+    state = _connected_state("1H")
+    cb = {"t": T0}
+    driver, _ = _driver(
+        session_factory, state=state, clock_box=cb, demo_timeframe="1H",
+    )
+    driver.startup_gate()
+    driver.runtime.arm(ttl_seconds=10 ** 9)
+    driver._set_private_authenticated(True)
+    driver._private_last_msg = cb["t"]
+    state.mark_feed_market_data("okx-public")
+    state.mark_feed_market_data("okx-business")
+    driver._market_continuity["BTC-USDT"] = False
+
+    entry_feed = driver._effective_feed_status(cb["t"])
+    exit_feed = driver._effective_feed_status(
+        cb["t"], require_market_continuity=False
+    )
+
+    assert not entry_feed.usable
+    assert exit_feed.usable
+    assert driver._market_feed_status(cb["t"]).usable
+
+    async def heartbeat_once():
+        stop = asyncio.Event()
+        task = asyncio.create_task(driver._heartbeat_loop(stop))
+        await asyncio.sleep(0)
+        stop.set()
+        await task
+
+    asyncio.run(heartbeat_once())
+    session = session_factory()
+    try:
+        status = session.scalar(
+            select(DemoRuntimeStatus).where(
+                DemoRuntimeStatus.account_id == driver.account_id
+            )
+        )
+        assert status.feed_connected is True
+        assert status.feed_stale is False
+    finally:
+        session.close()
 
 
 def test_protective_stop_submits_exit_and_daily_baseline_is_immutable(session_factory):

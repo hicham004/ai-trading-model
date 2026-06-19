@@ -75,8 +75,46 @@ class GateOutcome:
     issues: List[str] = field(default_factory=list)
 
 
+@dataclass
+class GapRecoveryState:
+    """Per-instrument readiness recovery state for confirmed-candle gaps.
+
+    Backfilled candles are real public venue data used as future strategy
+    context only. They are never returned as actionable live candles.
+    """
+
+    status: str = "ok"
+    expected_missing: List[datetime] = field(default_factory=list)
+    observed_at: Optional[datetime] = None
+    confirmations_remaining: int = 0
+    last_error: Optional[str] = None
+    last_event_id: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class CandleProcessingItem:
+    """One candle to add to the strategy window.
+
+    Public REST backfills are context-only. Live WebSocket candles are
+    actionable for exits immediately; entries still see the continuity latch
+    through their feed gate.
+    """
+
+    candle: MarketCandle
+    actionable: bool
+    confirms_recovery: bool = False
+
+
 class DemoTradingDriver:
     """Supervised demo-trading runtime built from accepted repository pieces."""
+
+    # Conservative, fixed policy for Phase 6a 1H gap recovery. These are kept
+    # out of the immutable account identity so a reviewed patch can be deployed
+    # to the same shadow account without changing its strategy/risk identity.
+    GAP_RECOVERY_MAX_MISSING_BARS = 3
+    GAP_RECOVERY_CONFIRMATIONS_REQUIRED = 2
+    GAP_RECOVERY_MAX_SUCCESSES_PER_24H = 3
+    GAP_RECOVERY_WINDOW = timedelta(hours=24)
 
     def __init__(
         self,
@@ -89,6 +127,7 @@ class DemoTradingDriver:
         clock: Callable[[], datetime] = lambda: datetime.now(tz=timezone.utc),
         private_ws_factory: Optional[Callable] = None,
         public_stream_factory: Optional[Callable] = None,
+        public_candle_client: Optional[object] = None,
         account_selection_explicit: bool = True,
     ) -> None:
         self._settings = settings or get_settings()
@@ -134,9 +173,16 @@ class DemoTradingDriver:
         self._market_state = market_state or MarketState()
         self._private_ws_factory = private_ws_factory
         self._public_stream_factory = public_stream_factory
+        self._public_candle_client = public_candle_client
         self._private_authenticated = False
         self._private_last_msg: Optional[datetime] = None
         self._market_continuity = {inst: True for inst in self._instruments}
+        self._gap_recovery: Dict[str, GapRecoveryState] = {
+            inst: GapRecoveryState() for inst in self._instruments
+        }
+        self._recovered_ohlc: Dict[str, Dict[datetime, tuple[Decimal, Decimal, Decimal, Decimal]]] = {
+            inst: {} for inst in self._instruments
+        }
         self._needs_reconcile = False
 
     @property
@@ -457,83 +503,94 @@ class DemoTradingDriver:
         # when it was engaged externally (e.g. by an operator CLI command).
         if self._runtime.kill_switch_engaged():
             self._runtime.cancel_pending_entries()
-        feed = self._effective_feed_status(now)
         results = []
         for inst in self._instruments:
-            for candle in self._new_confirmed_candles(inst):
+            for item in self._new_confirmed_candle_items(inst):
+                candle = item.candle
                 self._windows[inst].append(candle)
                 self._watermark[inst] = candle.timestamp
+                if not item.actionable:
+                    continue
                 quote = self._quote_for(inst, now)
                 meta = self._instrument_meta.get(inst)
-                if meta is None:
-                    continue
-                position_size, stop_loss = self._store.position_summary(
-                    self._account_id, inst
-                )
-                if (
-                    position_size > 0
-                    and stop_loss is not None
-                    and Decimal(str(candle.low)) <= stop_loss
-                ):
-                    result = self._runtime.consider_exit(
-                        signal_id=f"stop|{inst}|{candle.timestamp.isoformat()}",
-                        instrument=inst,
-                        meta=meta,
-                        quote=quote,
-                        feed_status=feed,
-                        base_balance=position_size,
-                        now=now,
+                if meta is not None:
+                    position_size, stop_loss = self._store.position_summary(
+                        self._account_id, inst
                     )
-                    if result is not None:
-                        results.append(result)
-                    continue
-                signals = self._strategy.generate_signals(list(self._windows[inst]))
-                if not signals:
-                    continue
-                signal = signals[-1]
-                if signal.action == SignalAction.LONG:
-                    available = self._balances.get(self._quote_ccy, Decimal(0))
-                    equity, exposure, open_positions = self._equity_exposure(now)
                     if (
-                        not equity.is_finite()
-                        or equity <= 0
-                        or not exposure.is_finite()
+                        position_size > 0
+                        and stop_loss is not None
+                        and Decimal(str(candle.low)) <= stop_loss
                     ):
-                        self._store.record_event(
-                            self._account_id,
-                            "equity_unavailable",
-                            "warning",
-                            "entry blocked: complete marked equity is unavailable",
-                            payload={"instrument": inst},
+                        result = self._runtime.consider_exit(
+                            signal_id=f"stop|{inst}|{candle.timestamp.isoformat()}",
+                            instrument=inst,
+                            meta=meta,
+                            quote=quote,
+                            feed_status=self._effective_feed_status(
+                                now, require_market_continuity=False
+                            ),
+                            base_balance=position_size,
                             now=now,
                         )
-                        continue
-                    day_start = self._store.get_or_create_daily_baseline(
-                        self._account_id, now.date(), equity, now=now
-                    )
-                    ctx = EntryContext(
-                        signal=signal, instrument=inst, meta=meta, quote=quote,
-                        feed_status=feed, available_quote=available, equity=equity,
-                        day_start_equity=day_start,
-                        day_realized_pnl=equity - day_start,
-                        now=now, data_time=candle.timestamp + self._interval(),
-                        existing_exposure=exposure,
-                        open_positions=open_positions,
-                        instrument_position_size=position_size,
-                    )
-                    r = self._runtime.consider_entry(ctx)
-                    if r is not None:
-                        results.append(r)
-                elif signal.action == SignalAction.FLAT:
-                    base, _ = self._store.position_summary(self._account_id, inst)
-                    if base > 0:
-                        r = self._runtime.consider_exit(
-                            signal_id=self._runtime._signal_id(signal, inst),
-                            instrument=inst, meta=meta, quote=quote, feed_status=feed,
-                            base_balance=base, now=now,
-                        )
-                        if r is not None:
-                            results.append(r)
+                        if result is not None:
+                            results.append(result)
+                    else:
+                        signals = self._strategy.generate_signals(list(self._windows[inst]))
+                        if signals:
+                            signal = signals[-1]
+                            if signal.action == SignalAction.LONG:
+                                available = self._balances.get(self._quote_ccy, Decimal(0))
+                                equity, exposure, open_positions = self._equity_exposure(now)
+                                if (
+                                    not equity.is_finite()
+                                    or equity <= 0
+                                    or not exposure.is_finite()
+                                ):
+                                    self._store.record_event(
+                                        self._account_id,
+                                        "equity_unavailable",
+                                        "warning",
+                                        "entry blocked: complete marked equity is unavailable",
+                                        payload={"instrument": inst},
+                                        now=now,
+                                    )
+                                else:
+                                    day_start = self._store.get_or_create_daily_baseline(
+                                        self._account_id, now.date(), equity, now=now
+                                    )
+                                    ctx = EntryContext(
+                                        signal=signal, instrument=inst, meta=meta, quote=quote,
+                                        feed_status=self._effective_feed_status(now),
+                                        available_quote=available, equity=equity,
+                                        day_start_equity=day_start,
+                                        day_realized_pnl=equity - day_start,
+                                        now=now, data_time=candle.timestamp + self._interval(),
+                                        existing_exposure=exposure,
+                                        open_positions=open_positions,
+                                        instrument_position_size=position_size,
+                                    )
+                                    r = self._runtime.consider_entry(ctx)
+                                    if r is not None:
+                                        results.append(r)
+                            elif signal.action == SignalAction.FLAT:
+                                base, _ = self._store.position_summary(self._account_id, inst)
+                                if base > 0:
+                                    r = self._runtime.consider_exit(
+                                        signal_id=self._runtime._signal_id(signal, inst),
+                                        instrument=inst,
+                                        meta=meta,
+                                        quote=quote,
+                                        feed_status=self._effective_feed_status(
+                                            now, require_market_continuity=False
+                                        ),
+                                        base_balance=base,
+                                        now=now,
+                                    )
+                                    if r is not None:
+                                        results.append(r)
+                if item.confirms_recovery:
+                    self._account_for_recovery_confirmations(inst, [candle])
         return results
 
     def _equity_exposure(self, now: datetime) -> tuple[Decimal, Decimal, int]:
@@ -558,12 +615,13 @@ class DemoTradingDriver:
 
         return parse_timeframe(self._timeframe)
 
-    def _new_confirmed_candles(self, inst: str) -> List[MarketCandle]:
+    def _new_confirmed_candle_items(self, inst: str) -> List[CandleProcessingItem]:
         out: List[MarketCandle] = []
         watermark = self._watermark.get(inst)
         for update in self._market_state.recent_confirmed_candles():
             if not update.confirmed or update.instrument != inst or update.timeframe != self._timeframe:
                 continue
+            self._check_recovered_overlap(inst, update)
             if watermark is not None and update.timestamp <= watermark:
                 continue
             out.append(
@@ -574,24 +632,345 @@ class DemoTradingDriver:
                 )
             )
         out.sort(key=lambda c: c.timestamp)
+        state = self._gap_recovery.setdefault(inst, GapRecoveryState())
+        if state.status in ("failed", "too_large", "cap_exceeded", "diverged"):
+            return [CandleProcessingItem(candle, True) for candle in out]
         expected = watermark + self._interval() if watermark is not None else None
+        items: List[CandleProcessingItem] = []
         for candle in out:
             if expected is not None and candle.timestamp != expected:
-                if self._market_continuity.get(inst, True):
-                    self._store.record_event(
-                        self._account_id,
-                        "market_candle_gap",
-                        "error",
-                        f"candle gap for {inst}: expected {expected.isoformat()}, "
-                        f"got {candle.timestamp.isoformat()}",
-                        now=self._clock(),
-                    )
-                self._market_continuity[inst] = False
-                return []
+                for backfilled in self._handle_candle_gap(
+                    inst, expected, candle.timestamp
+                ):
+                    items.append(CandleProcessingItem(backfilled, False))
+            confirms_recovery = (
+                self._gap_recovery.setdefault(inst, GapRecoveryState()).status == "pending"
+            )
+            items.append(CandleProcessingItem(candle, True, confirms_recovery))
             expected = candle.timestamp + self._interval()
-        if out:
-            self._market_continuity[inst] = True
+        if items:
+            if self._gap_recovery.get(inst, GapRecoveryState()).status == "ok":
+                self._market_continuity[inst] = True
+        return items
+
+    # -- confirmed-candle gap recovery -------------------------------------
+
+    def _handle_candle_gap(
+        self, inst: str, expected: datetime, observed: datetime
+    ) -> List[MarketCandle]:
+        """Latch stale first, then attempt bounded public-REST repair.
+
+        Recovery is entry-readiness only. Backfilled candles are appended to the
+        strategy window as context but never returned as actionable live bars.
+        """
+        now = self._clock()
+        state = self._gap_recovery.setdefault(inst, GapRecoveryState())
+        event_key = f"{expected.isoformat()}->{observed.isoformat()}"
+        first_notice = state.last_event_id != event_key
+        self._market_continuity[inst] = False
+        if first_notice:
+            self._store.record_event(
+                self._account_id,
+                "market_candle_gap",
+                "error",
+                f"candle gap for {inst}: expected {expected.isoformat()}, "
+                f"got {observed.isoformat()}",
+                payload={"instrument": inst, "expected": expected, "observed": observed},
+                now=now,
+            )
+            state.last_event_id = event_key
+
+        interval = self._interval()
+        missing, aligned = self._missing_slots(expected, observed, interval)
+        if not aligned or not missing or len(missing) > self.GAP_RECOVERY_MAX_MISSING_BARS:
+            self._fail_gap_recovery(
+                inst,
+                "too_large",
+                "market_candle_gap_too_large",
+                "candle gap exceeds bounded recovery policy",
+                expected=expected,
+                observed=observed,
+                missing=missing,
+                now=now,
+            )
+            return []
+
+        if self._recent_recovery_success_count(now) >= self.GAP_RECOVERY_MAX_SUCCESSES_PER_24H:
+            self._fail_gap_recovery(
+                inst,
+                "cap_exceeded",
+                "market_candle_recovery_cap_exceeded",
+                "rolling 24h candle-gap recovery cap exceeded",
+                expected=expected,
+                observed=observed,
+                missing=missing,
+                now=now,
+            )
+            return []
+
+        if state.status == "pending" and state.expected_missing == missing:
+            return []
+
+        try:
+            backfill = self._fetch_exact_backfill(inst, observed, missing)
+        except Exception as exc:
+            self._fail_gap_recovery(
+                inst,
+                "failed",
+                "market_candle_backfill_failed",
+                f"public REST candle backfill failed: {type(exc).__name__}",
+                expected=expected,
+                observed=observed,
+                missing=missing,
+                now=now,
+            )
+            return []
+
+        if backfill is None:
+            self._fail_gap_recovery(
+                inst,
+                "failed",
+                "market_candle_backfill_failed",
+                "public REST candle backfill did not return the exact missing window",
+                expected=expected,
+                observed=observed,
+                missing=missing,
+                now=now,
+            )
+            return []
+
+        for candle in backfill:
+            self._recovered_ohlc.setdefault(inst, {})[candle.timestamp] = self._ohlc(candle)
+        state.status = "pending"
+        state.expected_missing = list(missing)
+        state.observed_at = observed
+        state.confirmations_remaining = self.GAP_RECOVERY_CONFIRMATIONS_REQUIRED
+        state.last_error = None
+        self._store.record_event(
+            self._account_id,
+            "market_candle_backfill_succeeded",
+            "warning",
+            "public REST backfilled a candle gap; waiting for live confirmations",
+            payload={
+                "instrument": inst,
+                "missing": [ts.isoformat() for ts in missing],
+                "observed": observed.isoformat(),
+                "confirmations_required": self.GAP_RECOVERY_CONFIRMATIONS_REQUIRED,
+            },
+            now=now,
+        )
+        return backfill
+
+    def _fetch_exact_backfill(
+        self, inst: str, observed: datetime, missing: List[datetime]
+    ) -> Optional[List[MarketCandle]]:
+        client = self._public_candle_client
+        if client is None:
+            from app.okx.client import OKXPublicClient
+
+            client = OKXPublicClient(settings=self._settings)
+            self._public_candle_client = client
+        rows = client.get_history_candles(
+            inst,
+            timeframe=self._timeframe,
+            limit=len(missing),
+            after=observed,
+            confirmed_only=True,
+        )
+        expected = set(missing)
+        by_time = {}
+        for row in rows:
+            ts = self._utc(row.timestamp)
+            if ts in by_time:
+                return None
+            by_time[ts] = row
+        if set(by_time) != expected:
+            return None
+        out: List[MarketCandle] = []
+        for ts in missing:
+            row = by_time[ts]
+            if (
+                row.instrument != inst
+                or row.timeframe != self._timeframe
+                or not row.confirmed
+            ):
+                return None
+            candle = MarketCandle(
+                instrument=inst,
+                timestamp=ts,
+                open=float(row.open),
+                high=float(row.high),
+                low=float(row.low),
+                close=float(row.close),
+                volume=float(row.volume),
+                timeframe=self._timeframe,
+            )
+            existing = self._recovered_ohlc.setdefault(inst, {}).get(ts)
+            if existing is not None and existing != self._ohlc(candle):
+                return None
+            out.append(candle)
         return out
+
+    def _account_for_recovery_confirmations(
+        self, inst: str, candles: List[MarketCandle]
+    ) -> None:
+        state = self._gap_recovery.setdefault(inst, GapRecoveryState())
+        if state.status != "pending":
+            return
+        now = self._clock()
+        for candle in candles:
+            if state.confirmations_remaining <= 0:
+                break
+            state.confirmations_remaining -= 1
+            self._store.record_event(
+                self._account_id,
+                "market_candle_recovery_confirmation",
+                "info",
+                "on-time confirmed candle observed after backfill",
+                payload={
+                    "instrument": inst,
+                    "candle": candle.timestamp.isoformat(),
+                    "remaining": state.confirmations_remaining,
+                },
+                now=now,
+            )
+        if state.confirmations_remaining <= 0:
+            self._market_continuity[inst] = True
+            self._gap_recovery[inst] = GapRecoveryState()
+            self._store.record_event(
+                self._account_id,
+                "market_candle_recovery_cleared",
+                "info",
+                "candle continuity restored after public REST backfill and confirmations",
+                payload={"instrument": inst},
+                now=now,
+            )
+
+    def _check_recovered_overlap(self, inst: str, update) -> None:
+        expected = self._recovered_ohlc.setdefault(inst, {}).get(update.timestamp)
+        if expected is None:
+            return
+        actual = self._ohlc(update)
+        if actual == expected:
+            return
+        self._fail_gap_recovery(
+            inst,
+            "diverged",
+            "market_candle_backfill_divergence",
+            "public REST backfill diverged from a later WebSocket candle",
+            expected=update.timestamp,
+            observed=update.timestamp,
+            missing=[update.timestamp],
+            now=self._clock(),
+            extra={"rest_ohlc": [str(v) for v in expected], "ws_ohlc": [str(v) for v in actual]},
+        )
+
+    def _fail_gap_recovery(
+        self,
+        inst: str,
+        status: str,
+        event_type: str,
+        message: str,
+        *,
+        expected: datetime,
+        observed: datetime,
+        missing: List[datetime],
+        now: datetime,
+        extra: Optional[dict] = None,
+    ) -> None:
+        self._market_continuity[inst] = False
+        state = self._gap_recovery.setdefault(inst, GapRecoveryState())
+        if state.status == status and state.last_error == event_type:
+            return
+        state.status = status
+        state.expected_missing = list(missing)
+        state.observed_at = observed
+        state.confirmations_remaining = 0
+        state.last_error = event_type
+        payload = {
+            "instrument": inst,
+            "expected": expected.isoformat(),
+            "observed": observed.isoformat(),
+            "missing": [ts.isoformat() for ts in missing],
+            "max_missing": self.GAP_RECOVERY_MAX_MISSING_BARS,
+            "max_recoveries_per_24h": self.GAP_RECOVERY_MAX_SUCCESSES_PER_24H,
+        }
+        if extra:
+            payload.update(extra)
+        self._store.record_event(
+            self._account_id,
+            event_type,
+            "error",
+            message,
+            payload=payload,
+            now=now,
+        )
+
+    def _recent_recovery_success_count(self, now: datetime) -> int:
+        from sqlalchemy import func, select
+
+        from app.db.models import DemoEvent
+
+        cutoff = now - self.GAP_RECOVERY_WINDOW
+        session = self._session_factory()
+        try:
+            return int(
+                session.scalar(
+                    select(func.count(DemoEvent.id)).where(
+                        DemoEvent.account_id == self._account_id,
+                        DemoEvent.event_type == "market_candle_recovery_cleared",
+                        DemoEvent.event_time >= cutoff,
+                    )
+                )
+                or 0
+            )
+        finally:
+            session.close()
+
+    @staticmethod
+    def _missing_slots(
+        expected: datetime, observed: datetime, interval: timedelta
+    ) -> tuple[List[datetime], bool]:
+        if observed <= expected:
+            return [], False
+        delta = observed - expected
+        quotient = delta.total_seconds() / interval.total_seconds()
+        if not quotient.is_integer():
+            return [], False
+        count = int(quotient)
+        return [expected + interval * offset for offset in range(count)], True
+
+    @staticmethod
+    def _utc(value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    @staticmethod
+    def _ohlc(candle) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+        return (
+            Decimal(str(candle.open)),
+            Decimal(str(candle.high)),
+            Decimal(str(candle.low)),
+            Decimal(str(candle.close)),
+        )
+
+    def gap_recovery_snapshot(self) -> dict:
+        """Read-only, JSON-friendly recovery state for shadow health logs."""
+        return {
+            "market_continuity": dict(self._market_continuity),
+            "recoveries_per_24h": self._recent_recovery_success_count(self._clock()),
+            "instruments": {
+                inst: {
+                    "status": state.status,
+                    "expected_missing": [ts.isoformat() for ts in state.expected_missing],
+                    "observed_at": state.observed_at.isoformat() if state.observed_at else None,
+                    "confirmations_remaining": state.confirmations_remaining,
+                    "last_error": state.last_error,
+                }
+                for inst, state in self._gap_recovery.items()
+            },
+        }
 
     def _quote_for(self, inst: str, now: datetime) -> Optional[QuoteSnapshot]:
         for book in self._market_state.latest_order_books(depth=1):
@@ -609,14 +988,21 @@ class DemoTradingDriver:
             )
         return None
 
-    def _effective_feed_status(self, now: datetime) -> FeedStatus:
+    def _effective_feed_status(
+        self, now: datetime, *, require_market_continuity: bool = True
+    ) -> FeedStatus:
         health = self._market_state.health_snapshot()
         private_stale = self._private_last_msg is None or (
             now - self._private_last_msg
         ) > timedelta(seconds=self._settings.demo_private_stale_seconds)
         connected = health.connected and self._private_authenticated
-        stale = health.stale or private_stale or not self._market_continuity_ok
+        continuity_stale = require_market_continuity and not self._market_continuity_ok
+        stale = health.stale or private_stale or continuity_stale
         return FeedStatus(connected=connected, stale=stale)
+
+    def _market_feed_status(self, now: datetime) -> FeedStatus:
+        health = self._market_state.health_snapshot()
+        return FeedStatus(connected=health.connected, stale=health.stale)
 
     @property
     def _market_continuity_ok(self) -> bool:
@@ -712,7 +1098,7 @@ class DemoTradingDriver:
                 )
                 stop_event.set()
                 return
-            effective = self._effective_feed_status(now)
+            effective = self._market_feed_status(now)
             self._store.update_status(
                 self._account_id, self._token, now=now, status="running",
                 feed_connected=effective.connected, feed_stale=not effective.usable,

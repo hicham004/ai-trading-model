@@ -26,7 +26,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.config import Settings
-from app.db.models import Base, DemoRuntimeStatus
+from app.db.models import Base, DemoEvent, DemoRuntimeStatus
 from app.execution.driver import GateOutcome
 from app.shadow.config import (
     ShadowConfig,
@@ -503,6 +503,55 @@ def test_unacknowledged_alert_blocks_startup(tmp_path, session_factory):
     assert code == 2
 
 
+def test_readiness_alert_blocks_same_process_restart_and_rearm(
+    tmp_path, session_factory
+):
+    gate = GateOutcome(
+        lock_acquired=True, account_valid=True, consistent=True, armable=True, issues=[]
+    )
+    drivers = []
+    holder = {}
+
+    def factory(market_state):
+        driver = FakeDriver(gate)
+        drivers.append(driver)
+        return driver
+
+    def alert_then_crash_tasks_factory(driver, stop_event):
+        async def alert_then_crash():
+            holder["supervisor"]._write_readiness_alert({
+                "id": 77,
+                "event_type": "market_candle_backfill_failed",
+                "message": "public REST candle backfill failed",
+                "payload": "{}",
+            })
+
+        return [asyncio.create_task(alert_then_crash())]
+
+    supervisor, config = make_supervisor(
+        tmp_path, session_factory, factory,
+        tasks_factory=alert_then_crash_tasks_factory,
+        max_restarts=2,
+    )
+    holder["supervisor"] = supervisor
+
+    code = asyncio.run(supervisor.run(asyncio.Event()))
+
+    assert code == 1
+    assert len(drivers) == 1
+    assert drivers[0].runtime.arm_calls >= 1
+    assert drivers[0].runtime.disarm_calls >= 1
+    state = json.loads((config.shadow_dir / STATE_FILENAME).read_text())
+    assert state["alert"].startswith("readiness:market_candle_backfill_failed")
+    journal_files = sorted(config.shadow_dir.glob("journal-*.jsonl"))
+    lines = [json.loads(l) for f in journal_files for l in f.read_text().splitlines()]
+    assert any(
+        l.get("kind") == "supervisor"
+        and l.get("event") == "restart_blocked_by_alert"
+        for l in lines
+    )
+
+
 # --------------------------------------------------------------------------
 # supervisor: daily-loss / entries caps and kill-switch ownership
 # --------------------------------------------------------------------------
@@ -602,6 +651,44 @@ def test_cap_breach_never_claims_an_operator_engaged_switch(tmp_path, session_fa
     assert runtime.release_calls == 0
 
 
+def test_readiness_alert_writes_alert_without_halt_or_kill(tmp_path, session_factory):
+    supervisor, config = make_supervisor(
+        tmp_path, session_factory, lambda ms: None, tasks_factory=crash_tasks_factory
+    )
+    session = session_factory()
+    try:
+        session.add(
+            DemoEvent(
+                account_id=1,
+                event_time=datetime(2026, 6, 12, 12, 0, tzinfo=UTC),
+                event_type="market_candle_backfill_failed",
+                severity="error",
+                message="public REST candle backfill did not return the exact missing window",
+                payload_json="{}",
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    event = supervisor._latest_readiness_alert_event(1)
+    assert event is not None
+    supervisor._write_readiness_alert(event)
+
+    alert_text = (config.shadow_dir / ALERT_FILENAME).read_text()
+    assert "SHADOW READINESS ALERT" in alert_text
+    state = json.loads((config.shadow_dir / STATE_FILENAME).read_text())
+    assert state["alert"].startswith("readiness:market_candle_backfill_failed")
+    assert supervisor._state.get("kill_owner") is None
+    journal_files = sorted(config.shadow_dir.glob("journal-*.jsonl"))
+    assert journal_files
+    lines = [json.loads(l) for f in journal_files for l in f.read_text().splitlines()]
+    assert any(
+        l.get("kind") == "supervisor" and l.get("event") == "readiness_alert"
+        for l in lines
+    )
+
+
 # --------------------------------------------------------------------------
 # daily report: aggregation incl. lot-precision dust flatness
 # --------------------------------------------------------------------------
@@ -641,8 +728,41 @@ def test_daily_report_aggregates_signals_pnl_and_dust(tmp_path, session_factory)
          "veto_reason": "confidence_too_low"},
         {"kind": "signal", "action": "flat", "confidence": 0.0, "cleared": False},
         {"kind": "stop_eval", "low": "62000", "stop_level": "61000", "breached": False},
-        {"kind": "health", "ws_auth": True, "feed_usable": True},
-        {"kind": "health", "ws_auth": True, "feed_usable": False},
+        {
+            "kind": "health",
+            "ws_auth": True,
+            "feed_usable": True,
+            "feed_connected": True,
+            "feed_stale": False,
+            "market_continuity_ok": True,
+            "per_feed_health": [
+                {
+                    "feed_id": "okx-business",
+                    "connected": True,
+                    "stale": False,
+                }
+            ],
+        },
+        {
+            "kind": "health",
+            "ws_auth": True,
+            "feed_usable": False,
+            "feed_connected": True,
+            "feed_stale": False,
+            "market_continuity_ok": False,
+            "per_feed_health": [
+                {
+                    "feed_id": "okx-business",
+                    "connected": True,
+                    "stale": False,
+                }
+            ],
+        },
+        {
+            "kind": "ledger_event",
+            "event_type": "market_candle_backfill_failed",
+            "message": "public REST candle backfill did not return the exact missing window",
+        },
         {"kind": "supervisor", "event": "restart"},
     ]
     with open(journal_dir / f"journal-{day.isoformat()}.jsonl", "w") as fh:
@@ -661,4 +781,7 @@ def test_daily_report_aggregates_signals_pnl_and_dust(tmp_path, session_factory)
     assert "stop evaluations journaled: 1 (breaches: 0)" in report
     assert "private WS authenticated: 100.0%" in report
     assert "feed usable: 50.0%" in report
+    assert "feed connected: 100.0%; feed stale: 0.0%; market continuity ok: 50.0%" in report
+    assert "okx-business connected=100.0% stale=0.0%" in report
+    assert "market_candle_backfill_failed=1" in report
     assert "restart=1" in report

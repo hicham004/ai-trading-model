@@ -55,6 +55,7 @@ from sqlalchemy import func, select
 from app.config import Settings
 from app.db.models import (
     DemoBalanceSnapshot,
+    DemoEvent,
     DemoOrderIntent,
     DemoReconciliation,
     DemoRuntimeStatus,
@@ -73,6 +74,12 @@ logger = get_logger(__name__)
 ALERT_FILENAME = "ALERT"
 STATE_FILENAME = "state.json"
 HEARTBEAT_FILENAME = "heartbeat.json"
+READINESS_ALERT_EVENTS = {
+    "market_candle_gap_too_large",
+    "market_candle_backfill_failed",
+    "market_candle_recovery_cap_exceeded",
+    "market_candle_backfill_divergence",
+}
 
 
 def _utcnow() -> datetime:
@@ -162,6 +169,7 @@ class ShadowSupervisor:
         self._halt_reason: Optional[str] = None
         self._last_report_day: Optional[date] = None
         self._lot_sizes: Dict[str, Decimal] = {}
+        self._last_readiness_alert_event_id = 0
 
     # -- persisted supervisor state (atomic JSON) ----------------------------
 
@@ -189,6 +197,31 @@ class ShadowSupervisor:
             "clear with: python scripts/run_shadow_period.py --acknowledge-alert\n"
         )
         self._journal.write("supervisor", event="alert", reason=reason)
+
+    def _write_readiness_alert(self, event: dict) -> None:
+        reason = f"readiness:{event['event_type']}:{event['id']}"
+        self._last_readiness_alert_event_id = max(
+            self._last_readiness_alert_event_id, int(event["id"])
+        )
+        if self._state.get("alert") == reason:
+            return
+        self._state["alert"] = reason
+        self._save_state()
+        (self._dir / ALERT_FILENAME).write_text(
+            f"{self._clock().isoformat()} SHADOW READINESS ALERT: {event['event_type']}\n"
+            f"{event['message']}\n"
+            "Entries remain fail-closed until the operator reviews the journal and\n"
+            "clears with: python scripts/run_shadow_period.py --acknowledge-alert\n"
+        )
+        self._journal.write(
+            "supervisor",
+            event="readiness_alert",
+            reason=reason,
+            ledger_event_id=event["id"],
+            event_type=event["event_type"],
+            message=event["message"],
+            payload=event["payload"],
+        )
 
     def _write_heartbeat(self, **fields) -> None:
         write_atomic_json(
@@ -218,6 +251,49 @@ class ShadowSupervisor:
             )
         finally:
             session.close()
+
+    def _latest_readiness_alert_event(self, account_id: int) -> Optional[dict]:
+        session = self._session_factory()
+        try:
+            row = session.scalar(
+                select(DemoEvent)
+                .where(
+                    DemoEvent.account_id == account_id,
+                    DemoEvent.event_type.in_(READINESS_ALERT_EVENTS),
+                    DemoEvent.id > self._last_readiness_alert_event_id,
+                )
+                .order_by(DemoEvent.id.desc())
+                .limit(1)
+            )
+            if row is None:
+                return None
+            return {
+                "id": int(row.id),
+                "event_type": row.event_type,
+                "message": row.message,
+                "payload": row.payload_json,
+            }
+        finally:
+            session.close()
+
+    @staticmethod
+    def _feed_health_snapshot(market_state) -> List[dict]:
+        if not hasattr(market_state, "all_feed_health"):
+            return []
+        return [
+            {
+                "feed_id": feed.feed_id,
+                "status": str(feed.status.value if hasattr(feed.status, "value") else feed.status),
+                "connected": bool(feed.connected),
+                "stale": bool(feed.stale),
+                "last_transport_time": feed.last_transport_time,
+                "last_market_data_time": feed.last_market_data_time,
+                "seconds_since_market_data": feed.seconds_since_market_data,
+                "required_subscriptions": list(feed.required_subscriptions),
+                "acked_subscriptions": list(feed.acked_subscriptions),
+            }
+            for feed in market_state.all_feed_health()
+        ]
 
     def _entries_today(self, account_id: int, today: date) -> int:
         day_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
@@ -476,6 +552,13 @@ class ShadowSupervisor:
                 self._write_alert(reason)
                 self._write_heartbeat(state="halted_alert", reason=reason)
                 return 1
+            if self._state.get("alert"):
+                reason = self._state["alert"]
+                self._journal.write(
+                    "supervisor", event="restart_blocked_by_alert", reason=reason
+                )
+                self._write_heartbeat(state="halted_alert", reason=reason)
+                return 1
             # crashed / transient gate failure -> bounded, gated restart
             now = self._clock()
             within_budget = self._policy.record_restart(now)
@@ -613,6 +696,13 @@ class ShadowSupervisor:
                     self._journal_market, driver, market_state, window, watermark, strategy
                 )
                 await asyncio.to_thread(poller.poll)
+                readiness_alert = await asyncio.to_thread(
+                    self._latest_readiness_alert_event, account_id
+                )
+                if readiness_alert is not None:
+                    await asyncio.to_thread(
+                        self._write_readiness_alert, readiness_alert
+                    )
 
                 # Fail-closed watch on exchange-truth reconciliations. The
                 # wrong_scope count is persisted inside summary_json (the row
@@ -691,12 +781,30 @@ class ShadowSupervisor:
                 lot = self._lot_sizes.get(self._cfg.instrument)
                 flat = is_flat(position, lot) if lot is not None else None
                 ws_auth = bool(status.ws_authenticated) if status is not None else False
+                feed_connected = bool(status.feed_connected) if status is not None else False
+                feed_stale = bool(status.feed_stale) if status is not None else True
                 feed_usable = bool(
-                    status is not None and status.feed_connected and not status.feed_stale
+                    status is not None and feed_connected and not feed_stale
+                )
+                per_feed_health = await asyncio.to_thread(
+                    self._feed_health_snapshot, market_state
+                )
+                gap_snapshot = getattr(driver, "gap_recovery_snapshot", None)
+                gap_recovery = (
+                    await asyncio.to_thread(gap_snapshot)
+                    if callable(gap_snapshot)
+                    else {"market_continuity": {}, "recoveries_per_24h": 0, "instruments": {}}
+                )
+                market_continuity_ok = bool(
+                    getattr(driver, "_market_continuity_ok", True)
                 )
                 kill = kill_engaged_now
                 self._journal.write(
                     "health", ws_auth=ws_auth, feed_usable=feed_usable, kill=kill,
+                    feed_connected=feed_connected, feed_stale=feed_stale,
+                    market_continuity_ok=market_continuity_ok,
+                    per_feed_health=per_feed_health,
+                    gap_recovery=gap_recovery,
                     reconcile_consistent=bool(
                         status.reconciliation_consistent if status is not None else False
                     ),
@@ -712,6 +820,8 @@ class ShadowSupervisor:
                     entries_today=entries_today,
                     day_pnl=(str(day_pnl) if day_pnl is not None else None),
                     last_candle=(watermark.get(self._cfg.instrument)),
+                    market_continuity_ok=market_continuity_ok,
+                    gap_recovery=gap_recovery,
                 )
 
                 if (now - last_report).total_seconds() >= self._cfg.report_refresh_seconds:

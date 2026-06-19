@@ -161,6 +161,27 @@ def generate_daily_report(
             return None
         return 100.0 * sum(1 for h in health if h.get(key)) / len(health)
     ws_pct, feed_pct = pct("ws_auth"), pct("feed_usable")
+    feed_connected_pct = pct("feed_connected")
+    feed_stale_pct = pct("feed_stale")
+    continuity_pct = pct("market_continuity_ok")
+    per_feed_counts: dict[str, Counter] = {}
+    for h in health:
+        for feed in h.get("per_feed_health") or []:
+            if not isinstance(feed, dict):
+                continue
+            feed_id = str(feed.get("feed_id") or "unknown")
+            counts = per_feed_counts.setdefault(feed_id, Counter())
+            counts["samples"] += 1
+            if feed.get("connected"):
+                counts["connected"] += 1
+            if feed.get("stale"):
+                counts["stale"] += 1
+
+    candle_events = Counter()
+    for l in lines:
+        event_type = str(l.get("event_type") or "")
+        if l.get("kind") == "ledger_event" and event_type.startswith("market_candle_"):
+            candle_events[event_type] += 1
 
     # -- reconcile checks
     rec_ok = sum(1 for r in recs if r.consistent)
@@ -208,11 +229,27 @@ def generate_daily_report(
         "## Infrastructure",
         f"- health samples: {len(health)}; private WS authenticated: {fmt(ws_pct)}%; "
         f"feed usable: {fmt(feed_pct)}%",
+        f"- feed connected: {fmt(feed_connected_pct)}%; feed stale: {fmt(feed_stale_pct)}%; "
+        f"market continuity ok: {fmt(continuity_pct)}%",
         f"- reconciliations: {len(recs)} (consistent: {rec_ok}, inconsistent: {rec_bad})",
         f"- supervisor events: "
         + (", ".join(f"{k}={v}" for k, v in sorted(sup_counts.items())) or "none"),
-        "",
     ]
+    if per_feed_counts:
+        out.append(
+            "- per-feed health: "
+            + ", ".join(
+                f"{feed_id} connected={fmt(100.0 * c['connected'] / c['samples'])}% "
+                f"stale={fmt(100.0 * c['stale'] / c['samples'])}%"
+                for feed_id, c in sorted(per_feed_counts.items())
+                if c["samples"]
+            )
+        )
+    out.append(
+        "- candle continuity events: "
+        + (", ".join(f"{k}={v}" for k, v in sorted(candle_events.items())) or "none")
+    )
+    out.append("")
     return "\n".join(out)
 
 
