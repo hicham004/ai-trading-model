@@ -1,0 +1,88 @@
+name: Notify
+
+# Operator notifications for travel mode (Telegram). This workflow holds the
+# Telegram secrets, so it is deliberately isolated from untrusted PR code:
+#
+# SECURITY INVARIANT (do not regress — see docs/TRAVEL_MODE.md "CI security"):
+#   * It is triggered by `workflow_run` (after CI completes). For this event
+#     GitHub always runs the workflow file and the checked-out code from the
+#     repository's DEFAULT BRANCH (trusted) — never the PR's version.
+#   * It MUST NOT check out the PR head, run PR scripts, or install the PR's
+#     dependencies. It checks out the default branch only and installs a single
+#     pinned package (`requests`) to send the message.
+#   * All untrusted metadata (branch name, conclusion) is passed via `env:` and
+#     referenced as quoted shell variables ("$CI_BRANCH") — never inlined as
+#     ${{ ... }} into a shell command.
+#   * The CI conclusion comes from the trusted event payload. The pass/fail
+#     classification reads the CI artifact only via `grep -q` against a file
+#     (file contents are never executed or interpolated into the shell).
+#
+# `tests/test_ci_workflow_isolation.py` asserts these properties so they cannot
+# silently regress. This workflow can notify only; it cannot merge or deploy.
+permissions:
+  contents: read
+  actions: read   # download the CI run's summary artifact
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+jobs:
+  notify:
+    # Scope notifications to pull-request CI runs to keep the channel quiet
+    # (feature-branch pushes do not notify). Secrets-gated so forks/no-secrets
+    # repos simply no-op.
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      REPO: ${{ github.repository }}
+      # Untrusted / GitHub-controlled metadata, consumed only via quoted env.
+      CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+      CI_URL: ${{ github.event.workflow_run.html_url }}
+      CI_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      CI_RUN_ID: ${{ github.event.workflow_run.id }}
+    steps:
+      - name: Checkout default branch (trusted; NOT the PR head)
+        uses: actions/checkout@v4
+        # No `ref:` — under workflow_run this resolves to the default branch,
+        # so only trusted code runs here. Never set ref to a PR head/branch.
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install notifier dependency (single pinned package; not PR deps)
+        run: pip install "requests==2.32.3"
+
+      - name: Download CI summary artifact (for pass/fail classification)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: ci-summary
+          path: ci-summary
+          run-id: ${{ env.CI_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send Telegram notification
+        if: ${{ env.TELEGRAM_BOT_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          # Default to pass; downgrade based on the trusted conclusion, and
+          # detect a travel-guard block from the artifact via grep -q (the file
+          # contents are never executed or interpolated into the shell).
+          EVENT=ci_pass
+          if [ "$CI_CONCLUSION" != "success" ]; then
+            EVENT=ci_fail
+            if grep -q '\[travel-guard\] FAIL' ci-summary/travel-guard-summary.txt 2>/dev/null; then
+              EVENT=safety_fail
+            fi
+          fi
+          python scripts/notify_telegram.py \
+            --event "$EVENT" \
+            --repo "$REPO" \
+            --title "CI $CI_CONCLUSION on $CI_BRANCH" \
+            --url "$CI_URL"

@@ -1,0 +1,117 @@
+name: CI
+
+# Travel-mode CI: runs offline tests and the travel-mode safety guard on every
+# pull request. It NEVER merges, deploys, or touches a real/production
+# environment.
+#
+# SECURITY INVARIANT (do not regress — see docs/TRAVEL_MODE.md "CI security"):
+# This workflow checks out and runs UNTRUSTED, PR-controlled code (pip install,
+# pytest, repo scripts). Therefore it must hold NO secrets. There is no
+# `secrets.*` reference anywhere in this file. Operator notifications that need
+# the Telegram token live in a SEPARATE `workflow_run` workflow
+# (.github/workflows/notify.yml) that runs only trusted default-branch code and
+# never executes PR code. `tests/test_ci_workflow_isolation.py` enforces this.
+#
+# Least privilege: read-only repository access, so this workflow is
+# structurally incapable of pushing, merging, or releasing. Merge / deploy /
+# phase-advancement remain human actions.
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  push:
+    branches-ignore: [main]   # feature branches only; never act on main pushes
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: tests + travel-mode safety guard
+    runs-on: ubuntu-latest
+    env:
+      # Non-secret repository variable read by the guard. Operator toggles it
+      # (no commit needed): unset/0 = off, 1 = on. See docs/TRAVEL_MODE.md.
+      TRAVEL_MODE: ${{ vars.TRAVEL_MODE }}
+    steps:
+      - name: Checkout (full history for diff)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Byte-compile (fast syntax check)
+        run: python -m compileall -q app scripts
+
+      - name: Run tests (pytest)
+        id: pytest
+        run: |
+          set -o pipefail
+          python -m pytest -q | tee pytest-summary.txt
+
+      - name: Travel-mode safety guard
+        id: travel_guard
+        if: ${{ always() }}
+        # Untrusted PR metadata (SHAs) are passed via env and referenced as
+        # quoted shell variables ("$BASE_SHA") — never inlined as ${{ ... }}
+        # into the script body — so crafted PR metadata cannot inject commands.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="$BASE_SHA"
+            HEAD="$HEAD_SHA"
+          else
+            BASE="origin/main"
+            HEAD="HEAD"
+          fi
+          python scripts/check_travel_mode_safety.py --base "$BASE" --head "$HEAD" \
+            | tee travel-guard-summary.txt
+
+      - name: Write CI step summary
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## CI summary"
+            echo "- Travel mode: \`${TRAVEL_MODE:-off}\`"
+            echo ""
+            echo "### Tests"
+            echo '```'
+            tail -n 30 pytest-summary.txt 2>/dev/null || echo "(no pytest output)"
+            echo '```'
+            echo "### Travel-mode safety guard"
+            echo '```'
+            cat travel-guard-summary.txt 2>/dev/null || echo "(no guard output)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload CI summary artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          # The notify workflow downloads this to decide ci_pass / ci_fail /
+          # safety_fail without re-running (or trusting) any PR code.
+          name: ci-summary
+          path: |
+            pytest-summary.txt
+            travel-guard-summary.txt
+          if-no-files-found: ignore
