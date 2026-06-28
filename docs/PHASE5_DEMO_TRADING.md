@@ -7,8 +7,9 @@ The human owner explicitly authorized Phase 5 implementation on June 10, 2026:
 cash, long-only. Phase 5 was independently reviewed by Codex and **explicitly
 accepted by the human owner on June 10, 2026** (recorded in
 `docs/PHASE5_REVIEW_NOTES.md`). Acceptance covers the implementation as reviewed
-and tested offline; Phase 5 was not exercised against the live OKX demo API in
-this work, and no demo order has been submitted.
+and tested offline. Later bounded validation against the live OKX demo API,
+including owner-authorized demo smoke orders and reconciliation evidence, is
+recorded in `docs/PHASE5_VALIDATION.md`; it remains demo/simulated only.
 
 Every request is demo/simulated (`x-simulated-trading: 1`) to a strict hostname
 allowlist. The following are forbidden and made unrepresentable in code:
