@@ -1,0 +1,40 @@
+name: Claude PR Assistant
+
+# PR-only Claude helper. This workflow lets the human operator ask Claude for
+# branch/PR work from GitHub comments. It must never merge, deploy, advance a
+# phase, or bypass the travel-mode safety guard.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+  id-token: write
+
+jobs:
+  claude:
+    name: Claude PR assistant
+    runs-on: ubuntu-latest
+    if: |
+      github.actor == 'hicham004' &&
+      contains(github.event.comment.body, '@claude')
+    steps:
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          trigger_phrase: "@claude"
+          branch_prefix: "claude/"
+          use_commit_signing: true
+          additional_permissions: |
+            actions: read
+          include_comments_by_actor: "hicham004,chatgpt-codex-connector"
+          claude_args: |
+            --max-turns 8
+            --system-prompt "You are working in hicham004/ai-trading-model under AGENTS.md, CLAUDE.md, PROJECT_RULES.md, and docs/TRAVEL_MODE.md. Stay PR-only. Never merge, deploy, release, advance a phase, weaken demo-only/simulated-only/long-only/leverage=1/risk caps/kill switch/fail-closed controls, expose secrets, or touch real funds. Do not push to main. If a request would touch safety-sensitive paths listed in scripts/check_travel_mode_safety.py, or is ambiguous, stop and leave a comment asking the operator for an explicit desk review. Prefer one bounded task per branch/PR. Run relevant offline tests and the travel-mode guard when you change files. Merge, deploy, and phase advancement remain human decisions."
