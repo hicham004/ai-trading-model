@@ -1,5 +1,7 @@
 # AI Agent Rules
 
+<!-- Travel-mode safety-block smoke test. Do not merge this PR. -->
+
 These rules apply to Claude Code, Codex, ChatGPT, and every other AI agent
 working on this repository. Read this file before doing anything else; it is
 loaded at the start of every session.
