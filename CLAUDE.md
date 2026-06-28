@@ -70,20 +70,42 @@ Phase 6a amendments (owner, June 12, 2026):
   test of the 1H change (1H identity + `candle1H` feed + warm-up together) and
   the first `--run` heartbeat is the proof of 1H candle delivery.
 
-**OKX IP whitelist (error 50110): RESOLVED (June 17, 2026).** The operator
-whitelisted the egress IP on the demo key; `--gate-check` returned
-`armable=True`. NOTE for future reference: a dynamic residential IP will
-rotate and re-trigger 50110 mid-run; the supervisor would burn its restart
-budget and halt with an ALERT (safe). A stable egress IP (e.g. a static-IP
-host) is the durable fix for a long unattended run — VPS planning is deferred.
+**Phase 6a hardening landed (June 19, 2026, commit `4b63bde`).** The 1H
+candle-gap recovery fix adds an entry-only continuity latch, bounded public
+REST backfill, two live-candle confirmations before clearing the latch, a
+3-successes/24h recovery cap, REST/WS divergence detection, exit/stop
+evaluation independent of the entry latch, and sticky ALERT state across
+restarts. This fixed a reviewed safety regression where a candle-gap latch
+could also block exit/stop-loss evaluation. The implementation touches the
+demo execution driver and shadow supervisor only inside the already
+authorized Phase 6a demo scope; it does not retune `ma_crossover`.
 
-**Current state (June 19, 2026):** Gap-recovery fix (1H candle-gap recovery —
-entry-only latch, bounded public REST backfill, exit-path independence, sticky
-ALERT, REST/WS divergence guard) committed and code-reviewed. Awaiting clean
-operator relaunch: `--gate-check` then `--run`.
+**Phase 6a operational evidence (June 21-27, 2026):** local shadow reports show
+the first organic 1H shadow trade on June 21 (19 LONG signals, 7 clearing the
+0.60 floor, one allowed entry, one round-trip, small demo cash loss, and
+consistent reconciliation in the daily report). They also show the
+home/residential run was not durable enough for unattended travel: June 22 had
+private-WS authentication flapping and thousands of supervisor re-arm events,
+and June 27 had no authenticated private-WS/reconciliation progress. Repeated
+OKX `50110` IP-whitelist failures remain expected whenever the residential
+egress IP changes.
+
+**Current operator-reported run plan (June 28, 2026):** migrate the Phase 6a
+shadow run to a static-IP DigitalOcean Singapore VPS on Ubuntu 24.04 with
+PostgreSQL, the `demo-shadow-1h` account, 1H timeframe, Telegram operator
+notification, and a fail-closed `systemd` service plus nightly `pg_dump`
+backup. Agents must verify the actual host state before relying on it:
+checkout at `origin/main`, 530 tests passing, `.env` secrets present but never
+printed, `DEMO_ACCOUNT_NAME=demo-shadow-1h`, `SHADOW_PERIOD_ENABLED=1`,
+PostgreSQL available, `--gate-check` returning `armable=True`, Telegram test
+notification delivered, and `ai-shadow`/heartbeat/state showing the run is
+healthy. Do not infer these facts from this file alone.
 
 **Phase 6b (news agent, log-only) is designed but NOT authorized.** Phase 6b
 and all later phases require explicit human approval before any work begins.
+The operator is travelling for roughly one week around June 28, 2026; while
+away, no agent may advance a phase, weaken a safety rule, make a safety-core
+change, merge/deploy autonomously, or treat a clean test run as approval.
 
 ## Standing Safety Contract
 
@@ -133,11 +155,43 @@ and all later phases require explicit human approval before any work begins.
   size, so exact-zero is unreachable; sub-lot residue is unsellable dust.
 - Operator CLI: `scripts/run_demo_trading.py`
   (`--status/--reconcile/--arm/--disarm/--engage-kill-switch/...`).
+- AgentOps travel mode is merged on `main`: PR-based workflow, CI safety
+  guard, and Telegram notification tooling exist for code-review process only.
+  They do not run or protect the demo shadow process; the shadow run's
+  durability depends on the VPS/service setup above.
+- Telegram notification surfaces are separate and must not be confused:
+  - **VPS/shadow-side notification:** the repo provides the generic,
+    secret-redacting notifier in `app/notify/telegram.py` and the CLI wrapper
+    `scripts/notify_telegram.py`. Credentials come from the VPS process
+    environment (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, optional
+    `TELEGRAM_DRY_RUN`), not from GitHub secrets. The CLI does not load `.env`
+    by itself; if it is run under `systemd`, an `EnvironmentFile` or another
+    export mechanism must put those variables into the service environment.
+    The repo proves the notifier/CLI and `report_ready` event exist; it does
+    not currently show the shadow supervisor or execution runtime wired to send
+    Telegram messages for fills, ALERT files, stale heartbeat, private-WS auth
+    drop, or permanent halt. If those runtime notifications are configured on
+    the VPS, verify them on that host before relying on them.
+  - **CI/code notification:** `.github/workflows/notify.yml` is merged on
+    `main` and runs in GitHub Actions via `workflow_run` after pull-request CI.
+    It uses GitHub Actions repository secrets named `TELEGRAM_BOT_TOKEN` and
+    `TELEGRAM_CHAT_ID`, not the VPS `.env`, and emits `ci_pass`, `ci_fail`, or
+    `safety_fail` based on the trusted CI conclusion and summary artifact. The
+    current workflow does not send `pr_opened` or `pr_updated` notifications.
+    External GitHub repo setup still must be confirmed there: repo secrets
+    present, and `TRAVEL_MODE=1` set while travelling so safety-sensitive PRs
+    fail closed.
+- Operator security item: the Telegram bot token was operator-reported as
+  exposed on screen during VPS setup. Revoke/regenerate it in BotFather before
+  relying on notifications, then update every configured location: the VPS
+  exported environment / `systemd` `EnvironmentFile`, and the GitHub Actions
+  repository secret `TELEGRAM_BOT_TOKEN` if CI notifications are enabled. Do
+  not paste tokens or chat ids into the repo, chats, screenshots, or logs.
 
 ## Deferred / Open Items (tracked)
 
-1. Organic strategy-generated demo round-trip - deferred to the Phase 6
-   shadow period.
+1. Organic strategy-generated demo round-trip - first observed in the June 21
+   Phase 6a shadow report; continue collecting out-of-sample evidence.
 2. Exchange-side protective stops (`slTriggerPx`/`slOrdPx` or
    `attachAlgoOrds`) - implement + independent review + demo validation
    before ANY live phase.
@@ -151,8 +205,13 @@ and all later phases require explicit human approval before any work begins.
 6. Position persistence across restarts requires a reviewed change before any
    live phase: today a restart rebuilds the strategy window from live candles,
    so the warm-up FLAT closes any open position via the reviewed exit path
-   (accepted for demo, June 12, 2026; crash churn = real fees live).
-7. Persistence uses `create_all`; no production migration workflow.
+   (accepted for demo, June 12, 2026; crash churn = real fees live). This is
+   higher priority on an always-on VPS/systemd host because reboots/restarts
+   are more operationally realistic.
+7. Persistence uses `create_all`; no production migration workflow. This is
+   higher priority on an always-on PostgreSQL VPS; add a reviewed migration
+   workflow before any live phase, and use operator-managed backups (e.g.
+   nightly `pg_dump`) for the demo shadow period.
 
 ## Completion And Change Control
 

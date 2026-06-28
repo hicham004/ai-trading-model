@@ -18,7 +18,6 @@ import json
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine
@@ -28,6 +27,8 @@ from sqlalchemy.pool import StaticPool
 from app.config import Settings
 from app.db.models import Base, DemoEvent, DemoRuntimeStatus
 from app.execution.driver import GateOutcome
+from app.execution.identity import demo_identity_config
+from app.execution.store import DemoStore
 from app.shadow.config import (
     ShadowConfig,
     ShadowConfigError,
@@ -381,7 +382,53 @@ class FakeMarketState:
         return []
 
 
-def make_supervisor(tmp_path, session_factory, driver_factory, *, tasks_factory, **cfg):
+class RecordingNotifications:
+    def __init__(self):
+        self.calls = []
+
+    def fill_observed(self, fill):
+        self.calls.append(("fill", fill))
+
+    def alert_written(self, **fields):
+        self.calls.append(("alert", fields))
+
+    def heartbeat_stale(self, **fields):
+        self.calls.append(("heartbeat_stale", fields))
+
+    def private_ws_auth_drop(self, **fields):
+        self.calls.append(("private_ws_auth_drop", fields))
+
+    def permanent_halt(self, **fields):
+        self.calls.append(("permanent_halt", fields))
+
+    def disarmed(self, **fields):
+        self.calls.append(("disarmed", fields))
+
+
+class FailingNotifications:
+    def fill_observed(self, fill):
+        raise RuntimeError("notify failed")
+
+    def alert_written(self, **fields):
+        raise RuntimeError("notify failed")
+
+    def heartbeat_stale(self, **fields):
+        raise RuntimeError("notify failed")
+
+    def private_ws_auth_drop(self, **fields):
+        raise RuntimeError("notify failed")
+
+    def permanent_halt(self, **fields):
+        raise RuntimeError("notify failed")
+
+    def disarmed(self, **fields):
+        raise RuntimeError("notify failed")
+
+
+def make_supervisor(
+    tmp_path, session_factory, driver_factory, *, tasks_factory,
+    notification_sink=None, **cfg
+):
     config = make_config(tmp_path, **cfg)
     journal = DecisionJournal(DailyJsonlWriter(config.shadow_dir, "journal"))
     return ShadowSupervisor(
@@ -395,6 +442,7 @@ def make_supervisor(tmp_path, session_factory, driver_factory, *, tasks_factory,
         journal=journal,
         market_state_factory=FakeMarketState,
         driver_tasks_factory=tasks_factory,
+        notification_sink=notification_sink,
     ), config
 
 
@@ -687,6 +735,143 @@ def test_readiness_alert_writes_alert_without_halt_or_kill(tmp_path, session_fac
         l.get("kind") == "supervisor" and l.get("event") == "readiness_alert"
         for l in lines
     )
+
+
+# --------------------------------------------------------------------------
+# supervisor: Telegram notification hooks are observability only
+# --------------------------------------------------------------------------
+
+def test_alert_file_write_notifies_operator(tmp_path, session_factory):
+    notifications = RecordingNotifications()
+    supervisor, config = make_supervisor(
+        tmp_path, session_factory, lambda ms: None,
+        tasks_factory=crash_tasks_factory, notification_sink=notifications,
+    )
+
+    supervisor._write_alert("restart_budget_exhausted")
+
+    assert (config.shadow_dir / ALERT_FILENAME).exists()
+    assert notifications.calls == [
+        ("alert", {"reason": "restart_budget_exhausted", "alert_type": "halt"})
+    ]
+
+
+def test_supervisor_notifies_new_fill_rows_once(tmp_path, session_factory):
+    notifications = RecordingNotifications()
+    supervisor, _ = make_supervisor(
+        tmp_path, session_factory, lambda ms: None,
+        tasks_factory=crash_tasks_factory, notification_sink=notifications,
+    )
+    store = DemoStore(session_factory, "demo-seeded")
+    account_id = store.ensure_account("sha256:test", demo_identity_config(Settings()))
+    now = datetime(2026, 6, 12, 12, 0, tzinfo=UTC)
+
+    supervisor._prime_fill_notifications(account_id)
+    store.record_fill(
+        account_id, fill_id="fill-1", client_order_id="d5x-1",
+        exchange_order_id="1", instrument="BTC-USDT", side="buy",
+        fill_size="0.001", fill_price="65000", fee=None, fee_ccy=None,
+        fill_time=now, source="ws", now=now,
+    )
+
+    supervisor._new_fill_notifications(account_id)
+    supervisor._new_fill_notifications(account_id)
+
+    assert len(notifications.calls) == 1
+    event, fill = notifications.calls[0]
+    assert event == "fill"
+    assert fill["fill_id"] == "fill-1"
+    assert fill["instrument"] == "BTC-USDT"
+
+
+def test_supervisor_notifies_heartbeat_and_private_ws_health(
+    tmp_path, session_factory
+):
+    notifications = RecordingNotifications()
+    supervisor, _ = make_supervisor(
+        tmp_path, session_factory, lambda ms: None,
+        tasks_factory=crash_tasks_factory, notification_sink=notifications,
+    )
+    now = datetime(2026, 6, 12, 12, 0, tzinfo=UTC)
+    healthy = DemoRuntimeStatus(
+        account_id=1, status="running", kill_switch_engaged=False,
+        reconciliation_consistent=True, feed_connected=True, feed_stale=False,
+        ws_authenticated=True, lock_heartbeat=now, updated_at=now,
+    )
+    stale_heartbeat = DemoRuntimeStatus(
+        account_id=1, status="running", kill_switch_engaged=False,
+        reconciliation_consistent=True, feed_connected=True, feed_stale=False,
+        ws_authenticated=True,
+        lock_heartbeat=now - timedelta(seconds=Settings().demo_lock_stale_seconds + 1),
+        updated_at=now,
+    )
+    auth_down = DemoRuntimeStatus(
+        account_id=1, status="running", kill_switch_engaged=False,
+        reconciliation_consistent=True, feed_connected=True, feed_stale=False,
+        ws_authenticated=False, lock_heartbeat=now, updated_at=now,
+    )
+
+    supervisor._notify_runtime_health(healthy, now)
+    supervisor._notify_runtime_health(stale_heartbeat, now)
+    supervisor._notify_runtime_health(auth_down, now + timedelta(seconds=1))
+
+    assert notifications.calls[0][0] == "heartbeat_stale"
+    assert notifications.calls[1][0] == "private_ws_auth_drop"
+
+
+def test_notification_failures_do_not_propagate(tmp_path, session_factory):
+    supervisor, config = make_supervisor(
+        tmp_path, session_factory, lambda ms: None,
+        tasks_factory=crash_tasks_factory, notification_sink=FailingNotifications(),
+    )
+    now = datetime(2026, 6, 12, 12, 0, tzinfo=UTC)
+    stale = DemoRuntimeStatus(
+        account_id=1, status="running", kill_switch_engaged=False,
+        reconciliation_consistent=True, feed_connected=True, feed_stale=False,
+        ws_authenticated=False,
+        lock_heartbeat=now - timedelta(seconds=Settings().demo_lock_stale_seconds + 1),
+        updated_at=now,
+    )
+
+    supervisor._notify_fill({"fill_id": "fill-1"})
+    supervisor._write_alert("restart_budget_exhausted")
+    supervisor._notify_permanent_halt("restart_budget_exhausted")
+    supervisor._notify_disarmed("attempt_cleanup")
+    supervisor._notify_runtime_health(stale, now)
+
+    assert (config.shadow_dir / ALERT_FILENAME).exists()
+
+
+def test_fill_notification_observer_failure_does_not_abort_attempt(
+    tmp_path, session_factory, monkeypatch
+):
+    gate = GateOutcome(
+        lock_acquired=True, account_valid=True, consistent=True, armable=True, issues=[]
+    )
+    drivers = []
+
+    def factory(market_state):
+        driver = FakeDriver(gate)
+        drivers.append(driver)
+        return driver
+
+    supervisor, _ = make_supervisor(
+        tmp_path, session_factory, factory, tasks_factory=crash_tasks_factory
+    )
+
+    def boom(account_id):
+        raise RuntimeError("notification observer db read failed")
+
+    monkeypatch.setattr(supervisor, "_prime_fill_notifications", boom)
+    monkeypatch.setattr(supervisor, "_new_fill_notifications", boom)
+
+    outcome = asyncio.run(supervisor._run_attempt(asyncio.Event()))
+
+    assert outcome == "crashed"
+    assert len(drivers) == 1
+    assert drivers[0].runtime.arm_calls >= 1
+    assert drivers[0].runtime.disarm_calls >= 1
+    assert drivers[0].shutdown_calls == 1
 
 
 # --------------------------------------------------------------------------

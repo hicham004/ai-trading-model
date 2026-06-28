@@ -38,6 +38,12 @@ EVENT_LABELS: dict[str, str] = {
     "pr_updated": "\U0001f501 PR updated",
     "safety_fail": "\U0001f6d1 Travel-mode safety check FAILED",
     "report_ready": "\U0001f4ca Daily report ready",
+    "shadow_alert": "Shadow ALERT written",
+    "shadow_disarmed": "Shadow runtime disarmed",
+    "shadow_fill": "Shadow fill observed",
+    "shadow_heartbeat_stale": "Shadow runtime heartbeat stale",
+    "shadow_permanent_halt": "Shadow supervisor permanent halt",
+    "shadow_private_ws_auth_drop": "Shadow private WS auth unhealthy",
 }
 
 # Transport contract: ``transport(url, payload) -> (status_code, body_text)``.

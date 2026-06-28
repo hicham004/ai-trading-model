@@ -56,6 +56,7 @@ from app.config import Settings
 from app.db.models import (
     DemoBalanceSnapshot,
     DemoEvent,
+    DemoFill,
     DemoOrderIntent,
     DemoReconciliation,
     DemoRuntimeStatus,
@@ -145,6 +146,7 @@ class ShadowSupervisor:
         market_state_factory: Callable,
         driver_tasks_factory: Callable = default_driver_tasks,
         clock: Callable[[], datetime] = _utcnow,
+        notification_sink: Optional[object] = None,
     ) -> None:
         self._settings = settings
         self._cfg = config
@@ -170,6 +172,15 @@ class ShadowSupervisor:
         self._last_report_day: Optional[date] = None
         self._lot_sizes: Dict[str, Decimal] = {}
         self._last_readiness_alert_event_id = 0
+        if notification_sink is None:
+            from app.shadow.notifications import ShadowTelegramNotifications
+
+            notification_sink = ShadowTelegramNotifications.from_env(clock=clock)
+        self._notifications = notification_sink
+        self._last_notified_fill_id = 0
+        self._heartbeat_missing_since: Optional[datetime] = None
+        self._private_ws_unhealthy_since: Optional[datetime] = None
+        self._private_ws_healthy_seen = False
 
     # -- persisted supervisor state (atomic JSON) ----------------------------
 
@@ -197,6 +208,7 @@ class ShadowSupervisor:
             "clear with: python scripts/run_shadow_period.py --acknowledge-alert\n"
         )
         self._journal.write("supervisor", event="alert", reason=reason)
+        self._notify_alert(reason=reason, alert_type="halt")
 
     def _write_readiness_alert(self, event: dict) -> None:
         reason = f"readiness:{event['event_type']}:{event['id']}"
@@ -222,6 +234,7 @@ class ShadowSupervisor:
             message=event["message"],
             payload=event["payload"],
         )
+        self._notify_alert(reason=reason, alert_type="readiness")
 
     def _write_heartbeat(self, **fields) -> None:
         write_atomic_json(
@@ -275,6 +288,167 @@ class ShadowSupervisor:
             }
         finally:
             session.close()
+
+    def _prime_fill_notifications(self, account_id: int) -> None:
+        try:
+            session = self._session_factory()
+            try:
+                latest = session.scalar(
+                    select(DemoFill.id)
+                    .where(DemoFill.account_id == account_id)
+                    .order_by(DemoFill.id.desc())
+                    .limit(1)
+                )
+            finally:
+                session.close()
+            self._last_notified_fill_id = int(latest or 0)
+        except Exception as exc:
+            logger.warning(
+                "shadow fill notification prime failed",
+                extra={"error_type": type(exc).__name__},
+            )
+
+    def _safe_prime_fill_notifications(self, account_id: int) -> None:
+        try:
+            self._prime_fill_notifications(account_id)
+        except Exception as exc:
+            logger.warning(
+                "shadow fill notification prime failed",
+                extra={"error_type": type(exc).__name__},
+            )
+
+    def _new_fill_notifications(self, account_id: int) -> None:
+        try:
+            session = self._session_factory()
+            try:
+                rows = list(
+                    session.scalars(
+                        select(DemoFill)
+                        .where(
+                            DemoFill.account_id == account_id,
+                            DemoFill.id > self._last_notified_fill_id,
+                        )
+                        .order_by(DemoFill.id.asc())
+                    ).all()
+                )
+            finally:
+                session.close()
+            fills = [
+                {
+                    "row_id": int(row.id),
+                    "fill_id": row.fill_id,
+                    "client_order_id": row.client_order_id,
+                    "instrument": row.instrument,
+                    "side": row.side,
+                    "fill_size": row.fill_size,
+                    "fill_price": row.fill_price,
+                    "source": row.source,
+                }
+                for row in rows
+            ]
+        except Exception as exc:
+            logger.warning(
+                "shadow fill notification poll failed",
+                extra={"error_type": type(exc).__name__},
+            )
+            return
+        for fill in fills:
+            self._notify_fill(fill)
+            self._last_notified_fill_id = max(
+                self._last_notified_fill_id, int(fill["row_id"])
+            )
+
+    def _safe_new_fill_notifications(self, account_id: int) -> None:
+        try:
+            self._new_fill_notifications(account_id)
+        except Exception as exc:
+            logger.warning(
+                "shadow fill notification poll failed",
+                extra={"error_type": type(exc).__name__},
+            )
+
+    def _notify_fill(self, fill: dict) -> None:
+        try:
+            self._notifications.fill_observed(fill)
+        except Exception as exc:  # notification must never affect supervisor flow
+            logger.warning(
+                "shadow fill notification failed",
+                extra={"error_type": type(exc).__name__},
+            )
+
+    def _notify_alert(self, *, reason: str, alert_type: str) -> None:
+        try:
+            self._notifications.alert_written(reason=reason, alert_type=alert_type)
+        except Exception as exc:
+            logger.warning(
+                "shadow alert notification failed",
+                extra={"error_type": type(exc).__name__},
+            )
+
+    def _notify_permanent_halt(self, reason: str) -> None:
+        try:
+            self._notifications.permanent_halt(reason=reason)
+        except Exception as exc:
+            logger.warning(
+                "shadow halt notification failed",
+                extra={"error_type": type(exc).__name__},
+            )
+
+    def _notify_disarmed(self, reason: str) -> None:
+        try:
+            self._notifications.disarmed(reason=reason)
+        except Exception as exc:
+            logger.warning(
+                "shadow disarm notification failed",
+                extra={"error_type": type(exc).__name__},
+            )
+
+    def _notify_runtime_health(
+        self, status: Optional[DemoRuntimeStatus], now: datetime
+    ) -> None:
+        threshold = float(self._settings.demo_lock_stale_seconds)
+        heartbeat = status.lock_heartbeat if status is not None else None
+        if heartbeat is None:
+            if self._heartbeat_missing_since is None:
+                self._heartbeat_missing_since = now
+            age = (now - self._heartbeat_missing_since).total_seconds()
+        else:
+            if heartbeat.tzinfo is None:
+                heartbeat = heartbeat.replace(tzinfo=timezone.utc)
+            age = (now - heartbeat).total_seconds()
+            if age <= threshold:
+                self._heartbeat_missing_since = None
+        if age > threshold:
+            try:
+                self._notifications.heartbeat_stale(
+                    age_seconds=age, threshold_seconds=threshold
+                )
+            except Exception as exc:
+                logger.warning(
+                    "shadow heartbeat notification failed",
+                    extra={"error_type": type(exc).__name__},
+                )
+
+        ws_auth = bool(status.ws_authenticated) if status is not None else False
+        ws_threshold = float(self._settings.demo_private_stale_seconds)
+        if ws_auth:
+            self._private_ws_healthy_seen = True
+            self._private_ws_unhealthy_since = None
+            return
+        if self._private_ws_unhealthy_since is None:
+            self._private_ws_unhealthy_since = now
+        unhealthy_for = (now - self._private_ws_unhealthy_since).total_seconds()
+        if self._private_ws_healthy_seen or unhealthy_for > ws_threshold:
+            try:
+                self._notifications.private_ws_auth_drop(
+                    unhealthy_seconds=unhealthy_for,
+                    threshold_seconds=ws_threshold,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "shadow private-WS notification failed",
+                    extra={"error_type": type(exc).__name__},
+                )
 
     @staticmethod
     def _feed_health_snapshot(market_state) -> List[dict]:
@@ -551,6 +725,7 @@ class ShadowSupervisor:
                 reason = outcome.split(":", 1)[1]
                 self._write_alert(reason)
                 self._write_heartbeat(state="halted_alert", reason=reason)
+                self._notify_permanent_halt(reason)
                 return 1
             if self._state.get("alert"):
                 reason = self._state["alert"]
@@ -558,6 +733,7 @@ class ShadowSupervisor:
                     "supervisor", event="restart_blocked_by_alert", reason=reason
                 )
                 self._write_heartbeat(state="halted_alert", reason=reason)
+                self._notify_permanent_halt(reason)
                 return 1
             # crashed / transient gate failure -> bounded, gated restart
             now = self._clock()
@@ -570,6 +746,7 @@ class ShadowSupervisor:
             if not within_budget:
                 self._write_alert("restart_budget_exhausted")
                 self._write_heartbeat(state="halted_alert", reason="restart_budget_exhausted")
+                self._notify_permanent_halt("restart_budget_exhausted")
                 return 1
             try:
                 await asyncio.wait_for(
@@ -582,7 +759,9 @@ class ShadowSupervisor:
     async def _run_attempt(self, stop_event: asyncio.Event) -> str:
         market_state = self._market_state_factory()
         driver = self._driver_factory(market_state)
+        await asyncio.to_thread(self._safe_prime_fill_notifications, driver.account_id)
         gate = await asyncio.to_thread(driver.startup_gate)
+        await asyncio.to_thread(self._safe_new_fill_notifications, driver.account_id)
         decision, reason = self._policy.classify_gate(
             lock_acquired=gate.lock_acquired, account_valid=gate.account_valid,
             consistent=gate.consistent, armable=gate.armable, issues=list(gate.issues),
@@ -661,6 +840,9 @@ class ShadowSupervisor:
             await asyncio.gather(*tasks, return_exceptions=True)
             try:
                 driver.runtime.disarm()
+                self._notify_disarmed(
+                    self._halt_reason or ("operator_stop" if stop_event.is_set() else "attempt_cleanup")
+                )
             finally:
                 await asyncio.to_thread(driver._shutdown)
             self._journal.write("supervisor", event="attempt_cleanup_done")
@@ -696,6 +878,7 @@ class ShadowSupervisor:
                     self._journal_market, driver, market_state, window, watermark, strategy
                 )
                 await asyncio.to_thread(poller.poll)
+                await asyncio.to_thread(self._safe_new_fill_notifications, account_id)
                 readiness_alert = await asyncio.to_thread(
                     self._latest_readiness_alert_event, account_id
                 )
@@ -736,6 +919,7 @@ class ShadowSupervisor:
                 # One status snapshot per tick: kill-switch ownership decisions
                 # and the health/heartbeat lines all read from it.
                 status = await asyncio.to_thread(self._runtime_status, account_id)
+                self._notify_runtime_health(status, now)
                 kill_engaged_now = bool(
                     status.kill_switch_engaged if status is not None else False
                 )
