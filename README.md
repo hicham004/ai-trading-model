@@ -14,12 +14,13 @@ assistant.
 > paper-trading simulation) are accepted. Phase 5 (authenticated OKX
 > **demo/simulated** trading only, BTC-USDT and ETH-USDT SPOT cash, long-only)
 > was explicitly authorized, independently reviewed by Codex, and **explicitly
-> accepted by the human owner on June 10, 2026** (demo/simulated only; not
-> exercised against the live OKX demo API in this work). Every demo request sends
-> `x-simulated-trading: 1` to a strict
+> accepted by the human owner on June 10, 2026**, then validated against the
+> live OKX demo API June 10-11, 2026 (demo/simulated only). Every demo request
+> sends `x-simulated-trading: 1` to a strict
 > hostname allowlist; production mode, withdrawals, leverage, margin,
-> derivatives, and shorting are forbidden and unrepresentable. Phase 6 and
-> later remain unapproved.
+> derivatives, and shorting are forbidden and unrepresentable. Phase 6a
+> mechanical demo shadow operation is authorized and active on the
+> `demo-shadow-1h` 1H account; Phase 6b and later remain unapproved.
 
 Read these before changing anything:
 
@@ -92,8 +93,9 @@ or real orders.
 
 ## Safety Boundaries
 
-- No live orders or real trades.
-- No OKX private API keys or account authentication.
+- No production/live-funds orders or real trades.
+- No production OKX private API keys or real account authentication. Demo keys
+  are allowed only for the explicitly authorized demo/simulated paths.
 - No withdrawals or withdrawal permissions, ever.
 - No martingale, doubling down, or automated loss chasing.
 - No direct AI/LLM order authority.

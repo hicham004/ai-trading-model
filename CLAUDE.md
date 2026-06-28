@@ -90,16 +90,22 @@ and June 27 had no authenticated private-WS/reconciliation progress. Repeated
 OKX `50110` IP-whitelist failures remain expected whenever the residential
 egress IP changes.
 
-**Current operator-reported run plan (June 28, 2026):** migrate the Phase 6a
-shadow run to a static-IP DigitalOcean Singapore VPS on Ubuntu 24.04 with
-PostgreSQL, the `demo-shadow-1h` account, 1H timeframe, Telegram operator
-notification, and a fail-closed `systemd` service plus nightly `pg_dump`
-backup. Agents must verify the actual host state before relying on it:
-checkout at `origin/main`, 530 tests passing, `.env` secrets present but never
-printed, `DEMO_ACCOUNT_NAME=demo-shadow-1h`, `SHADOW_PERIOD_ENABLED=1`,
-PostgreSQL available, `--gate-check` returning `armable=True`, Telegram test
-notification delivered, and `ai-shadow`/heartbeat/state showing the run is
-healthy. Do not infer these facts from this file alone.
+**Current operator-verified VPS state (June 28, 2026):** the Phase 6a shadow
+run has migrated from the unstable Beirut residential connection to a
+static-IP DigitalOcean Singapore VPS on Ubuntu 24.04 with local PostgreSQL,
+the `demo-shadow-1h` account, 1H timeframe, and a fail-closed `systemd`
+service named `shadow.service`. The operator reported and verified:
+checkout at `origin/main`, full tests green after the merge, `.env` secrets
+present but never printed, `DEMO_ACCOUNT_NAME=demo-shadow-1h`,
+`SHADOW_PERIOD_ENABLED=1`, PostgreSQL available, `--gate-check` returning
+`armable=True`, Telegram test notification delivered, `shadow.service`
+enabled and `active (running)`, reboot survival tested, heartbeat
+`state=running`, position flat, kill switch false, restart window count zero,
+and market-continuity/gap-recovery status healthy. As of the operator's
+June 28 check, the last observed candle was `2026-06-28 16:00:00` UTC, and the
+VPS had not shown the previous `50110` whitelist failures, private-WS flapping,
+or re-arm storms. Agents must still verify the live host state before relying
+on it; do not infer current runtime health from this file alone.
 
 **Phase 6b (news agent, log-only) is designed but NOT authorized.** Phase 6b
 and all later phases require explicit human approval before any work begins.
@@ -167,11 +173,15 @@ change, merge/deploy autonomously, or treat a clean test run as approval.
     `TELEGRAM_DRY_RUN`), not from GitHub secrets. The CLI does not load `.env`
     by itself; if it is run under `systemd`, an `EnvironmentFile` or another
     export mechanism must put those variables into the service environment.
-    The repo proves the notifier/CLI and `report_ready` event exist; it does
-    not currently show the shadow supervisor or execution runtime wired to send
-    Telegram messages for fills, ALERT files, stale heartbeat, private-WS auth
-    drop, or permanent halt. If those runtime notifications are configured on
-    the VPS, verify them on that host before relying on them.
+    Runtime notifications are now wired through `app/shadow/notifications.py`
+    and `app/shadow/supervisor.py` after merge commit `d2eae04` / feature
+    commit `d870fed`: fills, ALERT files, stale heartbeat, private-WS auth
+    drop, permanent halt, and disarm emit best-effort Telegram messages.
+    Notification delivery is observability-only: it is fire-and-forget,
+    exception-swallowed, deduped/rate-limited with bounded state, and must
+    never affect gating, arming, entries, exits, reconciliation, kill switch,
+    or supervisor control flow. Verify the service environment on the VPS
+    before relying on delivery.
   - **CI/code notification:** `.github/workflows/notify.yml` is merged on
     `main` and runs in GitHub Actions via `workflow_run` after pull-request CI.
     It uses GitHub Actions repository secrets named `TELEGRAM_BOT_TOKEN` and
@@ -210,8 +220,14 @@ change, merge/deploy autonomously, or treat a clean test run as approval.
    are more operationally realistic.
 7. Persistence uses `create_all`; no production migration workflow. This is
    higher priority on an always-on PostgreSQL VPS; add a reviewed migration
-   workflow before any live phase, and use operator-managed backups (e.g.
-   nightly `pg_dump`) for the demo shadow period.
+   workflow before any live phase. Operator-managed backups (e.g. nightly
+   `pg_dump`) are useful for the long-lived demo VPS, but they are not a phase
+   gate because Phase 6a data loss is demo-only.
+8. Rotate the Telegram bot token: it was operator-reported as exposed on
+   screen during VPS setup. Revoke/regenerate it in BotFather, update the VPS
+   `EnvironmentFile` / `.env`, restart `shadow.service`, verify a fresh
+   heartbeat, and update the GitHub Actions secret if CI notifications are
+   enabled.
 
 ## Completion And Change Control
 

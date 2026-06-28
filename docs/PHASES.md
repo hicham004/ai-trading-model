@@ -8,6 +8,8 @@ not approve it, and passing tests does not make it complete.
 
 - **Accepted:** implementation, review, documentation, and human approval are
   complete.
+- **Authorized/WIP:** implementation or runtime is approved for the stated
+  scope, but the phase is not complete.
 - **WIP:** implementation or review is incomplete.
 - **Planned:** no implementation is authorized yet.
 
@@ -139,8 +141,8 @@ and then explicitly accepted it on June 10, 2026: authenticated OKX **demo
 independent Codex correction/review completed on June 10, 2026
 (`docs/PHASE5_REVIEW_NOTES.md`), and the human owner supplied explicit
 acceptance. Acceptance covers the implementation as reviewed and tested
-offline; it does not certify live-venue behaviour (Phase 5 was never run
-against the live OKX demo API in this work — see limitations).
+offline. Later bounded validation against the live OKX demo API is recorded in
+`docs/PHASE5_VALIDATION.md` and remains demo/simulated only.
 
 In scope (authorized):
 
@@ -166,22 +168,51 @@ Explicitly OUT of scope and still unauthorized (must be unrepresentable):
 - account-mode mutation or automatic demo-balance reset;
 - any generic arbitrary-endpoint method exposed to callers;
 - any mutating HTTP API route or any LLM/AI order authority;
-- Phase 6 and every later phase.
+- any scope outside the explicitly reviewed Phase 5 demo path.
 
 Implementation detail and limitations are in
 `docs/PHASE5_DEMO_TRADING.md`; the independent review is in
 `docs/PHASE5_REVIEW_NOTES.md`. Acceptance was the human owner's explicit
-decision; no agent may self-approve a phase. Phase 6 and every later phase
-remain unauthorized.
+decision; no agent may self-approve a phase. Phase 6a was separately
+authorized after Phase 5; Phase 6b and every later phase remain unauthorized.
 
-## Phase 6 - AI News And Event Research Agent
+## Phase 6 - Demo Shadow Period And News/Event Research
+
+### Phase 6a - Mechanical Demo Shadow Period
+
+**Status: Authorized/WIP (demo-only shadow run, active as of June 28, 2026)**
+
+Phase 6a is the mechanical, unattended OKX demo shadow period. It is limited
+to the reviewed demo execution path and shadow supervisor:
+
+- OKX demo/simulated only, always `x-simulated-trading: 1`.
+- BTC-USDT SPOT cash, long-only 1x, account `demo-shadow-1h`.
+- `ma_crossover` on the configured 1H timeframe; no retuning is authorized.
+- Fixed shadow caps: 10 USDT per entry, 1 open position, 3 entries/day,
+  1 USDT max daily loss before disarm-for-day.
+- Fail-closed gated restart, bounded restart budget, heartbeat, daily reports,
+  decision journal, account-partition guard, kill switch, and sticky ALERT
+  state.
+- 1H candle-gap recovery is hardened by commit `4b63bde`: gap recovery blocks
+  entries only, exits/stops still evaluate, public REST backfill is bounded,
+  and recovery is capped.
+- As of June 28, 2026, the operator-reported active runtime is hosted on a
+  static-IP DigitalOcean Singapore VPS under `shadow.service`, with PostgreSQL
+  and Telegram observability.
+
+Phase 6a is not complete until the operator explicitly accepts the collected
+shadow evidence. It authorizes no real-money trading, no production OKX
+endpoint, no strategy/risk retuning, no news agent, and no later phase.
+
+### Phase 6b - AI News And Event Research Agent
 
 **Status: Planned, not authorized**
 
 - Ingest approved news, macro, official-source, and social-watchlist data.
 - Classify event type, source quality, asset impact, and confidence.
 - Produce structured research outputs.
-- Adjust bounded strategy confidence or block trades under defined rules.
+- Defensive v1 may be designed to block/reduce only, never boost, but
+  implementation is not authorized yet.
 - Never place, approve, modify, or cancel orders.
 
 ## Phase 7 - Walk-Forward And Long Evaluation
