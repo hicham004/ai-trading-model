@@ -25,6 +25,11 @@ jobs:
       github.actor == 'hicham004' &&
       contains(github.event.comment.body, '@claude')
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1
         with:
