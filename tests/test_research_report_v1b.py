@@ -106,6 +106,16 @@ def _run(results):
     }
 
 
+def test_aggregate_sections_cover_ladder_brackets_timeframes_and_s5():
+    run = _run([_result("S2", "ETH-USDT", "4H"), _result("S2", "ETH-USDT", "6H", oos={"calmar": 0.3}, passed=False),
+                _result("S2+S5", "ETH-USDT", "4H", oos={"sharpe": 1.2}), _result("hold", "ETH-USDT", "4H")])
+    text = render_report_v1b(run)
+    assert "## Drawdown ladder — cost in return" in text and "Median effect of the ladder over 3 runs" in text
+    assert "## Exit brackets — give-back before/after" in text and "| S2 | ETH-USDT 4H | trail1 | +50.0% → +60.0% | 1.40 → 1.60 |" in text
+    assert "## 4H vs 6H" in text and "6H had the higher Calmar in 0 of 1 pairs, 4H in 1." in text
+    assert "## Positioning filter (S5)" in text and "| S2 | ETH-USDT 4H | 1.10 / 0.90 / 12.0% / 45 | 1.20 / 0.90 / 12.0% / 45 | 100.0% / 67.0% |" in text
+
+
 def test_executive_summary_and_rendering_with_a_pass():
     run = _run([_result(), _result("hold", "ETH-USDT", "4H")])
     bullets = executive_summary(run)

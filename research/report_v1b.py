@@ -222,6 +222,99 @@ def executive_summary(run: Mapping[str, Any]) -> List[str]:
     return bullets
 
 
+def _median(values: Sequence[Optional[float]]) -> Optional[float]:
+    vals = sorted(float(v) for v in values if v is not None and not (isinstance(v, float) and math.isnan(v)))
+    if not vals:
+        return None
+    mid = len(vals) // 2
+    return vals[mid] if len(vals) % 2 else (vals[mid - 1] + vals[mid]) / 2.0
+
+
+def aggregate_sections(run: Mapping[str, Any]) -> List[str]:
+    """Cross-candidate tables answering Sprint 2b items 3 (ladder), 4 (brackets / give-back), 5 (6H vs 4H) and 6 (S5)."""
+    results = list(run.get("results", []))
+    cands = [r for r in results if r.get("candidate") not in REFERENCE_CANDIDATES]
+    lines: List[str] = []
+
+    # Item 3: drawdown ladder cost and gain (chosen sizing with vs without the ladder, fixed replay).
+    ladder_rows = [r for r in cands if (r.get("ladder_effect") or {}).get("with") and (r.get("ladder_effect") or {}).get("without")]
+    if ladder_rows:
+        lines += ["## Drawdown ladder — cost in return, gain in drawdown (chosen sizing with vs without the ladder, fixed replay)", "",
+                  "| Candidate | Series | Return without → with | Max DD without → with | Calmar without → with |", "|---|---|---:|---:|---:|"]
+        d_ret, d_dd, d_cal = [], [], []
+        for r in ladder_rows:
+            w, wo = r["ladder_effect"]["with"], r["ladder_effect"]["without"]
+            lines.append(f"| {r['candidate']} | {r['instrument']} {r['timeframe']} | {_pct(wo.get('total_return'))} → {_pct(w.get('total_return'))} | "
+                         f"{_share(wo.get('max_drawdown'))} → {_share(w.get('max_drawdown'))} | {_f(wo.get('calmar'))} → {_f(w.get('calmar'))} |")
+            d_ret.append(_num(w.get("total_return")) - _num(wo.get("total_return")))
+            d_dd.append(_num(w.get("max_drawdown")) - _num(wo.get("max_drawdown")))
+            d_cal.append(_num(w.get("calmar")) - _num(wo.get("calmar")))
+        lines += ["", f"Median effect of the ladder over {len(ladder_rows)} runs: return {_pct(_median(d_ret))}, max drawdown {_pct(_median(d_dd))} "
+                  f"(negative = smaller drawdown), Calmar {_f(_median(d_cal), '{:+.2f}')}.", ""]
+
+    # Item 4: exit brackets and give-back.
+    br_rows = [r for r in cands if (r.get("bracket_effect") or {}).get("selected") and (r.get("bracket_effect") or {}).get("none")]
+    if br_rows:
+        lines += ["## Exit brackets — give-back before/after (same rule and sizing, fixed replay)", "",
+                  "Give-back = trades that reached +3 % unrealized gain yet closed at a loss (the fleets paper's finding); 'none' = the strategy's own exits only.", "",
+                  "| Candidate | Series | Bracket compared | Return none → bracket | PF none → bracket | Max DD none → bracket | Give-back share none → bracket | Avg give-back none → bracket |",
+                  "|---|---|---|---:|---:|---:|---:|---:|"]
+        d_pf, d_gb = [], []
+        for r in br_rows:
+            s, nn = r["bracket_effect"]["selected"], r["bracket_effect"]["none"]
+            lines.append(f"| {r['candidate']} | {r['instrument']} {r['timeframe']} | {r['bracket_effect'].get('bracket')} | "
+                         f"{_pct(nn.get('total_return'))} → {_pct(s.get('total_return'))} | {_f(nn.get('profit_factor'))} → {_f(s.get('profit_factor'))} | "
+                         f"{_share(nn.get('max_drawdown'))} → {_share(s.get('max_drawdown'))} | "
+                         f"{_share(nn.get('giveback_share_reached_closed_negative'))} ({nn.get('giveback_n_reached', 0)}) → "
+                         f"{_share(s.get('giveback_share_reached_closed_negative'))} ({s.get('giveback_n_reached', 0)}) | "
+                         f"{_share(nn.get('giveback_avg_giveback_pct'))} → {_share(s.get('giveback_avg_giveback_pct'))} |")
+            d_pf.append(_num(s.get("profit_factor")) - _num(nn.get("profit_factor")))
+            d_gb.append(_num(s.get("giveback_share_reached_closed_negative")) - _num(nn.get("giveback_share_reached_closed_negative")))
+        selected_brackets = [str((r.get("selected_params") or {}).get("bracket", "none")) for r in cands]
+        share_none = sum(1 for b in selected_brackets if b == "none") / len(selected_brackets) if selected_brackets else 0.0
+        lines += ["", f"The train stage kept the strategy's own exits (`none`) in {_share(share_none)} of the runs. Median effect of the compared bracket over "
+                  f"{len(br_rows)} runs: profit factor {_f(_median(d_pf), '{:+.2f}')}, give-back share {_pct(_median(d_gb))} (negative = fewer winners turned losers).", ""]
+
+    # Item 5: 4H vs 6H.
+    by_pair: Dict[Any, Dict[str, Mapping[str, Any]]] = {}
+    for r in results:
+        by_pair.setdefault((r["candidate"], r["instrument"]), {})[r["timeframe"]] = r
+    tf_rows = [(k, v) for k, v in by_pair.items() if "4H" in v and "6H" in v]
+    if tf_rows:
+        lines += ["## 4H vs 6H (same candidate and instrument, walk-forward numbers)", "",
+                  "| Candidate | Instrument | 4H Sharpe / Calmar / max DD / fees-yr / trades | 6H Sharpe / Calmar / max DD / fees-yr / trades | Higher Calmar |",
+                  "|---|---|---|---|---|"]
+        wins = {"4H": 0, "6H": 0}
+        for (cand, inst), v in tf_rows:
+            a, b = v["4H"]["oos"], v["6H"]["oos"]
+            better = "4H" if _num(a.get("calmar")) >= _num(b.get("calmar")) else "6H"
+            wins[better] += 1
+            lines.append(f"| {cand} | {inst} | {_f(a.get('sharpe'))} / {_f(a.get('calmar'))} / {_share(a.get('max_drawdown'))} / {_share(a.get('fees_pct_per_year'))} / {a.get('n_trades', 0)} | "
+                         f"{_f(b.get('sharpe'))} / {_f(b.get('calmar'))} / {_share(b.get('max_drawdown'))} / {_share(b.get('fees_pct_per_year'))} / {b.get('n_trades', 0)} | {better} |")
+        lines += ["", f"6H had the higher Calmar in {wins['6H']} of {len(tf_rows)} pairs, 4H in {wins['4H']}.", ""]
+
+    # Item 6: positioning filter (S5) effect.
+    by_key: Dict[Any, Mapping[str, Any]] = {(r["candidate"], r["instrument"], r["timeframe"]): r for r in results}
+    s5_rows = []
+    for (cand, inst, tf), r in by_key.items():
+        if cand.endswith("+S5"):
+            base = by_key.get((cand[:-3], inst, tf))
+            if base is not None:
+                s5_rows.append((base, r))
+    if s5_rows:
+        lines += ["## Positioning filter (S5) — base rule vs base + funding/open-interest filter", "",
+                  "| Base | Series | Base Sharpe / Calmar / max DD / trades | +S5 Sharpe / Calmar / max DD / trades | Data coverage (funding / OI) |",
+                  "|---|---|---|---|---|"]
+        for base, s5 in s5_rows:
+            a, b = base["oos"], s5["oos"]
+            pos = (run.get("positioning") or {}).get(base["instrument"], {})
+            lines.append(f"| {base['candidate']} | {base['instrument']} {base['timeframe']} | {_f(a.get('sharpe'))} / {_f(a.get('calmar'))} / {_share(a.get('max_drawdown'))} / {a.get('n_trades', 0)} | "
+                         f"{_f(b.get('sharpe'))} / {_f(b.get('calmar'))} / {_share(b.get('max_drawdown'))} / {b.get('n_trades', 0)} | "
+                         f"{_share(pos.get('funding_coverage'))} / {_share(pos.get('oi_coverage'))} |")
+        lines.append("")
+    return lines
+
+
 def default_owner_decisions(run: Mapping[str, Any]) -> List[str]:
     """Decisions this report cannot take; the owner answers them before Sprint 2c / Sprint 5."""
     results = [r for r in run.get("results", []) if r.get("candidate") not in REFERENCE_CANDIDATES]
@@ -373,6 +466,8 @@ def render_report_v1b(run: Mapping[str, Any]) -> str:
         lines += ["", f"Medians over {study['n']} runs: all-in max DD {_share(study.get('full_dd_median'))} → {_share(study.get('sized_dd_median'))}; "
                   f"CAGR {_pct(study.get('full_cagr_median'))} → {_pct(study.get('sized_cagr_median'))}; Calmar {_f(study.get('full_calmar_median'))} → "
                   f"{_f(study.get('sized_calmar_median'))}. {study.get('note', '')}", ""]
+
+    lines += aggregate_sections(run)
 
     # Portfolios.
     if run.get("portfolios"):
