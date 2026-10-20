@@ -172,6 +172,24 @@ source="binance")` builds the S5 feature context (funding z-score, 1-day
 open-interest change) from these series; `source="okx"` uses the OKX series
 (short history, kept collecting for the forward period).
 
+Evidence — first live collection (2026-10-20, local machine, public endpoints,
+`scripts/collect_binance_positioning.py`):
+
+| Series | Requests | Rows stored | Span (UTC) | Missing days |
+|---|---:|---:|---|---:|
+| funding_rate BTCUSDT | 8 pages | 7,792 settlements | 2019-09-10 08:00 → 2026-10-20 08:00 | – |
+| funding_rate ETHUSDT | 8 pages | 7,558 settlements | 2019-11-27 08:00 → 2026-10-20 08:00 | – |
+| metrics BTCUSDT (hourly OI + ratios) | 2,240 days × (zip + checksum) | 53,738 hourly rows | 2020-09-01 00:55 → 2026-10-19 23:55 | 0 |
+| metrics ETHUSDT (hourly OI + ratios) | 1,784 days × (zip + checksum) | 42,806 hourly rows | 2021-12-01 00:55 → 2026-10-19 23:55 | 0 |
+
+Funding took about a minute; the metrics files took about 1.5 hours with
+sha256 verification (every file verified, no mismatch); the external lake is
+5.5 MB. One run stopped on a transient Windows file lock (a concurrent
+reader of the state file while it was being replaced) — the writers now retry
+the atomic replace and the resumable collector picked up at the last good
+day. The OKX series were topped up the same day (`collect_derivatives.py`),
+so the forward period keeps both sources.
+
 ## Boundaries
 
 - Public data only; no API key is read or sent by anything in this package.
