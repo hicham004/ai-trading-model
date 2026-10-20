@@ -4,6 +4,26 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — Sprint 1: data lake v2 (master plan Sprint 1)
+
+### Added
+- `app/datalake/`: Parquet research lake over PUBLIC OKX data — resumable
+  `history-candles` backfill (BTC/ETH × 1m 5m 1H 4H 1D, de-duplicated,
+  year-partitioned, crash-safe cursors in `_state/`), SWAP statistics
+  collectors as research features (funding rate, open interest, long/short
+  ratio, taker volume), a public `liquidation-orders` WebSocket collector to
+  JSON lines, DuckDB views, and a data-quality report (continuity, gaps,
+  duplicates, alignment, OHLC coherence, outliers). Docs: `docs/DATA_LAKE.md`.
+- Scripts: `backfill_history.py`, `collect_derivatives.py`,
+  `collect_liquidations.py`, `data_quality_report.py`, `ingest_news.py`.
+- `app/news/`: log-only news-ingestion skeleton (Phase 6b design §7.1–7.3):
+  official RSS + GDELT sources, sanitization with audit hashes and flags,
+  quarantine of injection/homoglyph/bidi-flagged items, dedup, JSON lines.
+  No LLM call, no classification, no trading effect; the import boundary is
+  tested. Docs: `docs/NEWS_INGESTION.md`.
+- Dependencies: `duckdb`, `pyarrow` (now direct), `feedparser` (lockfile
+  regenerated; pip-audit clean).
+
 ## Unreleased — Sprint 0 (master plan `docs/MASTER_PLAN_2026-10-20.md`)
 
 ### Fixed

@@ -339,6 +339,14 @@ the human owner on June 10, 2026; see
 [`docs/PHASE5_DEMO_TRADING.md`](docs/PHASE5_DEMO_TRADING.md) and
 [`docs/PHASE5_REVIEW_NOTES.md`](docs/PHASE5_REVIEW_NOTES.md).
 
+## Research data lake and news ingestion (Sprint 1)
+
+Public OKX history and SWAP statistics can be backfilled into a local Parquet
+lake with DuckDB views (`docs/DATA_LAKE.md`), and a log-only news-ingestion
+skeleton collects official feeds into JSON lines without any LLM
+(`docs/NEWS_INGESTION.md`). Both are research tooling: nothing in them can
+reach an order.
+
 ## Tests
 
 ```bash
