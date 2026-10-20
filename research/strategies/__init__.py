@@ -6,14 +6,18 @@ distance, raw strength) for the sweep engine, and can be wrapped by
 :class:`research.strategies.adapters.ResearchStrategyAdapter` into the
 reviewed ``app.strategy.base.Strategy`` contract for the event-driven check.
 None of them is registered in the live registry.
+
+``REFERENCES`` holds passive references (always long) that the Sprint 2b
+runner reports next to the candidates but never shortlists.
 """
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, List
 
 from research.strategies.base import ResearchStrategy
 from research.strategies.baseline import MovingAverageCrossoverRef
+from research.strategies.hold import AlwaysLong
 from research.strategies.s1_tsmom import TimeSeriesMomentum
 from research.strategies.s2_breakout import DonchianBreakout
 from research.strategies.s3_meanrev import RangeMeanReversion
@@ -30,9 +34,16 @@ CANDIDATES: Dict[str, ResearchStrategy] = {
     "S2+S5": PositioningFiltered(DonchianBreakout()),
 }
 
+REFERENCES: Dict[str, ResearchStrategy] = {
+    "hold": AlwaysLong(),
+}
+
+ALL_KEYS: List[str] = [*REFERENCES, *CANDIDATES]
+
 
 def get_candidate(key: str) -> ResearchStrategy:
-    try:
+    if key in CANDIDATES:
         return CANDIDATES[key]
-    except KeyError:
-        raise ValueError(f"unknown candidate {key!r}; available: {sorted(CANDIDATES)}") from None
+    if key in REFERENCES:
+        return REFERENCES[key]
+    raise ValueError(f"unknown candidate {key!r}; available: {sorted(ALL_KEYS)}")
