@@ -37,12 +37,18 @@ from app.config import Settings, get_settings
 from app.exchange.credentials import DemoCredentials
 from app.exchange.instruments import InstrumentMeta
 from app.execution.account_validation import validate_demo_account
+from app.execution.bracket import bracket_levels
 from app.execution.ids import CLIENT_ORDER_PREFIX
 from app.execution.identity import demo_identity_config
 from app.execution.lifecycle import INTENT_ENTRY, OrderLifecycle
 from app.execution.reconcile import DemoReconciler
-from app.execution.runtime import DemoExecutionRuntime, EntryContext
+from app.execution.runtime import POLICY_POST_ONLY, DemoExecutionRuntime, EntryContext, slippage_bps
+from app.execution.stops import ProtectiveStopManager
 from app.execution.store import (
+    ALGO_EFFECTIVE,
+    ALGO_PENDING,
+    ALGO_UNKNOWN,
+    STATUS_FILLED,
     STATUS_UNKNOWN,
     DemoStore,
     map_okx_state,
@@ -153,15 +159,22 @@ class DemoTradingDriver:
             lock_token=self._token,
             clock=clock,
         )
+        # Sprint 3: exchange-side protective stop manager (inert unless DEMO_STOP_MODE=exchange).
+        self._stops = ProtectiveStopManager(
+            self._store, rest, self._account_id, self._settings.demo_account_name,
+            settings=self._settings, lock_token=self._token, clock=clock,
+        )
         self._reconciler = DemoReconciler(
             self._store, rest, session_factory, self._account_id,
             instruments=self._instruments,
             key_fingerprint=credentials.key_fingerprint(),
             clock=clock,
+            stops=self._stops,
         )
         self._runtime = DemoExecutionRuntime(
             store=self._store, lifecycle=self._lifecycle, reconciler=self._reconciler,
             account_id=self._account_id, token=self._token, settings=self._settings, clock=clock,
+            stops=self._stops,
         )
         self._strategy = build_strategy(self._settings.demo_strategy)
         self._windows: Dict[str, Deque[MarketCandle]] = {
@@ -184,10 +197,15 @@ class DemoTradingDriver:
             inst: {} for inst in self._instruments
         }
         self._needs_reconcile = False
+        self._last_stop_outcome: Dict[str, str] = {}
 
     @property
     def runtime(self) -> DemoExecutionRuntime:
         return self._runtime
+
+    @property
+    def stops(self) -> ProtectiveStopManager:
+        return self._stops
 
     @property
     def rest(self):
@@ -337,10 +355,12 @@ class DemoTradingDriver:
             return GateOutcome(True, False, False, False, validation.issues)
         account_valid = True
         self._instrument_meta = validation.instruments
+        self._reconciler.set_instrument_meta(self._instrument_meta)
 
-        # Resolve every non-terminal intent, then reconcile (one gate).
+        # Resolve every non-terminal intent (and exchange-side stop), then reconcile (one gate).
         try:
             self._lifecycle.resolve_open_intents()
+            self._stops.resolve_open(now=self._clock())
             result = self._runtime.reconcile_now()
         except Exception as exc:
             self._runtime.set_reconcile_consistent(False, now=self._clock())
@@ -360,13 +380,18 @@ class DemoTradingDriver:
             i for i in self._store.list_open_intents(self._account_id)
             if i.status == STATUS_UNKNOWN
         ]
-        armable = result.consistent and not ambiguous
+        ambiguous_stops = [
+            r for r in self._store.list_open_algo_orders(self._account_id)
+            if r.status in (ALGO_PENDING, ALGO_UNKNOWN)
+        ]
+        armable = result.consistent and not ambiguous and not ambiguous_stops
         if not armable:
             self._runtime.set_reconcile_consistent(False, now=self._clock())
             self._store.record_event(
                 self._account_id, "startup_gate_blocked", "warning",
                 "startup gate blocked: inconsistent or ambiguous orders remain",
-                payload={"consistent": result.consistent, "ambiguous": len(ambiguous)},
+                payload={"consistent": result.consistent, "ambiguous": len(ambiguous),
+                         "ambiguous_stops": len(ambiguous_stops)},
                 now=self._clock(),
             )
         else:
@@ -406,6 +431,16 @@ class DemoTradingDriver:
                 self._flag_foreign(f"private update for unapproved instrument {inst}", now)
                 continue
             intent = self._store.get_intent(self._account_id, cl) if cl else None
+            if intent is None:
+                # The venue-created SELL of an owned exchange-side stop carries no local
+                # clOrdId: map it to the stop's synthetic exit intent (never foreign).
+                child = self._stops.owned_child(row)
+                if child is not None:
+                    cl = self._stops.child_client_id(
+                        child, child_ord_id=str(row.get("ordId") or "") or None,
+                        size=str(row.get("sz") or child.actual_size or child.size), now=now,
+                    )
+                    intent = self._store.get_intent(self._account_id, cl)
             if (
                 not cl
                 or not cl.startswith(CLIENT_ORDER_PREFIX)
@@ -462,7 +497,52 @@ class DemoTradingDriver:
                 now=now,
             )
             self._maybe_record_fill(row, inst, cl, ord_id, now)
+            self._record_entry_quality(intent, row, now)
             self._needs_reconcile = True
+
+    def _record_entry_quality(self, intent, row: dict, now: datetime) -> None:
+        """Persist realized slippage (bps vs the decision-time ask) once an entry is filled."""
+        if intent.intent != INTENT_ENTRY or not intent.reference_price:
+            return
+        if map_okx_state(str(row.get("state", ""))) != STATUS_FILLED:
+            return
+        avg = _dec(row.get("avgPx"))
+        ref = _dec(intent.reference_price)
+        if avg is None or ref is None or ref <= 0:
+            return
+        bps = slippage_bps(avg, ref).quantize(Decimal("0.01"))
+        self._store.set_realized_slippage(self._account_id, intent.client_order_id, str(bps), now=now)
+        self._store.record_event(
+            self._account_id, "entry_execution_quality", "info",
+            f"entry {intent.client_order_id} filled: realized slippage {bps} bps vs reference "
+            f"(expected {intent.expected_slippage_bps}; policy {intent.entry_policy})",
+            payload={"instrument": intent.instrument, "realized_bps": str(bps), "expected_bps": intent.expected_slippage_bps,
+                     "policy": intent.entry_policy, "avg_price": str(avg), "reference_price": str(ref)},
+            now=now,
+        )
+
+    def project_private_algo_orders(self, rows: List[dict]) -> None:
+        """Project ``orders-algo`` private-WS updates onto the stop ledger; fail closed on foreign."""
+        if not self._store.owns_lock(self._account_id, self._token):
+            return
+        now = self._clock()
+        self._private_last_msg = now
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            inst = str(row.get("instId", ""))
+            if inst not in self._instruments:
+                self._flag_foreign(f"private algo update for unapproved instrument {inst}", now)
+                continue
+            status = self._stops.on_private_update(row, now=now)
+            if status is None:
+                self._flag_foreign(
+                    f"foreign/unknown private algo update algoClOrdId={row.get('algoClOrdId') or '<none>'} "
+                    f"algoId={row.get('algoId') or '<none>'} on {inst}", now,
+                )
+                continue
+            if status == ALGO_EFFECTIVE:
+                self._needs_reconcile = True
 
     def _maybe_record_fill(self, row: dict, inst: str, cl: str, ord_id: Optional[str], now: datetime) -> None:
         trade_id = str(row.get("tradeId", "") or "")
@@ -591,6 +671,70 @@ class DemoTradingDriver:
                                         results.append(r)
                 if item.confirms_recovery:
                     self._account_for_recovery_confirmations(inst, [candle])
+        results.extend(self._manage_execution_v2(now))
+        return results
+
+    # -- Sprint 3: entry timeouts, exchange-side stop sync, bracket, stop guard -----
+
+    def _manage_execution_v2(self, now: datetime) -> List:
+        results: List = []
+        if not self._instrument_meta:
+            return results
+        if self._settings.demo_entry_policy == POLICY_POST_ONLY and self._store.owns_lock(self._account_id, self._token):
+            results.extend(
+                self._runtime.manage_entry_timeouts(
+                    now=now, quote_for=lambda inst: self._quote_for(inst, now), metas=self._instrument_meta,
+                    feed_status=self._effective_feed_status(now),
+                    available_quote=lambda inst: self._balances.get(self._quote_ccy, Decimal(0)),
+                )
+            )
+        if not self._stops.enabled:
+            return results
+        alarm: Optional[str] = None
+        armed = self._store.is_armed(self._account_id, now=now)
+        for inst in self._instruments:
+            meta = self._instrument_meta.get(inst)
+            if meta is None:
+                continue
+            position, stop_price = self._store.position_summary(self._account_id, inst)
+            stop_level, take_profit, time_due = stop_price, None, False
+            if position > 0 and stop_price is not None:
+                entry = self._store.latest_entry(self._account_id, inst)
+                entry_px = _dec(entry.avg_price) if entry is not None else None
+                entry_time = entry.last_update_at if entry is not None else None
+                if entry_px is not None and entry_time is not None:
+                    entry_time = self._utc(entry_time)
+                    since = [c for c in self._windows[inst] if self._utc(c.timestamp) >= entry_time]
+                    levels = bracket_levels(
+                        entry_price=entry_px, stop_price=stop_price,
+                        highs_since_entry=[Decimal(str(c.high)) for c in since],
+                        bars_since_entry=len(since), settings=self._settings,
+                    )
+                    stop_level, take_profit, time_due = levels.stop, levels.take_profit, levels.time_stop_due
+            if time_due and position > 0:
+                watermark = self._watermark.get(inst)
+                result = self._runtime.consider_exit(
+                    signal_id=f"timestop|{inst}|{watermark.isoformat() if watermark else now.date().isoformat()}",
+                    instrument=inst, meta=meta, quote=self._quote_for(inst, now),
+                    feed_status=self._effective_feed_status(now, require_market_continuity=False),
+                    base_balance=position, now=now,
+                )
+                if result is not None:
+                    results.append(result)
+                    continue  # the exit cancelled the stop; re-sync on the next cycle
+            outcome = self._stops.sync(inst, position, stop_level, meta, now=now, armed=armed, tp_trigger=take_profit)
+            if outcome.state in ("placed", "amended", "rejected", "capped", "unarmed") and outcome.state != self._last_stop_outcome.get(inst):
+                self._store.record_event(
+                    self._account_id, f"protective_stop_{outcome.state}", "info" if outcome.state in ("placed", "amended") else "warning",
+                    f"exchange-side stop {outcome.state} for {inst}: {outcome.message or outcome.algo_cl_ord_id or ''}",
+                    payload={"instrument": inst, "algo_cl_ord_id": outcome.algo_cl_ord_id, "stop": str(stop_level), "take_profit": str(take_profit)},
+                    now=now,
+                )
+            self._last_stop_outcome[inst] = outcome.state
+            reason = self._stops.guard(inst, position, meta, now=now)
+            if reason is not None and alarm is None:
+                alarm = reason
+        self._runtime.set_stop_alarm(alarm, now=now)
         return results
 
     def _equity_exposure(self, now: datetime) -> tuple[Decimal, Decimal, int]:
@@ -1083,6 +1227,8 @@ class DemoTradingDriver:
                 on_orders=self.project_private_orders,
                 on_status=self._set_private_authenticated,
                 on_liveness=self._mark_private_liveness,
+                on_algo_orders=self.project_private_algo_orders,
+                subscribe_algo=self._stops.enabled,
                 clock=self._clock,
             )
         await ws.run(stop_event)

@@ -9,11 +9,23 @@ Gating rules:
 * No order is submitted unless the runtime is ARMED (expiring) and holds the
   runtime lock.
 * New ENTRIES additionally require: reconciliation consistent, kill switch
-  disengaged, a connected/fresh feed, a synchronized/fresh quote, the
-  deterministic risk veto passing, and Decimal precision/balance validation.
+  disengaged, the protective-stop guard not alarmed, a connected/fresh feed, a
+  synchronized/fresh quote, the deterministic risk veto passing, and Decimal
+  precision/balance validation.
 * Protective EXITS are allowed while armed even if the kill switch is engaged
   (the kill switch blocks new entries and cancels owned pending entries; it
-  must not trap a position).
+  must not trap a position). With the exchange-side stop enabled an exit
+  first cancels the resting stop; if the venue reports the stop already
+  triggered, the exit is superseded (the venue is closing the position).
+
+Sprint 3 entry policy (``DEMO_ENTRY_POLICY``):
+
+* ``marketable_limit`` (reviewed default) — a crossing limit at ask x (1 + band);
+* ``post_only_then_market`` — a post-only limit at/inside the spread; after
+  ``DEMO_ENTRY_TIMEOUT_SECONDS`` the resting remainder is cancelled and ONE
+  marketable limit is sent for it only if the expected slippage versus the
+  decision-time ask is within ``DEMO_ENTRY_SLIPPAGE_BUDGET``; expected and
+  realized slippage are persisted on the intents.
 
 The decision methods are synchronous and deterministic; network access happens
 only through the injected REST client / lifecycle, which tests fake.
@@ -24,7 +36,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Callable, Optional
+from typing import Callable, Mapping, Optional
 
 from app.config import Settings, get_settings
 from app.exchange.instruments import InstrumentMeta
@@ -32,12 +44,15 @@ from app.execution.lifecycle import INTENT_ENTRY, INTENT_EXIT, OrderLifecycle, S
 from app.execution.precision import (
     PrecisionError,
     decimal_to_str,
+    quantize_price,
     to_decimal,
     validate_buy,
     validate_sell,
 )
 from app.execution.reconcile import DemoReconciler
+from app.execution.stops import ProtectiveStopManager
 from app.execution.store import (
+    STATUS_CANCELED,
     STATUS_LIVE,
     STATUS_PARTIAL,
     STATUS_PENDING,
@@ -51,6 +66,11 @@ from app.strategy.base import Signal, SignalAction
 
 logger = get_logger(__name__)
 
+POLICY_MARKETABLE = "marketable_limit"
+POLICY_POST_ONLY = "post_only_then_market"
+POLICY_FALLBACK = "market_fallback"
+_BPS = Decimal(10_000)
+
 
 def risk_limits_from_settings(settings: Settings) -> RiskLimits:
     """Build the accepted Phase 4 RiskLimits from demo settings (leverage 1.0)."""
@@ -61,6 +81,13 @@ def risk_limits_from_settings(settings: Settings) -> RiskLimits:
         min_confidence=settings.demo_min_confidence,
         max_data_staleness=timedelta(seconds=settings.demo_max_candle_age_seconds),
     )
+
+
+def slippage_bps(price: Decimal, reference: Decimal) -> Decimal:
+    """Basis points paid versus the reference (positive = worse than the reference for a buy)."""
+    if reference <= 0:
+        return Decimal(0)
+    return (price - reference) / reference * _BPS
 
 
 @dataclass(frozen=True)
@@ -97,6 +124,7 @@ class DemoExecutionRuntime:
         settings: Optional[Settings] = None,
         risk_manager: Optional[RiskManager] = None,
         clock: Callable[[], datetime] = lambda: datetime.now(tz=timezone.utc),
+        stops: Optional[ProtectiveStopManager] = None,
     ) -> None:
         self._store = store
         self._lifecycle = lifecycle
@@ -106,6 +134,7 @@ class DemoExecutionRuntime:
         self._settings = settings or get_settings()
         self._risk = risk_manager or RiskManager(risk_limits_from_settings(self._settings))
         self._clock = clock
+        self._stops = stops
         self._reconcile_consistent = False
 
     # -- operator actions ---------------------------------------------------
@@ -144,6 +173,10 @@ class DemoExecutionRuntime:
     def account_id(self) -> int:
         return self._account_id
 
+    @property
+    def stops(self) -> Optional[ProtectiveStopManager]:
+        return self._stops
+
     def arm(self, *, ttl_seconds: Optional[float] = None) -> Optional[datetime]:
         """Arm only if reconciliation is consistent (fail closed otherwise)."""
         if not self._reconcile_consistent or not self._store.owns_lock(
@@ -167,8 +200,9 @@ class DemoExecutionRuntime:
         """Engage the kill switch (persist first) and cancel owned pending entries.
 
         Persisting first guarantees new entries are blocked immediately; only
-        then are owned pending ENTRY orders cancelled. Protective exits are never
-        cancelled. Returns the cancel results.
+        then are owned pending ENTRY orders cancelled. Protective exits and the
+        exchange-side protective stop are never cancelled. Returns the cancel
+        results.
         """
         self._store.set_kill_switch(self._account_id, True, now=self._clock())
         return self.cancel_pending_entries()
@@ -220,6 +254,15 @@ class DemoExecutionRuntime:
         self._store.set_kill_switch(self._account_id, False, now=now)
         return True
 
+    # -- stop guard alarm ------------------------------------------------------
+
+    def set_stop_alarm(self, reason: Optional[str], *, now: Optional[datetime] = None) -> bool:
+        """Persist the protective-stop guard alarm (entries are blocked while it is set)."""
+        return self._store.set_stop_alarm(self._account_id, reason, now=now or self._clock())
+
+    def stop_alarm(self) -> Optional[str]:
+        return self._store.get_stop_alarm(self._account_id)
+
     # -- gates --------------------------------------------------------------
 
     def entry_block_reason(self, now: datetime) -> Optional[str]:
@@ -232,10 +275,12 @@ class DemoExecutionRuntime:
             return "disarmed"
         if self._runtime_snapshot().get("kill_switch_engaged"):
             return "kill_switch_engaged"
+        if self._runtime_snapshot().get("stop_alarm"):
+            return "protective_stop_alarm"
         return None
 
     def exit_block_reason(self, now: datetime) -> Optional[str]:
-        """Exits require arming but are NOT blocked by the kill switch."""
+        """Exits require arming but are NOT blocked by the kill switch or the stop alarm."""
         if not self._store.owns_lock(self._account_id, self._token):
             return "runtime_lock_lost"
         if not self._store.is_armed(self._account_id, now=now):
@@ -260,6 +305,7 @@ class DemoExecutionRuntime:
                 "kill_switch_engaged": row.kill_switch_engaged,
                 "reconciliation_consistent": row.reconciliation_consistent,
                 "armed_until": row.armed_until,
+                "stop_alarm": row.stop_alarm,
             }
         finally:
             session.close()
@@ -303,6 +349,7 @@ class DemoExecutionRuntime:
             return None
 
         ask = to_decimal(ctx.quote.ask, "ask")
+        bid = to_decimal(ctx.quote.bid, "bid")
         risk_ctx = RiskContext(
             equity=float(ctx.equity),
             reference_price=float(ask),
@@ -329,7 +376,14 @@ class DemoExecutionRuntime:
             ctx.available_quote,
         )
         band = Decimal(str(self._settings.demo_price_band))
-        limit_price = ask * (Decimal(1) + band)
+        policy = self._settings.demo_entry_policy
+        if policy == POLICY_POST_ONLY:
+            # At/inside the spread: one tick above the bid when the spread allows, else at the bid.
+            limit_price = self._post_only_price(bid, ask, ctx.meta)
+            ord_type = "post_only"
+        else:
+            limit_price = ask * (Decimal(1) + band)
+            ord_type = self._settings.demo_order_type
         if limit_price <= 0 or max_notional <= 0:
             self._record_decision(signal, "entry", False, "non_positive_size", now)
             return None
@@ -370,7 +424,7 @@ class DemoExecutionRuntime:
             instrument=ctx.instrument,
             intent=INTENT_ENTRY,
             side="buy",
-            ord_type=self._settings.demo_order_type,
+            ord_type=ord_type,
             price=decimal_to_str(validated.price),
             size=decimal_to_str(validated.size),
             stop_loss=(
@@ -378,7 +432,126 @@ class DemoExecutionRuntime:
                 if signal.stop_loss is not None
                 else None
             ),
+            entry_policy=POLICY_POST_ONLY if policy == POLICY_POST_ONLY else POLICY_MARKETABLE,
+            reference_price=decimal_to_str(ask),
+            expected_slippage_bps=decimal_to_str(slippage_bps(validated.price, ask).quantize(Decimal("0.01"))),
         )
+
+    @staticmethod
+    def _post_only_price(bid: Decimal, ask: Decimal, meta: InstrumentMeta) -> Decimal:
+        tick = meta.tick_size
+        inside = bid + tick
+        if ask - bid > tick and inside < ask:
+            return quantize_price(inside, tick)
+        return quantize_price(bid, tick)
+
+    def manage_entry_timeouts(
+        self,
+        *,
+        now: datetime,
+        quote_for: Callable[[str], Optional[QuoteSnapshot]],
+        metas: Mapping[str, InstrumentMeta],
+        feed_status: FeedStatus,
+        available_quote: Callable[[str], Decimal] = lambda instrument: Decimal(0),
+    ) -> list[SubmitResult]:
+        """Cancel resting post-only entries past the timeout; send ONE marketable fallback within the slippage budget."""
+        results: list[SubmitResult] = []
+        timeout = timedelta(seconds=self._settings.demo_entry_timeout_seconds)
+        for intent in self._store.list_open_intents(self._account_id):
+            if intent.intent != INTENT_ENTRY or intent.ord_type != "post_only":
+                continue
+            if intent.status not in (STATUS_LIVE, STATUS_PARTIAL):
+                continue
+            requested = intent.requested_at
+            if requested.tzinfo is None:
+                requested = requested.replace(tzinfo=timezone.utc)
+            if now - requested < timeout:
+                continue
+            cancelled = self._lifecycle.cancel(intent.client_order_id, intent.instrument)
+            results.append(cancelled)
+            if cancelled.status != STATUS_CANCELED:
+                # Unknown / still live: resolved on a later cycle; never send the fallback blind.
+                self._store.record_event(
+                    self._account_id, "entry_timeout_unresolved", "warning",
+                    f"post-only entry {intent.client_order_id} cancel outcome {cancelled.status}; fallback deferred",
+                    payload={"instrument": intent.instrument}, now=now,
+                )
+                continue
+            refreshed = self._store.get_intent(self._account_id, intent.client_order_id)
+            filled = Decimal(refreshed.filled_size or "0") if refreshed is not None else Decimal(0)
+            remaining = Decimal(intent.size) - filled
+            meta = metas.get(intent.instrument)
+            reference = Decimal(intent.reference_price) if intent.reference_price else None
+            quote = quote_for(intent.instrument)
+            reason: Optional[str] = None
+            if meta is None or reference is None:
+                reason = "no_reference"
+            elif remaining < meta.min_size * Decimal(2):
+                reason = "remainder_below_minimum"
+            elif self.entry_block_reason(now) is not None:
+                reason = self.entry_block_reason(now)
+            elif quote is None or not quote.is_usable() or not feed_status.usable:
+                reason = "no_usable_quote"
+            elif (now - quote.timestamp) > timedelta(seconds=self._settings.demo_max_quote_age_seconds):
+                reason = "stale_quote"
+            else:
+                ask = to_decimal(quote.ask, "ask")
+                expected = slippage_bps(ask, reference)
+                budget = Decimal(str(self._settings.demo_entry_slippage_budget)) * _BPS
+                if expected > budget:
+                    reason = "slippage_budget"
+            if reason is not None:
+                self._store.record_event(
+                    self._account_id, "entry_fallback_abandoned", "warning",
+                    f"post-only entry {intent.client_order_id} timed out; no fallback ({reason})",
+                    payload={"instrument": intent.instrument, "remaining": decimal_to_str(remaining), "reason": reason}, now=now,
+                )
+                continue
+            band = Decimal(str(self._settings.demo_price_band))
+            limit_price = ask * (Decimal(1) + band)
+            cap = Decimal(str(self._settings.demo_max_order_notional))
+            # The per-order notional cap binds at the (higher, tick-rounded) fallback price: never exceed it.
+            desired = min(remaining, cap / quantize_price(limit_price, meta.tick_size))
+            try:
+                validated = validate_buy(
+                    meta=meta, price=limit_price, desired_size=desired,
+                    available_quote=available_quote(intent.instrument), max_notional=cap,
+                )
+            except PrecisionError as exc:
+                self._store.record_event(
+                    self._account_id, "entry_fallback_abandoned", "warning",
+                    f"post-only entry {intent.client_order_id} timed out; fallback not representable: {exc}",
+                    payload={"instrument": intent.instrument, "reason": "not_representable"}, now=now,
+                )
+                continue
+            if validated.size < meta.min_size * Decimal(2):
+                self._store.record_event(
+                    self._account_id, "entry_fallback_abandoned", "warning",
+                    f"post-only entry {intent.client_order_id} timed out; no fallback (remainder_below_minimum)",
+                    payload={"instrument": intent.instrument, "reason": "remainder_below_minimum"}, now=now,
+                )
+                continue
+            fallback = self._lifecycle.submit(
+                signal_id=f"{intent.signal_id}|fb",
+                instrument=intent.instrument,
+                intent=INTENT_ENTRY,
+                side="buy",
+                ord_type=self._settings.demo_order_type,
+                price=decimal_to_str(validated.price),
+                size=decimal_to_str(validated.size),
+                stop_loss=intent.stop_loss,
+                entry_policy=POLICY_FALLBACK,
+                reference_price=decimal_to_str(reference),
+                expected_slippage_bps=decimal_to_str(slippage_bps(validated.price, reference).quantize(Decimal("0.01"))),
+                parent_client_order_id=intent.client_order_id,
+            )
+            self._store.record_event(
+                self._account_id, "entry_fallback_submitted", "info",
+                f"post-only entry {intent.client_order_id} timed out; marketable fallback {fallback.client_order_id} ({fallback.status})",
+                payload={"instrument": intent.instrument, "remaining": decimal_to_str(validated.size)}, now=now,
+            )
+            results.append(fallback)
+        return results
 
     def consider_exit(
         self,
@@ -422,6 +595,23 @@ class DemoExecutionRuntime:
                 now=now,
             )
             return None
+        # Exchange-side stop: cancel the resting stop FIRST so the venue cannot sell twice.
+        if self._stops is not None and self._stops.enabled:
+            outcome = self._stops.cancel_for_exit(instrument, now=now)
+            if outcome == "triggered":
+                self._store.record_event(
+                    self._account_id, "exit_superseded_by_exchange_stop", "warning",
+                    "software exit skipped: the exchange-side stop already triggered (venue is closing the position)",
+                    payload={"instrument": instrument, "signal_id": signal_id}, now=now,
+                )
+                return None
+            if outcome == "unknown":
+                self._store.record_event(
+                    self._account_id, "exit_deferred_stop_unknown", "warning",
+                    "software exit deferred: the exchange-side stop cancellation is unresolved",
+                    payload={"instrument": instrument, "signal_id": signal_id}, now=now,
+                )
+                return None
         return self._lifecycle.submit(
             signal_id=signal_id,
             instrument=instrument,

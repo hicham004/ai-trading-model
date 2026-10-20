@@ -2,9 +2,11 @@
 
 Connects to the DEMO private WS host (``wspap.okx.com``; the production host is
 rejected), logs in with a signed ``login`` op, subscribes to the private
-``orders`` channel for the configured SPOT instruments, and dispatches parsed
-order/fill updates to a handler. Pure helpers (:func:`build_login_args`,
-:func:`parse_private_message`) are side-effect-free and fully testable offline.
+``orders`` channel for the configured SPOT instruments (and, when the
+exchange-side protective stop is enabled, to the ``orders-algo`` channel too),
+and dispatches parsed order/fill updates to a handler. Pure helpers
+(:func:`build_login_args`, :func:`parse_private_message`) are side-effect-free
+and fully testable offline.
 
 The signature and secret are never logged. Construction performs no I/O; only
 ``run`` opens a connection, and only when a connect factory is provided/created.
@@ -16,7 +18,7 @@ import asyncio
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Awaitable, Callable, List, Optional
+from typing import Awaitable, Callable, List, Optional, Set, Tuple
 
 from app.exchange import okx_auth
 from app.exchange.credentials import DemoCredentials
@@ -26,6 +28,8 @@ from app.logging_config import get_logger
 logger = get_logger(__name__)
 
 ORDERS_CHANNEL = "orders"
+ALGO_CHANNEL = "orders-algo"  # Sprint 3: exchange-side protective stop updates
+_DATA_CHANNELS = (ORDERS_CHANNEL, ALGO_CHANNEL)
 
 
 def build_login_args(credentials: DemoCredentials, timestamp: str) -> dict:
@@ -44,14 +48,11 @@ def build_login_args(credentials: DemoCredentials, timestamp: str) -> dict:
     }
 
 
-def build_orders_subscribe(instruments: List[str]) -> dict:
-    return {
-        "op": "subscribe",
-        "args": [
-            {"channel": ORDERS_CHANNEL, "instType": "SPOT", "instId": inst}
-            for inst in instruments
-        ],
-    }
+def build_orders_subscribe(instruments: List[str], *, include_algo: bool = False) -> dict:
+    args = [{"channel": ORDERS_CHANNEL, "instType": "SPOT", "instId": inst} for inst in instruments]
+    if include_algo:
+        args += [{"channel": ALGO_CHANNEL, "instType": "SPOT", "instId": inst} for inst in instruments]
+    return {"op": "subscribe", "args": args}
 
 
 @dataclass
@@ -101,7 +102,7 @@ def parse_private_message(raw: object) -> PrivateOutcome:
     if not isinstance(arg, dict) or not isinstance(data, list):
         return PrivateOutcome(ignored="missing_arg_or_data")
     channel = arg.get("channel")
-    if channel != ORDERS_CHANNEL:
+    if channel not in _DATA_CHANNELS:
         return PrivateOutcome(ignored=f"unsupported_channel:{channel}")
     orders = [row for row in data if isinstance(row, dict)]
     return PrivateOutcome(event="channel", channel=channel, orders=orders)
@@ -126,6 +127,8 @@ class OKXDemoPrivateWebSocket:
         on_orders: Optional[Callable[[List[dict]], None]] = None,
         on_status: Optional[Callable[[bool], None]] = None,
         on_liveness: Optional[Callable[[], None]] = None,
+        on_algo_orders: Optional[Callable[[List[dict]], None]] = None,
+        subscribe_algo: bool = False,
         connect: Optional[Callable[[str], Awaitable[object]]] = None,
         clock: Callable[[], datetime] = lambda: datetime.now(tz=timezone.utc),
         ping_interval: float = 20.0,
@@ -143,6 +146,8 @@ class OKXDemoPrivateWebSocket:
         self._on_orders = on_orders or (lambda rows: None)
         self._on_status = on_status or (lambda authed: None)
         self._on_liveness = on_liveness or (lambda: None)
+        self._on_algo_orders = on_algo_orders or (lambda rows: None)
+        self._subscribe_algo = bool(subscribe_algo)
         self._connect = connect or _default_connect
         self._clock = clock
         self._ping_interval = ping_interval
@@ -155,7 +160,7 @@ class OKXDemoPrivateWebSocket:
 
     @property
     def authenticated(self) -> bool:
-        """True only after BOTH login and every orders-channel subscription ack."""
+        """True only after BOTH login and every required channel subscription ack."""
         return self._authenticated and self._subscribed
 
     @property
@@ -165,6 +170,12 @@ class OKXDemoPrivateWebSocket:
     @property
     def last_message_time(self) -> Optional[datetime]:
         return self._last_message_time
+
+    def required_subscriptions(self) -> Set[Tuple[str, str]]:
+        required = {(ORDERS_CHANNEL, inst) for inst in self._instruments}
+        if self._subscribe_algo:
+            required |= {(ALGO_CHANNEL, inst) for inst in self._instruments}
+        return required
 
     async def run(self, stop_event: asyncio.Event) -> None:
         backoff = self._initial_backoff
@@ -215,12 +226,13 @@ class OKXDemoPrivateWebSocket:
             return False
         self._notify_liveness()
         # Logged in, but NOT yet authenticated for trading: require an explicit
-        # subscription acknowledgement for every instrument first (fail closed).
+        # subscription acknowledgement for every channel x instrument first
+        # (fail closed).
         self._authenticated = True
         self._subscribed = False
-        required_subs = {inst for inst in self._instruments}
-        acked_subs: set[str] = set()
-        await conn.send(json.dumps(build_orders_subscribe(self._instruments)))
+        required_subs = self.required_subscriptions()
+        acked_subs: Set[Tuple[str, str]] = set()
+        await conn.send(json.dumps(build_orders_subscribe(self._instruments, include_algo=self._subscribe_algo)))
         while not stop_event.is_set():
             recv_task = asyncio.ensure_future(conn.recv())
             stop_task = asyncio.ensure_future(stop_event.wait())
@@ -251,9 +263,9 @@ class OKXDemoPrivateWebSocket:
             if outcome.event == "error":
                 logger.warning("demo private error event", extra={"code": outcome.code})
                 return True
-            if outcome.event == "subscribe" and outcome.channel == ORDERS_CHANNEL:
+            if outcome.event == "subscribe" and outcome.channel in _DATA_CHANNELS:
                 if outcome.instrument:
-                    acked_subs.add(outcome.instrument)
+                    acked_subs.add((outcome.channel, outcome.instrument))
                 if required_subs <= acked_subs and not self._subscribed:
                     self._subscribed = True
                     self._notify_status(True)
@@ -262,12 +274,13 @@ class OKXDemoPrivateWebSocket:
                 if not self._subscribed:
                     # Defensive: never project order data before full ack.
                     continue
+                handler = self._on_algo_orders if outcome.channel == ALGO_CHANNEL else self._on_orders
                 try:
-                    self._on_orders(outcome.orders)
+                    handler(outcome.orders)
                 except Exception as exc:  # pragma: no cover - handler safety
                     logger.error(
                         "demo private order handler failed",
-                        extra={"error_type": type(exc).__name__},
+                        extra={"error_type": type(exc).__name__, "channel": outcome.channel},
                     )
         return True
 

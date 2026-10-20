@@ -80,6 +80,11 @@ READINESS_ALERT_EVENTS = {
     "market_candle_backfill_failed",
     "market_candle_recovery_cap_exceeded",
     "market_candle_backfill_divergence",
+    # Sprint 3: a position without a live exchange-side protective stop beyond
+    # the grace, or a stop the venue rejected / left ambiguous. Entries are
+    # already blocked by the runtime; the ALERT routes a human to the venue.
+    "protective_stop_alarm",
+    "protective_stop_rejected",
 }
 
 

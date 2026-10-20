@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import (
     DemoAccount,
+    DemoAlgoOrder,
     DemoBalanceSnapshot,
     DemoDailyBaseline,
     DemoEvent,
@@ -48,6 +49,33 @@ STATUS_FAILED = "failed"
 
 _OPEN_STATUSES = (STATUS_PENDING, STATUS_UNKNOWN, STATUS_LIVE, STATUS_PARTIAL)
 _TERMINAL_STATUSES = (STATUS_FILLED, STATUS_CANCELED, STATUS_REJECTED, STATUS_FAILED)
+
+# Lifecycle statuses for DemoAlgoOrder.status (exchange-side protective stop).
+ALGO_PENDING = "pending_submit"
+ALGO_UNKNOWN = "unknown"
+ALGO_LIVE = "live"
+ALGO_EFFECTIVE = "effective"  # triggered: the venue created the market SELL
+ALGO_CANCELED = "canceled"
+ALGO_ORDER_FAILED = "order_failed"  # triggered but the venue could not place the SELL
+ALGO_REJECTED = "rejected"
+ALGO_FAILED = "failed"
+ALGO_REPLACED = "replaced"
+ALGO_OPEN_STATUSES = (ALGO_PENDING, ALGO_UNKNOWN, ALGO_LIVE)
+ALGO_TERMINAL_STATUSES = (ALGO_EFFECTIVE, ALGO_CANCELED, ALGO_ORDER_FAILED, ALGO_REJECTED, ALGO_FAILED, ALGO_REPLACED)
+# OKX algo "state" -> local status. "pause" / "partially_effective" are not
+# reachable for a plain SPOT stop; they are mapped to unknown (fail closed).
+_OKX_ALGO_STATE_MAP = {
+    "live": ALGO_LIVE,
+    "effective": ALGO_EFFECTIVE,
+    "canceled": ALGO_CANCELED,
+    "order_failed": ALGO_ORDER_FAILED,
+    "partially_effective": ALGO_UNKNOWN,
+    "pause": ALGO_UNKNOWN,
+}
+
+
+def map_okx_algo_state(state: str) -> Optional[str]:
+    return _OKX_ALGO_STATE_MAP.get(state)
 
 # Map an OKX order "state" to our intent status.
 _OKX_STATE_MAP = {
@@ -84,6 +112,25 @@ class IntentInput:
     price: Optional[str]
     size: str
     stop_loss: Optional[str] = None
+    entry_policy: Optional[str] = None
+    reference_price: Optional[str] = None
+    expected_slippage_bps: Optional[str] = None
+    parent_client_order_id: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class AlgoInput:
+    """One exchange-side protective stop placement (SPOT conditional / OCO SELL)."""
+
+    algo_cl_ord_id: str
+    instrument: str
+    size: str
+    trigger_price: str
+    order_price: str = "-1"
+    ord_type: str = "conditional"
+    tp_trigger_price: Optional[str] = None
+    parent_client_order_id: Optional[str] = None
+    version: int = 1
 
 
 class DemoStore:
@@ -331,6 +378,10 @@ class DemoStore:
                     stop_loss=intent.stop_loss,
                     status=STATUS_PENDING,
                     requested_at=now,
+                    entry_policy=intent.entry_policy,
+                    reference_price=intent.reference_price,
+                    expected_slippage_bps=intent.expected_slippage_bps,
+                    parent_client_order_id=intent.parent_client_order_id,
                 )
             )
             session.add(
@@ -744,6 +795,430 @@ class DemoStore:
                         DemoOrderIntent.account_id == account_id
                     )
                 ).all()
+            )
+        finally:
+            session.close()
+
+    # -- execution quality (Sprint 3 entry policy) -------------------------
+
+    def set_realized_slippage(self, account_id: int, client_order_id: str, bps: str, *, now: datetime) -> None:
+        session = self._session_factory()
+        try:
+            intent = session.scalar(
+                select(DemoOrderIntent)
+                .where(
+                    DemoOrderIntent.account_id == account_id,
+                    DemoOrderIntent.client_order_id == client_order_id,
+                )
+                .with_for_update()
+            )
+            if intent is not None:
+                intent.realized_slippage_bps = bps
+                intent.last_update_at = now
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    # -- exchange-side protective stops (Sprint 3) --------------------------
+
+    def create_algo_order(self, account_id: int, algo: AlgoInput, *, now: datetime) -> bool:
+        """Persist a pending stop placement BEFORE any network call. Idempotent on ``algo_cl_ord_id``."""
+        session = self._session_factory()
+        try:
+            existing = session.scalar(
+                select(DemoAlgoOrder.id).where(
+                    DemoAlgoOrder.account_id == account_id,
+                    DemoAlgoOrder.algo_cl_ord_id == algo.algo_cl_ord_id,
+                )
+            )
+            if existing is not None:
+                session.commit()
+                return False
+            session.add(
+                DemoAlgoOrder(
+                    account_id=account_id,
+                    algo_cl_ord_id=algo.algo_cl_ord_id,
+                    instrument=algo.instrument,
+                    parent_client_order_id=algo.parent_client_order_id,
+                    side="sell",
+                    ord_type=algo.ord_type,
+                    size=algo.size,
+                    trigger_price=algo.trigger_price,
+                    order_price=algo.order_price,
+                    tp_trigger_price=algo.tp_trigger_price,
+                    version=int(algo.version),
+                    status=ALGO_PENDING,
+                    requested_at=now,
+                )
+            )
+            session.add(
+                self._event_row(
+                    account_id,
+                    "protective_stop_intent",
+                    "info",
+                    f"protective stop v{algo.version} {algo.instrument} sz={algo.size} trigger={algo.trigger_price}",
+                    {"algo_cl_ord_id": algo.algo_cl_ord_id, "parent": algo.parent_client_order_id, "ord_type": algo.ord_type},
+                    now,
+                )
+            )
+            session.commit()
+            return True
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def record_algo_submission(
+        self,
+        account_id: int,
+        algo_cl_ord_id: str,
+        *,
+        request_kind: str,
+        outcome: str,
+        now: datetime,
+        new_status: Optional[str] = None,
+        algo_id: Optional[str] = None,
+        code: Optional[str] = None,
+        message: Optional[str] = None,
+    ) -> None:
+        """Append an algo place/cancel/amend/query attempt and project it (never regress a terminal status)."""
+        if len(request_kind) > 8:
+            raise ValueError("request_kind must be at most 8 characters")
+        session = self._session_factory()
+        try:
+            previous = session.scalar(
+                select(func.max(DemoSubmission.attempt)).where(
+                    DemoSubmission.account_id == account_id,
+                    DemoSubmission.client_order_id == algo_cl_ord_id,
+                    DemoSubmission.request_kind == request_kind,
+                )
+            )
+            session.add(
+                DemoSubmission(
+                    account_id=account_id,
+                    client_order_id=algo_cl_ord_id,
+                    request_kind=request_kind,
+                    attempt=int(previous or 0) + 1,
+                    sent_at=now,
+                    outcome=outcome,
+                    exchange_order_id=algo_id,
+                    code=code,
+                    message=(message or "")[:256] or None,
+                )
+            )
+            row = session.scalar(
+                select(DemoAlgoOrder)
+                .where(
+                    DemoAlgoOrder.account_id == account_id,
+                    DemoAlgoOrder.algo_cl_ord_id == algo_cl_ord_id,
+                )
+                .with_for_update()
+            )
+            if row is not None:
+                if request_kind == "aplace":
+                    row.attempts = (row.attempts or 0) + 1
+                    row.submitted_at = row.submitted_at or now
+                row.last_update_at = now
+                if algo_id:
+                    row.algo_id = algo_id
+                if new_status is not None and (
+                    row.status not in ALGO_TERMINAL_STATUSES or new_status in ALGO_TERMINAL_STATUSES
+                ):
+                    row.status = new_status
+                if message is not None:
+                    row.last_error = message[:256]
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def apply_algo_update(
+        self,
+        account_id: int,
+        *,
+        algo_cl_ord_id: str,
+        state: str,
+        algo_id: Optional[str],
+        child_order_id: Optional[str],
+        actual_size: Optional[str],
+        actual_price: Optional[str],
+        triggered_at: Optional[datetime],
+        source: str,
+        now: datetime,
+        size: Optional[str] = None,
+        trigger_price: Optional[str] = None,
+        tp_trigger_price: Optional[str] = None,
+    ) -> Optional[str]:
+        """Project a venue algo state (query or WS) onto the local row; returns the mapped status."""
+        mapped = map_okx_algo_state(state)
+        session = self._session_factory()
+        try:
+            row = session.scalar(
+                select(DemoAlgoOrder)
+                .where(
+                    DemoAlgoOrder.account_id == account_id,
+                    DemoAlgoOrder.algo_cl_ord_id == algo_cl_ord_id,
+                )
+                .with_for_update()
+            )
+            if row is None:
+                session.commit()
+                return None
+            if size:
+                row.size = size
+            if trigger_price:
+                row.trigger_price = trigger_price
+            if tp_trigger_price:
+                row.tp_trigger_price = tp_trigger_price
+            if algo_id:
+                row.algo_id = algo_id
+            if child_order_id:
+                row.child_order_id = child_order_id
+            if actual_size is not None:
+                row.actual_size = actual_size
+            if actual_price is not None:
+                row.actual_price = actual_price
+            if triggered_at is not None and row.triggered_at is None:
+                row.triggered_at = triggered_at
+            if mapped is not None and row.status not in ALGO_TERMINAL_STATUSES:
+                row.status = mapped
+            elif mapped is None and row.status not in ALGO_TERMINAL_STATUSES:
+                row.status = ALGO_UNKNOWN
+            row.last_update_at = now
+            session.add(
+                self._event_row(
+                    account_id,
+                    "protective_stop_update",
+                    "info" if mapped in (ALGO_LIVE, ALGO_CANCELED) else "warning",
+                    f"protective stop {algo_cl_ord_id} state={state} ({source})",
+                    {"algo_id": algo_id, "child_order_id": child_order_id, "status": row.status},
+                    now,
+                )
+            )
+            session.commit()
+            return row.status
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def set_algo_child(self, account_id: int, algo_cl_ord_id: str, *, child_client_order_id: str, now: datetime) -> None:
+        session = self._session_factory()
+        try:
+            row = session.scalar(
+                select(DemoAlgoOrder)
+                .where(
+                    DemoAlgoOrder.account_id == account_id,
+                    DemoAlgoOrder.algo_cl_ord_id == algo_cl_ord_id,
+                )
+                .with_for_update()
+            )
+            if row is not None:
+                row.child_client_order_id = child_client_order_id
+                row.last_update_at = now
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def get_algo_order(self, account_id: int, algo_cl_ord_id: str) -> Optional[DemoAlgoOrder]:
+        session = self._session_factory()
+        try:
+            return session.scalar(
+                select(DemoAlgoOrder).where(
+                    DemoAlgoOrder.account_id == account_id,
+                    DemoAlgoOrder.algo_cl_ord_id == algo_cl_ord_id,
+                )
+            )
+        finally:
+            session.close()
+
+    def find_algo_order(
+        self, account_id: int, *, algo_id: Optional[str] = None, child_order_id: Optional[str] = None
+    ) -> Optional[DemoAlgoOrder]:
+        """Look an owned stop up by venue ``algoId`` or by the triggered child ``ordId``."""
+        if not algo_id and not child_order_id:
+            return None
+        session = self._session_factory()
+        try:
+            if algo_id:
+                row = session.scalar(
+                    select(DemoAlgoOrder).where(
+                        DemoAlgoOrder.account_id == account_id, DemoAlgoOrder.algo_id == str(algo_id)
+                    )
+                )
+                if row is not None:
+                    return row
+            if child_order_id:
+                return session.scalar(
+                    select(DemoAlgoOrder).where(
+                        DemoAlgoOrder.account_id == account_id,
+                        DemoAlgoOrder.child_order_id == str(child_order_id),
+                    )
+                )
+            return None
+        finally:
+            session.close()
+
+    def list_algo_orders(
+        self, account_id: int, *, instrument: Optional[str] = None, statuses: Optional[tuple] = None
+    ) -> List[DemoAlgoOrder]:
+        session = self._session_factory()
+        try:
+            stmt = select(DemoAlgoOrder).where(DemoAlgoOrder.account_id == account_id)
+            if instrument:
+                stmt = stmt.where(DemoAlgoOrder.instrument == instrument)
+            if statuses:
+                stmt = stmt.where(DemoAlgoOrder.status.in_(list(statuses)))
+            return list(session.scalars(stmt.order_by(DemoAlgoOrder.id.asc())).all())
+        finally:
+            session.close()
+
+    def list_open_algo_orders(self, account_id: int, *, instrument: Optional[str] = None) -> List[DemoAlgoOrder]:
+        return self.list_algo_orders(account_id, instrument=instrument, statuses=ALGO_OPEN_STATUSES)
+
+    def next_algo_version(self, account_id: int, instrument: str, parent_client_order_id: Optional[str]) -> int:
+        session = self._session_factory()
+        try:
+            stmt = select(func.max(DemoAlgoOrder.version)).where(
+                DemoAlgoOrder.account_id == account_id, DemoAlgoOrder.instrument == instrument
+            )
+            if parent_client_order_id:
+                stmt = stmt.where(DemoAlgoOrder.parent_client_order_id == parent_client_order_id)
+            return int(session.scalar(stmt) or 0) + 1
+        finally:
+            session.close()
+
+    def count_algo_place_attempts(self, account_id: int, instrument: str, *, since: datetime) -> int:
+        session = self._session_factory()
+        try:
+            return int(
+                session.scalar(
+                    select(func.count(DemoAlgoOrder.id)).where(
+                        DemoAlgoOrder.account_id == account_id,
+                        DemoAlgoOrder.instrument == instrument,
+                        DemoAlgoOrder.requested_at >= since,
+                    )
+                )
+                or 0
+            )
+        finally:
+            session.close()
+
+    def has_algo_place_submission(self, account_id: int, algo_cl_ord_id: str) -> bool:
+        session = self._session_factory()
+        try:
+            return (
+                session.scalar(
+                    select(DemoSubmission.id)
+                    .where(
+                        DemoSubmission.account_id == account_id,
+                        DemoSubmission.client_order_id == algo_cl_ord_id,
+                        DemoSubmission.request_kind == "aplace",
+                    )
+                    .limit(1)
+                )
+                is not None
+            )
+        finally:
+            session.close()
+
+    def latest_entry(self, account_id: int, instrument: str) -> Optional[DemoOrderIntent]:
+        """Most recent ENTRY intent with a fill (its avg price anchors the bracket levels)."""
+        session = self._session_factory()
+        try:
+            return session.scalar(
+                select(DemoOrderIntent)
+                .where(
+                    DemoOrderIntent.account_id == account_id,
+                    DemoOrderIntent.instrument == instrument,
+                    DemoOrderIntent.intent == "entry",
+                    DemoOrderIntent.status.in_((STATUS_FILLED, STATUS_PARTIAL)),
+                )
+                .order_by(DemoOrderIntent.id.desc())
+                .limit(1)
+            )
+        finally:
+            session.close()
+
+    def has_fill(self, account_id: int, fill_id: str) -> bool:
+        session = self._session_factory()
+        try:
+            return session.scalar(
+                select(DemoFill.id).where(DemoFill.account_id == account_id, DemoFill.fill_id == fill_id)
+            ) is not None
+        finally:
+            session.close()
+
+    def filled_size_for(self, account_id: int, client_order_id: str) -> Decimal:
+        """Sum of recorded fill sizes for one local order id."""
+        session = self._session_factory()
+        try:
+            rows = session.scalars(
+                select(DemoFill.fill_size).where(
+                    DemoFill.account_id == account_id, DemoFill.client_order_id == client_order_id
+                )
+            ).all()
+        finally:
+            session.close()
+        total = Decimal(0)
+        for value in rows:
+            try:
+                total += Decimal(str(value))
+            except Exception:  # pragma: no cover - defensive
+                continue
+        return total
+
+    # -- stop guard alarm (persisted; blocks new entries) ---------------------
+
+    def set_stop_alarm(self, account_id: int, reason: Optional[str], *, now: datetime) -> bool:
+        """Set or clear the persisted stop-guard alarm; returns True when the value changed."""
+        session = self._session_factory()
+        try:
+            row = session.scalar(
+                select(DemoRuntimeStatus)
+                .where(DemoRuntimeStatus.account_id == account_id)
+                .with_for_update()
+            )
+            if row is None:
+                row = DemoRuntimeStatus(account_id=account_id)
+                session.add(row)
+            changed = (row.stop_alarm or None) != (reason or None)
+            if changed:
+                row.stop_alarm = reason or None
+                row.updated_at = now
+                session.add(
+                    self._event_row(
+                        account_id,
+                        "protective_stop_alarm" if reason else "protective_stop_alarm_cleared",
+                        "error" if reason else "info",
+                        f"stop guard alarm: {reason}" if reason else "stop guard alarm cleared",
+                        {},
+                        now,
+                    )
+                )
+            session.commit()
+            return changed
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def get_stop_alarm(self, account_id: int) -> Optional[str]:
+        session = self._session_factory()
+        try:
+            return session.scalar(
+                select(DemoRuntimeStatus.stop_alarm).where(DemoRuntimeStatus.account_id == account_id)
             )
         finally:
             session.close()

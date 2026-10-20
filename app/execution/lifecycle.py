@@ -93,8 +93,17 @@ class OrderLifecycle:
         price: Optional[str],
         size: str,
         stop_loss: Optional[str] = None,
+        entry_policy: Optional[str] = None,
+        reference_price: Optional[str] = None,
+        expected_slippage_bps: Optional[str] = None,
+        parent_client_order_id: Optional[str] = None,
     ) -> SubmitResult:
-        """Persist an intent then submit it. Idempotent on the derived clOrdId."""
+        """Persist an intent then submit it. Idempotent on the derived clOrdId.
+
+        ``entry_policy`` / ``reference_price`` / ``expected_slippage_bps`` /
+        ``parent_client_order_id`` are Sprint 3 execution-quality fields
+        persisted on the intent (they never change what is sent to the venue).
+        """
         if (intent == INTENT_ENTRY and side != "buy") or (
             intent == INTENT_EXIT and side != "sell"
         ):
@@ -113,6 +122,10 @@ class OrderLifecycle:
                 price=price,
                 size=size,
                 stop_loss=stop_loss,
+                entry_policy=entry_policy,
+                reference_price=reference_price,
+                expected_slippage_bps=expected_slippage_bps,
+                parent_client_order_id=parent_client_order_id,
             ),
             now=now,
         )
@@ -454,8 +467,16 @@ class OrderLifecycle:
     # -- restart recovery ---------------------------------------------------
 
     def resolve_open_intents(self) -> list[SubmitResult]:
-        """Resolve every non-terminal intent by query (used at startup)."""
+        """Resolve every non-terminal intent by query (used at startup).
+
+        Venue-created children of an exchange-side stop (``entry_policy ==
+        "exchange_stop"``) carry a LOCAL synthetic client id the venue does not
+        know; they are closed by the stop manager from the child's fills, so
+        querying them by client id would wrongly mark them failed.
+        """
         results: list[SubmitResult] = []
         for intent in self._store.list_open_intents(self._account_id):
+            if (intent.entry_policy or "") == "exchange_stop":
+                continue
             results.append(self.resolve(intent.client_order_id, intent.instrument))
         return results
