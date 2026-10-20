@@ -121,7 +121,8 @@ def test_executive_summary_and_rendering_with_a_pass():
                    "Correlation of daily sleeve returns", "## Positioning data", "| ETH-USDT | binance |", "**Holdout (2025-10-18->2026-10-18)",
                    "Drawdown ladder (chosen sizing", "Exit bracket `trail1` vs none", "Entry-sized only", "- a note", "S3 on BTC-USDT 6H: `ValueError: boom`",
                    "Nothing here authorizes", "passive always-long references", "## Fixed policy sizing (no sizing selection) — `vt10/30 crash15/90dh ladder`",
-                   "Fixed policy sizing `vt10/30 crash15/90dh ladder`: return"):
+                   "Fixed policy sizing `vt10/30 crash15/90dh ladder`: return", "## Owner decisions", "**Yearly-consistency gate.**",
+                   "sizing improved the risk-adjusted result"):
         assert needle in text, needle
 
 

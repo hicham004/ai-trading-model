@@ -190,11 +190,18 @@ def executive_summary(run: Mapping[str, Any]) -> List[str]:
                      f"timing rule made {_pct(ho.get('cagr'))} per year with a {_share(ho.get('max_drawdown'))} drawdown (Sharpe {_f(ho.get('sharpe'))}, "
                      f"Calmar {_f(ho.get('calmar'))}) — a timing rule has to beat that to earn its place.")
     if study.get("n"):
+        delta = _num(study.get("sized_calmar_median")) - _num(study.get("full_calmar_median"))
+        if abs(delta) < 0.1:
+            verdict = "In other words, sizing scaled risk and return down together; it made the strategies survivable but did not add edge."
+        elif delta > 0:
+            verdict = "In other words, sizing improved the risk-adjusted result, not only the drawdown."
+        else:
+            verdict = "In other words, sizing cost more return than it saved in drawdown on these rules."
         bullets.append(
             f"**What sizing bought us.** Across the {study['n']} runs with a lead rule, replaying the same rule all-in versus with the chosen sizing "
             f"moved the median worst drawdown from {_share(study.get('full_dd_median'))} to {_share(study.get('sized_dd_median'))}, the median "
             f"yearly return from {_pct(study.get('full_cagr_median'))} to {_pct(study.get('sized_cagr_median'))} and the median Calmar from "
-            f"{_f(study.get('full_calmar_median'))} to {_f(study.get('sized_calmar_median'))}.{hold_text}"
+            f"{_f(study.get('full_calmar_median'))} to {_f(study.get('sized_calmar_median'))}. {verdict}{hold_text}"
         )
     else:
         bullets.append(f"**What sizing bought us.** The sizing comparison could not be computed for this run.{hold_text}")
@@ -213,6 +220,31 @@ def executive_summary(run: Mapping[str, Any]) -> List[str]:
     else:
         bullets.append(f"**Next step.** {next_step}")
     return bullets
+
+
+def default_owner_decisions(run: Mapping[str, Any]) -> List[str]:
+    """Decisions this report cannot take; the owner answers them before Sprint 2c / Sprint 5."""
+    results = [r for r in run.get("results", []) if r.get("candidate") not in REFERENCE_CANDIDATES]
+    passed = [r for r in results if (r.get("acceptance") or {}).get("passed")]
+    counts = _gate_failure_counts(results)
+    year_fail = counts.get("positive_in_4_of_5_years", 0)
+    items = [
+        f"**Yearly-consistency gate.** The gate counts calendar years of the stitched out-of-sample curve; the first and last are partial and 2022 "
+        f"was a bear year, so {year_fail} of {len(results)} configurations miss it. Keep it as specified, or redefine it on rolling 12-month windows "
+        "(e.g. positive in ≥ 75 % of rolling years)? The report keeps the specification.",
+        "**Sizing proposal mechanism.** Two mechanisms are shown: train-selected sizing (Calmar under a 10 % train drawdown cap, noisy across "
+        "windows) and one fixed policy (10 % vol target, 15 %/90-day crash filter, drawdown ladder). Which one is the 'proposed sizing' for the "
+        "gates going forward? The report applies the gates to both and shortlists both.",
+        "**Sequencing.** " + ("At least two configurations passed, so Sprint 5's paper fleet can start on the shortlist while Sprint 3 (exchange-side stops) proceeds. "
+                              if len(passed) >= 2 else
+                              "Nothing passed. Sprint 3 (exchange-side stops in demo) does not depend on this result and can proceed; Sprint 2c "
+                              "(research only, proposed in the executive summary) is the next research step. Approve Sprint 2c, reorder, or stop research here?"),
+        "**Binance public data.** Funding and open-interest history come from Binance's public endpoints and bulk files under its API terms, used "
+        "for internal research only and never traded on. Acceptable as a standing research source (it needs a nightly top-up like the OKX series)?",
+        "**Timeframes.** 1H and 1D were not re-run in Sprint 2b (fee drag / too few trades in Sprint 2). Confirm 4H/6H as the research timeframes, or ask for a 1H/1D re-run with sizing.",
+        "**Paper fleet controls.** If a paper fleet starts, should it include the `hold` + sizing references as controls so the timing rules are judged against them?",
+    ]
+    return items
 
 
 def render_report_v1b(run: Mapping[str, Any]) -> str:
@@ -453,7 +485,11 @@ def render_report_v1b(run: Mapping[str, Any]) -> str:
         if r.get("notes"):
             lines.append("")
 
+    lines += ["## Owner decisions (nothing below is decided by this report)", ""]
+    for item in run.get("owner_decisions") or default_owner_decisions(run):
+        lines.append(f"- {item}")
     lines += [
+        "",
         "## Method notes and caveats",
         "",
         "- Engine: `research/engine.py` — next-bar-open execution, intrabar stop with conservative gap fills, fees and slippage per side, fixed ATR "
@@ -465,7 +501,10 @@ def render_report_v1b(run: Mapping[str, Any]) -> str:
         "- Two-stage selection (rule, then sizing) uses the train slice only; the purge gap removes boundary leakage; test slices are stitched and "
         "each window restarts from the same capital and flat. Robustness, the sizing sweep, the ladder/bracket comparisons and the slippage stress "
         "are FIXED replays over the same test windows, so they describe sensitivity, not new selections.",
-        "- Yearly windows are calendar years of the stitched out-of-sample curve; the first and last years are partial.",
+        "- Yearly windows are calendar years of the stitched out-of-sample curve; the first and last years are partial, and 2022 (a bear year for "
+        "long-only rules) sits inside the span, so the 4-of-5 yearly gate is strict by construction.",
+        "- 1H and 1D were not re-run: Sprint 2 showed 1H rules paying 5–24 %/yr in fees and 1D grids rarely producing enough trades; 4H and 6H "
+        "(resampled from 1H) are the working timeframes.",
         "- Deflated Sharpe follows Bailey & López de Prado (2014) over every rule and sizing variant tried in the last train window.",
         "- The Monte Carlo bootstraps equity-level trade contributions (trade return × size fraction); fractional sizing makes paths less extreme than Sprint 2's all-in bootstrap.",
         "- Positioning features (S5) come from Binance public history aligned as-of onto OKX candles (a candle sees only values stamped at or before its open); "
