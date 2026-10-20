@@ -18,6 +18,7 @@ from pathlib import Path
 # Make the project root importable when Streamlit runs this file directly.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import altair as alt  # noqa: E402
 import pandas as pd  # noqa: E402
 import requests  # noqa: E402
 import streamlit as st  # noqa: E402
@@ -180,8 +181,22 @@ def main() -> None:
     col2.metric("Period high", f"{df['high'].max():,.2f}")
     col3.metric("Period low", f"{df['low'].min():,.2f}")
 
-    chart_df = df.set_index("open_time")
-    st.line_chart(chart_df[["close"]])
+    # Altair chart with a non-zero y-axis baseline. ``st.line_chart`` anchors
+    # the axis at 0, which turns a 60k-80k BTC series into a flat line.
+    chart = (
+        alt.Chart(df)
+        .mark_line()
+        .encode(
+            x=alt.X("open_time:T", title="Open time (UTC)"),
+            y=alt.Y("close:Q", title="Close", scale=alt.Scale(zero=False)),
+            tooltip=[
+                alt.Tooltip("open_time:T", title="Open time"),
+                alt.Tooltip("close:Q", title="Close", format=",.2f"),
+            ],
+        )
+        .properties(height=360)
+    )
+    st.altair_chart(chart, width="stretch")
 
     with st.expander("Show raw candle table"):
         st.dataframe(df, width="stretch")
