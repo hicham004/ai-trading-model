@@ -7,6 +7,16 @@ advancement, or safety-core changes by itself (see `PROJECT_RULES.md`).
 Companion: `docs/AUDIT_2026-10-20.md` (what exists today, what was tested live,
 what is wrong). You do not need to read the audit to use this plan.
 
+Status log:
+
+- 2026-10-20 (evening): Sprints 0, 1 and 2 built on stacked branches
+  (`sprint-0/okx-8443-and-hygiene` → `sprint-1/data-lake-v2` →
+  `sprint-2/research-lab`), 669 tests green, nothing merged yet. Sprint 2
+  result: **0 of 42 candidate runs passed the gates** — drawdown at full sizing
+  is the binding constraint, not the entry rules (`docs/research/ENSEMBLE_V1_REPORT.md`).
+  Sprint 2b (sizing, risk, timeframe, positioning data) added below. Owner
+  actions open: VPS 8443 override before Oct 31; open/merge PRs in order.
+
 ---
 
 ## 0. Read this first (2 minutes)
@@ -200,6 +210,26 @@ Deliverables:
 5. Calibrated confidence: map each strategy's signal strength to historical hit-rate buckets; the risk floor becomes meaningful.
 
 Acceptance: ≥2 strategies with walk-forward profit factor >1.2 after costs, positive in ≥3 of 4 yearly windows, max DD <20%, and not dependent on one parameter. If none pass, Sprint 2 extends; nothing goes to demo.
+
+**Result (2026-10-20):** 0 of 42 runs passed (`docs/research/ENSEMBLE_V1_REPORT.md`). Findings: (a) the best candidates — S2 Donchian breakout on ETH 4H (OOS PF 1.50, Sharpe 0.62) and S4 vol-compression on BTC 4H (PF 1.29, Sharpe 0.44) — have positive expectancy but 30–50% drawdowns at 100% sizing; (b) 1H variants pay 5–24%/yr in fees, 1D grids rarely produce enough trades — 4H is the working timeframe; (c) buy-and-hold beat every long-only timing rule on raw return but with 77–81% drawdowns, so raw return is the wrong benchmark for a risk-controlled system — risk-adjusted return (Sharpe, Calmar, max DD) is the right one; (d) the S5 positioning filter was inert because OKX's public funding/OI history starts mid-2026. Sprint 2 therefore extends as Sprint 2b: fix sizing and risk, not entries.
+
+### Sprint 2b — Sizing, risk, timeframe and positioning data (Oct 21–28, research only, ~5 sessions)
+
+Goal: turn the positive-expectancy 4H candidates into deployable candidates by engineering the *risk* side, add long-history positioning data, and test 6H. Research only: no changes to `app/execution`, `app/risk`, `app/exchange`; public data only; the 12-month holdout stays untouched except for candidates that pass walk-forward.
+
+Deliverables:
+1. **Vol-targeted sizing** in the research engine: position fraction = clamp(target_vol / realized_vol, 0, 1) (long-only spot, no leverage). Sweep target annualized vol {10%, 15%, 20%, 25%} × realized-vol lookback {20, 30, 60 bars}; vol estimates must use only past bars (test for look-ahead). Baselines: fixed fractions 25% and 50%.
+2. **Crash-state de-risking** (Howden & Andreev): when the asset is more than X% below its rolling N-bar peak, halve or zero exposure; sweep X ∈ {10, 15, 20}%, N ∈ {90, 180} days; combined with vol targeting.
+3. **Drawdown ladder** on strategy equity: −5% → half size, −10% → flat until a recovery rule (new equity high or K bars); report the cost in return and the gain in max DD.
+4. **Mechanical exit bracket**: ATR stop + take-profit + time stop + trailing after 1R; measure "give-back" (positions with MFE ≥ 3% that closed negative) before/after, per the fleets paper's finding.
+5. **6H bars** resampled from 1H (aligned to UTC); run S1/S2/S4 on 6H next to 4H.
+6. **External positioning history**: Binance public funding-rate and open-interest history (funding since 2019) as research *features only* (we never trade Binance); timestamp-aligned to OKX bars; re-run S5 with ≥90% in-sample coverage; document source, limits and licensing; keep collecting OKX for the forward period.
+7. **Portfolio combination**: BTC + ETH, S2 + S4 (+S1) at equal risk; strategy-return correlation; diversification benefit at the portfolio level with the same drawdown ladder.
+8. **Risk-adjusted gates** (replace the Sprint 2 gates for sizing-aware candidates): OOS PF > 1.2 after costs; **max DD < 20% at the proposed sizing**; Sharpe > 0.7; **Calmar (CAGR / max DD) > 0.5** (buy-and-hold's Calmar on this span is ≈ 0.1–0.3); positive in ≥ 4 of 5 yearly OOS windows; ≥ 30 OOS trades; ±30% parameter robustness ≥ 50%; deflated Sharpe reported.
+9. **Report** `docs/research/ENSEMBLE_V1B_REPORT.md`: same structure as v1 plus a 5-bullet plain-English executive summary for a non-technical owner, holdout evaluated only for candidates that passed walk-forward, and a ranked **paper-fleet shortlist** (top configurations: strategy × asset × timeframe × sizing) for Sprint 5.
+10. **Tests**: sizing math and clamps, no look-ahead in vol/peak estimates, ladder state machine, exit bracket, 6H resampling alignment, Binance feature alignment, import boundaries.
+
+Acceptance: ≥ 2 configurations pass all gates in item 8 (ideally on different assets or strategy families). If none pass, the report says precisely why and proposes Sprint 2c; nothing goes to demo either way.
 
 ### Sprint 3 — Execution v2 in demo (Dec 1–Dec 15, ~5 sessions, safety-core review required)
 
