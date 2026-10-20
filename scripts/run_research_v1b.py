@@ -72,7 +72,12 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--select-by", default="sharpe", choices=["sharpe", "sortino", "profit_factor", "calmar", "total_return"])
     p.add_argument("--fee", type=float, default=0.0010, help="Fee per side (default 0.10%%).")
     p.add_argument("--slippage", type=float, default=0.0005, help="Slippage per side (default 0.05%%).")
-    p.add_argument("--sizing-dd-cap", type=float, default=0.15, help="Train max drawdown a sizing variant may show to qualify.")
+    p.add_argument("--sizing-dd-cap", type=float, default=0.10, help="Train max drawdown a sizing variant may show to qualify (half the 20%% gate).")
+    p.add_argument("--policy-target-vol", type=float, default=0.10, help="Fixed a-priori policy sizing: annualized vol target.")
+    p.add_argument("--policy-lookback", type=int, default=30, help="Fixed policy sizing: realized-vol lookback in bars.")
+    p.add_argument("--policy-crash-dd", type=float, default=0.15, help="Fixed policy sizing: crash filter drawdown (half exposure).")
+    p.add_argument("--policy-crash-days", type=float, default=90.0, help="Fixed policy sizing: crash filter peak window in days.")
+    p.add_argument("--policy-no-ladder", action="store_true", help="Fixed policy sizing without the drawdown ladder.")
     p.add_argument("--sizing-select-by", default="calmar", choices=["calmar", "sharpe", "sortino", "total_return"])
     p.add_argument("--sizing-min-trades", type=int, default=10)
     p.add_argument("--rebalance-threshold", type=float, default=0.25, help="Reduce-only mid-trade threshold; negative = entry-sized only.")
@@ -109,6 +114,24 @@ def _wf_config(args: argparse.Namespace, timeframe: str) -> WalkForwardConfig:
         min_trades=args.min_trades,
         select_by=args.select_by,
     )
+
+
+def _staging(combos: Sequence[Dict[str, Any]]) -> Tuple[Optional[List[int]], Dict[int, List[int]]]:
+    """Entry selection among bracket-free columns; the bracket is then chosen among siblings (same entry params)."""
+    def base(c: Dict[str, Any]) -> Tuple:
+        return tuple(sorted((k, str(v)) for k, v in c.items() if k != "bracket"))
+    groups: Dict[Tuple, List[int]] = {}
+    for j, c in enumerate(combos):
+        groups.setdefault(base(c), []).append(j)
+    stage_a = [j for j, c in enumerate(combos) if str(c.get("bracket", "none")) == "none"]
+    siblings = {j: groups[base(c)] for j, c in enumerate(combos)}
+    return (stage_a or None), siblings
+
+
+def _policy_spec(args: argparse.Namespace) -> SizingSpec:
+    return SizingSpec(kind="vol_target", target_vol=args.policy_target_vol, vol_lookback=args.policy_lookback,
+                      crash_dd=args.policy_crash_dd, crash_window_days=args.policy_crash_days, crash_mode="half",
+                      ladder=not args.policy_no_ladder)
 
 
 def _rebalance(args: argparse.Namespace) -> Optional[float]:
@@ -173,7 +196,9 @@ def run_candidate(args, layout: LakeLayout, df_all: pd.DataFrame, instrument: st
     if not has_stop:  # a passive always-long reference has one trade per window: no trade-count qualification
         cfg = WalkForwardConfig(train_bars=cfg.train_bars, test_bars=cfg.test_bars, purge_bars=cfg.purge_bars, min_trades=1, select_by=cfg.select_by)
         sizing_cfg = SizingSelection(dd_cap=sizing_cfg.dd_cap, select_by=sizing_cfg.select_by, min_trades=1, rebalance_threshold=rebalance)
-    wf = run_sized_walk_forward(df_in, frames, combos, cfg, specs, fractions, ladder, costs=costs, periods_per_year=ppy, sizing_cfg=sizing_cfg)
+    stage_a, siblings = _staging(combos)
+    wf = run_sized_walk_forward(df_in, frames, combos, cfg, specs, fractions, ladder, costs=costs, periods_per_year=ppy, sizing_cfg=sizing_cfg,
+                                stage_a_columns=stage_a, siblings=siblings)
 
     notes: List[str] = []
     selected = wf.rule_most_often
@@ -270,6 +295,29 @@ def run_candidate(args, layout: LakeLayout, df_all: pd.DataFrame, instrument: st
         stress[f"x{mult:g}"] = growth - 1.0
 
     acceptance = acceptance_check_v1b(wf.oos_metrics, yearly, robust)
+
+    # Fixed a-priori policy sizing (no sizing selection): same rule selection, one sizing spec.
+    policy_spec = _policy_spec(args)
+    policy_fracs = fraction_matrix(df_in, [policy_spec], timeframe, ppy)
+    wf_p = run_sized_walk_forward(df_in, frames, combos, cfg, [policy_spec], policy_fracs, ladder, costs=costs, periods_per_year=ppy,
+                                  sizing_cfg=SizingSelection(dd_cap=0.99, select_by=sizing_cfg.select_by, min_trades=1, rebalance_threshold=rebalance),
+                                  stage_a_columns=stage_a, siblings=siblings)
+    p_replays = replay_columns(df_in, pert_frames, range(len(sets)), windows, costs=costs, periods_per_year=ppy, size_fraction=policy_fracs,
+                               ladder=ladder, ladder_on=policy_spec.ladder, rebalance_threshold=rebalance)
+    p_neigh = np.array([r["total_return"] for r in p_replays[1:]], dtype=float)
+    p_robust = {"n_neighbours": int(len(neighbours)), "best": float(p_replays[0]["total_return"]),
+                "median": float(np.median(p_neigh)) if p_neigh.size else float("nan"),
+                "min": float(p_neigh.min()) if p_neigh.size else float("nan"),
+                "share_above_threshold": float((p_neigh > 0).mean()) if p_neigh.size else float("nan")}
+    p_yearly = {int(k): float(v) for k, v in wf_p.yearly.items()}
+    policy = {
+        "sizing": policy_spec.to_dict(),
+        "selected_params": wf_p.rule_most_often or selected,
+        "oos": {k: _finite(v, k) for k, v in wf_p.oos_metrics.items()},
+        "yearly": p_yearly,
+        "robustness": p_robust,
+        "acceptance": acceptance_check_v1b(wf_p.oos_metrics, p_yearly, p_robust),
+    }
     if "S5" in key:
         cov = positioning_coverage(df_in, context)
         notes.append(f"positioning data ({args.positioning_source}) cover {cov * 100:.1f}% of in-sample bars (filter passes elsewhere)")
@@ -298,6 +346,7 @@ def run_candidate(args, layout: LakeLayout, df_all: pd.DataFrame, instrument: st
         "bracket_effect": bracket_effect,
         "entry_sized_only": _finite_dict(eso) if eso else None,
         "acceptance": acceptance,
+        "policy": policy,
         "windows": [
             {"idx": w.idx, "train": f"{w.train_start:%Y-%m-%d}->{w.train_end:%Y-%m-%d}", "test": f"{w.test_start:%Y-%m-%d}->{w.test_end:%Y-%m-%d}",
              "rule": w.rule_params, "sizing": w.sizing_label, "rule_train_metric": None if not np.isfinite(w.rule_train_metric) else w.rule_train_metric,
@@ -518,6 +567,8 @@ def main(argv=None) -> int:
                 **sizing_meta,
             },
             "bracket_variants": list(args.brackets),
+            "policy_sizing": _policy_spec(args).to_dict(),
+            "selection": "entries selected among bracket-free rules, then the exit bracket among siblings, then the sizing; all on the train slice",
             "positioning_source": args.positioning_source,
             "instruments": args.instruments,
             "timeframes": args.timeframes,

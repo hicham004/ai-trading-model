@@ -10,6 +10,7 @@ tables are untouched. Master plan: `docs/MASTER_PLAN_2026-10-20.md` Sprint 1.
 ```
 candles/<instrument>/<timeframe>/<year>.parquet        BTC-USDT, ETH-USDT spot OHLCV (confirmed bars)
 derivatives/<kind>/<instrument>/<period>/<year>.parquet  BTC-/ETH-USDT-SWAP statistics (features only)
+external/<venue>/<kind>/<symbol>/<period>/<year>.parquet  other venues' PUBLIC statistics (Binance funding / open interest; features only)
 liquidations/<instrument>/<YYYY-MM-DD>.jsonl          public liquidation-orders feed (SWAP)
 _state/<job>.json                                     resumable cursors
 _reports/quality-<date>.{md,json}                     data-quality reports
@@ -30,6 +31,10 @@ python scripts/backfill_history.py --instruments BTC-USDT --timeframes 1m --max-
 
 # SWAP statistics as features (resumable)
 python scripts/collect_derivatives.py --period 1H
+
+# Binance PUBLIC funding / open-interest history as long-history features (resumable; Sprint 2b)
+python scripts/collect_binance_positioning.py                      # BTCUSDT + ETHUSDT, funding + metrics
+python scripts/collect_binance_positioning.py --kinds funding_rate # funding only (~1 min)
 
 # Public liquidation feed for one hour (run under cron/systemd for continuity)
 python scripts/collect_liquidations.py --duration 3600
@@ -96,7 +101,7 @@ con.sql("SELECT instrument, count(*) FROM liquidations GROUP BY 1").show()
 ```
 
 Views: `candles`, `funding_rate`, `open_interest`, `long_short_ratio`,
-`taker_volume`, `liquidations`.
+`taker_volume`, `liquidations`, `binance_funding_rate`, `binance_metrics`.
 
 ## Data-quality report
 
@@ -132,6 +137,40 @@ long-short ratio only back to 2026-08-21 (1,440 hourly rows) — OKX keeps a
 short public history for those, which limits S5-style positioning features to
 the recent months. Liquidation feed: a 90-second live run received 10 channel
 messages with 0 BTC/ETH-SWAP liquidations in that window (channel working).
+
+## External positioning history (Binance, research features only — Sprint 2b)
+
+OKX keeps only months of public funding-rate and open-interest history (see
+the evidence above), so the S5 positioning filter had data for a few percent
+of the backtest. `app/datalake/binance_public.py` collects the same two
+quantities from Binance's PUBLIC USDT-margined futures data, without any API
+key, purely as research features. **This project trades OKX SPOT demo only
+and never trades on Binance; nothing here can authenticate or place an order.**
+
+| Series | Source | History | How it is stored |
+|---|---|---|---|
+| `funding_rate` (period `8H`) | `GET https://fapi.binance.com/fapi/v1/fundingRate` (public, weight 1, ≤ 1000 rows per page, ascending from `startTime`) | BTCUSDT since 2019-09-10, ETHUSDT since 2019-11-27 | one row per settlement: `ts`, `funding_rate`, `mark_price` |
+| `metrics` (period `1H`) | daily zips on the public bulk bucket `https://data.binance.vision/data/futures/um/daily/metrics/<SYMBOL>/` with a `.CHECKSUM` (sha256) per file; the REST `openInterestHist` endpoint serves only ~30 days, which is why the bulk files are used | BTCUSDT since 2020-09-01, ETHUSDT since 2021-12-01 (5-minute snapshots) | the last snapshot of every UTC hour: `oi` (contracts), `oi_usd`, top-trader and account long/short ratios, taker buy/sell volume ratio; each row keeps its own snapshot time so as-of alignment onto candles can never see a value before it existed |
+
+Safety and integrity: GET only; hostname + path allowlists (only the funding
+endpoint and the metrics prefix for the two symbols); no headers beyond a
+User-Agent; downloads capped at 32 MB; zip extraction limited to one CSV
+member of ≤ 16 MB; every bulk file is sha256-verified against its published
+checksum before parsing (a mismatch stops the run and leaves the cursor on the
+last good day); timestamps and numbers validated. Resumable: funding keeps a
+forward cursor, metrics keep `done_through` plus the list of missing days in
+`_state/external__binance__*.json`; re-runs fetch only new settlements / days.
+
+Terms: public market data published by Binance for its users (Binance API
+Terms of Use; "Binance Public Data" on data.binance.vision), used for
+internal research only and not redistributed; the files live in the
+git-ignored lake. Row formats were confirmed against the live endpoints on
+2026-10-20.
+
+Research use: `research.data.positioning_context(layout, instrument, timeframe,
+source="binance")` builds the S5 feature context (funding z-score, 1-day
+open-interest change) from these series; `source="okx"` uses the OKX series
+(short history, kept collecting for the forward period).
 
 ## Boundaries
 

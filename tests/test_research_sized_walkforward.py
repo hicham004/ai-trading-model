@@ -83,6 +83,31 @@ def test_sized_walk_forward_selects_rule_then_sizing_on_train_only(setup):
         run_sized_walk_forward(df, frames, combos, cfg, specs, fractions[:, :2], ladder, costs=COSTS, periods_per_year=PPY)
 
 
+def test_staged_selection_restricts_entries_then_picks_the_bracket(setup):
+    df, frames, combos, specs, fractions, ladder = setup
+    cfg = WalkForwardConfig(train_bars=1500, test_bars=500, purge_bars=24, min_trades=3)
+    stage_a = [j for j, c in enumerate(combos) if c["bracket"] == "none"]
+    groups: dict = {}
+    for j, c in enumerate(combos):
+        groups.setdefault((c["short_window"], c["long_window"]), []).append(j)
+    siblings = {j: groups[(c["short_window"], c["long_window"])] for j, c in enumerate(combos)}
+    entries_only = run_sized_walk_forward(df, frames, combos, cfg, specs, fractions, ladder, costs=COSTS, periods_per_year=PPY,
+                                          stage_a_columns=stage_a, siblings=None)
+    traded = [w for w in entries_only.windows if w.rule_combo is not None]
+    assert traded and all(w.rule_params["bracket"] == "none" for w in traded)
+    assert all(w.n_qualified <= len(stage_a) for w in traded)
+    staged = run_sized_walk_forward(df, frames, combos, cfg, specs, fractions, ladder, costs=COSTS, periods_per_year=PPY,
+                                    stage_a_columns=stage_a, siblings=siblings)
+    for a, b in zip(entries_only.windows, staged.windows):
+        if a.rule_combo is None:
+            assert b.rule_combo is None
+            continue
+        # Same entry parameters; the bracket may switch to a sibling, never to another entry rule.
+        assert (b.rule_params["short_window"], b.rule_params["long_window"]) == (a.rule_params["short_window"], a.rule_params["long_window"])
+        assert b.rule_params["bracket"] in {"none", "trail1"}
+        assert b.rule_train_metric >= a.rule_train_metric - 1e-12  # the sibling stage can only improve the train metric
+
+
 def test_sized_walk_forward_without_qualified_rule_stays_flat(setup):
     df, frames, combos, specs, fractions, ladder = setup
     cfg = WalkForwardConfig(train_bars=1500, test_bars=500, purge_bars=24, min_trades=10_000)

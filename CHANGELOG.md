@@ -4,6 +4,36 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — Sprint 2b: sizing, risk, timeframe and positioning data (master plan Sprint 2b, research only)
+
+### Added
+- `research/sizing.py`: vol-targeted entry fractions, crash-state de-risking,
+  drawdown ladder (state machine), the 390-variant sizing grid; all series
+  backward-looking (look-ahead tests). `research/bracket.py`: take-profit,
+  trailing-after-1R and time-stop exit brackets.
+- `research/engine.py`: per-bar size matrices, reduce-only mid-trade
+  de-risking (never adds), ladder in the loop, trailing stop, per-column time
+  stops, MFE/MAE per trade; bit-for-bit the Sprint 2 engine with overlays off.
+  Give-back metric (trades that reached +3 % unrealized yet closed negative).
+- `research/resample.py`: UTC-aligned 1H → 6H bars (complete bars only).
+- `app/datalake/binance_public.py` + `scripts/collect_binance_positioning.py`:
+  Binance PUBLIC funding-rate (since 2019) and open-interest (since 2020-09 /
+  2021-12, hourly from 5-minute bulk files, sha256-verified) history as
+  research features only; lake layout `external/<venue>/…`; DuckDB views
+  `binance_funding_rate`, `binance_metrics`. We never trade on Binance.
+- `research/sized_walkforward.py`: two-stage walk-forward (rule, then sizing,
+  both selected on the train slice; sizing under a train drawdown cap) with
+  fixed replays (robustness, sizing sweep, ladder/bracket effects, slippage).
+- `research/portfolio.py`: sleeve combination (daily compounding, buckets or
+  daily rebalancing, equal-capital / equal-risk, correlation, portfolio ladder).
+- `research/report_v1b.py` + `scripts/run_research_v1b.py`: Sprint 2b
+  risk-adjusted gates (PF > 1.2, max DD < 20 % at the proposed sizing, Sharpe
+  > 0.7, Calmar > 0.5, 4 of 5 positive years, ≥ 30 trades, ±30 % robustness,
+  DSR reported), ranked paper-fleet shortlist, plain-English executive
+  summary; `hold` always-long reference. Report
+  `docs/research/ENSEMBLE_V1B_REPORT.md`. Docs: `docs/RESEARCH_LAB.md`,
+  `docs/DATA_LAKE.md`.
+
 ## Unreleased — Sprint 2: research lab + ensemble v1 candidates (master plan Sprint 2)
 
 ### Added

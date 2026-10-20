@@ -36,7 +36,7 @@ from research.walkforward import WINDOW_INIT_CASH, WalkForwardConfig, Window, _p
 
 @dataclass(frozen=True)
 class SizingSelection:
-    dd_cap: float = 0.15  # train max drawdown a sizing variant may show to qualify (margin under the 20 % gate)
+    dd_cap: float = 0.10  # train max drawdown a sizing variant may show to qualify (half the 20 % gate: a 540-day train window understates a multi-year stitched drawdown)
     select_by: str = "calmar"
     min_trades: int = 10
     rebalance_threshold: Optional[float] = 0.25  # reduce-only mid-trade adjustments; None = entry-sized only
@@ -169,7 +169,12 @@ def run_sized_walk_forward(
     costs: Costs,
     periods_per_year: float,
     sizing_cfg: SizingSelection = SizingSelection(),
+    stage_a_columns: Optional[Sequence[int]] = None,
+    siblings: Optional[Mapping[int, Sequence[int]]] = None,
 ) -> SizedWalkForwardResult:
+    """``stage_a_columns`` restricts the entry-rule selection (e.g. to bracket-free columns); ``siblings``
+    maps a column to the columns that differ only in their exit bracket, among which the bracket is then
+    selected (hierarchical: entries, then exits, then sizing — all on the train slice)."""
     n = len(df)
     windows = make_windows(n, cfg)
     if not windows:
@@ -190,7 +195,13 @@ def run_sized_walk_forward(
         train_res = simulate_slice(df, frames, w.train, costs=costs)
         table = metrics_table(train_res, combos, periods_per_year=periods_per_year)
         rule_sharpes = [sharpe(bar_returns(train_res.equity[:, k]), 1.0) for k in range(train_res.n_combos)]
-        best = _select(table, cfg)
+        stage_table = table if stage_a_columns is None else table[table["combo"].isin(list(stage_a_columns))]
+        best = _select(stage_table, cfg)
+        if best is not None and siblings is not None and int(best["combo"]) in siblings:
+            sib = table[table["combo"].isin(list(siblings[int(best["combo"])]))]
+            best_sibling = _select(sib, cfg)
+            if best_sibling is not None:
+                best = best_sibling
         if best is None:
             flat = pd.Series(0.0, index=test_index)
             results.append(SizedWindowResult(w.idx, df.index[w.train.start], df.index[w.train.stop - 1], test_index[0], test_index[-1],
@@ -223,7 +234,7 @@ def run_sized_walk_forward(
         trades["entry_time"] = test_index[trades["entry_i"].to_numpy(dtype=int)] if len(trades) else pd.Series(dtype="datetime64[ns, UTC]")
         oos_trades.append(trades)
         results.append(SizedWindowResult(w.idx, df.index[w.train.start], df.index[w.train.stop - 1], test_index[0], test_index[-1],
-                                         rule, params, float(best[cfg.select_by]), int((table["n_trades"] >= cfg.min_trades).sum()),
+                                         rule, params, float(best[cfg.select_by]), int((stage_table["n_trades"] >= cfg.min_trades).sum()),
                                          s_idx, label, sizing_train, tm, test_returns, rule_sharpes, sizing_sharpes))
         oos_returns.append(test_returns)
 

@@ -34,6 +34,10 @@ def _result(candidate="S2", instrument="ETH-USDT", timeframe="4H", oos=None, pas
                                     "giveback_n_reached": 22, "giveback_avg_giveback_pct": 0.04}},
         "entry_sized_only": {"total_return": 0.55, "max_drawdown": 0.14, "calmar": 0.7},
         "acceptance": acc,
+        "policy": {"sizing": {"label": "vt10/30 crash15/90dh ladder", "ladder": True}, "selected_params": {"entry_days": 10, "bracket": "trail1"},
+                   "oos": dict(oos, calmar=0.55, sharpe=0.75, max_drawdown=0.1), "yearly": YEARLY,
+                   "robustness": {"share_above_threshold": 0.7, "n_neighbours": 8},
+                   "acceptance": acceptance_check_v1b(dict(oos, calmar=0.55, sharpe=0.75, max_drawdown=0.1), YEARLY, {"share_above_threshold": 0.7})},
         "holdout": holdout if passed else None,  # the runner evaluates the holdout only for passers
         "notes": ["a note"],
     }
@@ -61,10 +65,16 @@ def test_shortlist_ranks_passed_then_calmar_and_skips_references():
         _result("S3", "ETH-USDT", "4H", oos={"profit_factor": 0.9}, passed=False),
         _result("baseline", "BTC-USDT", "4H", oos={"n_trades": 12}, passed=False),
     ]
+    for r in results:
+        r.pop("policy", None)
     sl = shortlist(results)
     assert [r["candidate"] for r in sl] == ["S2", "S1", "S4"]  # passed first, then Calmar; hold/PF<1/too few trades excluded
     assert sl[0]["rank"] == 1 and sl[0]["passed"] and sl[1]["failed_gates"] == ["max_dd_lt_20pct"]
-    assert sl[0]["sizing"].startswith("vt15") and sl[0]["bracket"] == "trail1"
+    assert sl[0]["sizing"].startswith("vt15") and sl[0]["bracket"] == "trail1" and sl[0]["mode"] == "selected"
+    # Policy rows join the ranking as separate entries.
+    with_policy = [_result("S2", "ETH-USDT", "4H")]
+    sl2 = shortlist(with_policy)
+    assert [(r["mode"], r["sizing"]) for r in sl2] == [("selected", "vt15/30 crash15/90dh ladder"), ("policy", "policy vt10/30 crash15/90dh ladder")]
 
 
 def _run(results):
@@ -100,6 +110,7 @@ def test_executive_summary_and_rendering_with_a_pass():
     run = _run([_result(), _result("hold", "ETH-USDT", "4H")])
     bullets = executive_summary(run)
     assert len(bullets) == 5 and "1 of 1 configurations passed" in bullets[1] and "S2 on ETH-USDT 4H" in bullets[1]
+    assert "fixed policy sizing `vt10/30 crash15/90dh ladder` (no sizing selection), 1 of 1 passed" in bullets[1]
     assert "Best so far" in bullets[2] and "holding ETH" in bullets[2]
     assert "median worst drawdown from 50.0% to 12.0%" in bullets[3]
     assert "simply staying long ETH (4H) with the same sizing machinery" in bullets[3]
@@ -109,15 +120,20 @@ def test_executive_summary_and_rendering_with_a_pass():
                    "## Paper-fleet shortlist", "| 1 | S2 |", "## Sizing study", "## Portfolio combination", "S2+S4 x BTC+ETH, equal capital",
                    "Correlation of daily sleeve returns", "## Positioning data", "| ETH-USDT | binance |", "**Holdout (2025-10-18->2026-10-18)",
                    "Drawdown ladder (chosen sizing", "Exit bracket `trail1` vs none", "Entry-sized only", "- a note", "S3 on BTC-USDT 6H: `ValueError: boom`",
-                   "Nothing here authorizes", "passive always-long references"):
+                   "Nothing here authorizes", "passive always-long references", "## Fixed policy sizing (no sizing selection) — `vt10/30 crash15/90dh ladder`",
+                   "Fixed policy sizing `vt10/30 crash15/90dh ladder`: return"):
         assert needle in text, needle
 
 
 def test_executive_summary_when_nothing_passes():
     run = _run([_result(oos={"max_drawdown": 0.3, "calmar": 0.3}, passed=False), _result("S4", "BTC-USDT", "6H", oos={"sharpe": 0.2}, passed=False)])
     run["portfolios"] = []
+    for r in run["results"]:
+        r["policy"]["acceptance"] = acceptance_check_v1b(dict(r["policy"]["oos"], sharpe=0.1), YEARLY, {"share_above_threshold": 0.7})
+        r["policy"]["oos"]["sharpe"] = 0.1
     bullets = executive_summary(run)
     assert "None of the 2 configurations passed" in bullets[1] and "max drawdown under 20%" in bullets[1]
+    assert "(no sizing selection), 0 of 2 passed." in bullets[1]
     assert "It still misses" in bullets[2]
     assert bullets[4].startswith("**Next step.** Next step: do X.")
     text = render_report_v1b(run)

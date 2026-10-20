@@ -77,18 +77,23 @@ def shortlist(results: Sequence[Mapping[str, Any]], *, n: int = 10) -> List[Dict
     for r in results:
         if r.get("candidate") in REFERENCE_CANDIDATES:
             continue
-        oos = r.get("oos", {})
-        if _num(oos.get("profit_factor")) <= 1.0 or int(_num(oos.get("n_trades"))) < GATES["min_trades"]:
-            continue
-        acc = r.get("acceptance", {})
-        rows.append({
-            "candidate": r["candidate"], "instrument": r["instrument"], "timeframe": r["timeframe"],
-            "sizing": (r.get("selected_sizing") or {}).get("label", "-"), "bracket": (r.get("selected_params") or {}).get("bracket", "-"),
-            "cagr": _num(oos.get("cagr")), "sharpe": _num(oos.get("sharpe")), "calmar": _num(oos.get("calmar")),
-            "max_drawdown": _num(oos.get("max_drawdown"), 1.0), "profit_factor": _num(oos.get("profit_factor")),
-            "n_trades": int(_num(oos.get("n_trades"))), "passed": bool(acc.get("passed")), "failed_gates": list(acc.get("failed", [])),
-            "dsr": _num((r.get("dsr") or {}).get("dsr")),
-        })
+        variants = [("selected", r.get("oos", {}), r.get("acceptance", {}), (r.get("selected_sizing") or {}).get("label", "-"),
+                     (r.get("selected_params") or {}).get("bracket", "-"), _num((r.get("dsr") or {}).get("dsr")))]
+        pol = r.get("policy") or {}
+        if pol:
+            variants.append(("policy", pol.get("oos", {}), pol.get("acceptance", {}), "policy " + str((pol.get("sizing") or {}).get("label", "")),
+                             (pol.get("selected_params") or {}).get("bracket", "-"), float("nan")))
+        for mode, oos, acc, sizing, bracket, dsr in variants:
+            if _num(oos.get("profit_factor")) <= 1.0 or int(_num(oos.get("n_trades"))) < GATES["min_trades"]:
+                continue
+            rows.append({
+                "candidate": r["candidate"], "instrument": r["instrument"], "timeframe": r["timeframe"], "mode": mode,
+                "sizing": sizing, "bracket": bracket,
+                "cagr": _num(oos.get("cagr")), "sharpe": _num(oos.get("sharpe")), "calmar": _num(oos.get("calmar")),
+                "max_drawdown": _num(oos.get("max_drawdown"), 1.0), "profit_factor": _num(oos.get("profit_factor")),
+                "n_trades": int(_num(oos.get("n_trades"))), "passed": bool(acc.get("passed")), "failed_gates": list(acc.get("failed", [])),
+                "dsr": dsr,
+            })
     rows.sort(key=lambda x: (not x["passed"], -x["calmar"], -x["sharpe"]))
     for i, row in enumerate(rows[:n], start=1):
         row["rank"] = i
@@ -143,15 +148,23 @@ def executive_summary(run: Mapping[str, Any]) -> List[str]:
         f"{meta.get('data_span_short', 'the stored history')} after fees and slippage."
     )
 
+    policy_runs = [r for r in results if r.get("policy")]
+    policy_passed = [r for r in policy_runs if (r["policy"].get("acceptance") or {}).get("passed")]
+    policy_label = str(((policy_runs[0].get("policy") or {}).get("sizing") or {}).get("label", "")) if policy_runs else ""
+    policy_text = ""
+    if policy_runs:
+        names_p = ", ".join(f"{r['candidate']} on {r['instrument']} {r['timeframe']}" for r in policy_passed[:4])
+        policy_text = (f" With the fixed policy sizing `{policy_label}` (no sizing selection), {len(policy_passed)} of {len(policy_runs)} passed"
+                       + (f": {names_p}." if policy_passed else "."))
     if passed:
         names = ", ".join(f"{r['candidate']} on {r['instrument']} {r['timeframe']} ({(r.get('selected_sizing') or {}).get('label', '')})" for r in passed[:4])
-        bullets.append(f"**Result.** {len(passed)} of {n_runs} configurations passed every gate: {names}. "
+        bullets.append(f"**Result.** {len(passed)} of {n_runs} configurations passed every gate with the walk-forward-selected sizing: {names}.{policy_text} "
                        f"These are hypotheses for the forward paper fleet, not strategies to deploy.")
     else:
         counts = _gate_failure_counts(results)
         worst = ", ".join(f"{GATE_LABELS.get(k, k)} ({v} of {n_runs})" for k, v in list(counts.items())[:3])
-        bullets.append(f"**Result.** None of the {n_runs} configurations passed all seven gates. The gates most often missed were: {worst}. "
-                       "Nothing goes to demo or paper trading from this report.")
+        bullets.append(f"**Result.** None of the {n_runs} configurations passed all seven gates with the walk-forward-selected sizing. The gates most "
+                       f"often missed were: {worst}.{policy_text} Nothing goes to demo or paper trading from this report.")
 
     if top:
         best = top[0]
@@ -275,6 +288,29 @@ def render_report_v1b(run: Mapping[str, Any]) -> str:
                          f"{_share(b['max_drawdown'])} | {_f(b.get('calmar'))} |")
         lines.append("")
 
+    # Fixed policy sizing.
+    policy_rows = [r for r in run["results"] if r.get("policy")]
+    if policy_rows:
+        label = str(((policy_rows[0].get("policy") or {}).get("sizing") or {}).get("label", ""))
+        lines += [f"## Fixed policy sizing (no sizing selection) — `{label}`", "",
+                  "Same rule selection as above, but one a-priori sizing rule for every candidate instead of the train-selected one (a 20% "
+                  "drawdown budget with a modest-Sharpe strategy implies roughly a 10% vol target; the crash filter and ladder are the defensive "
+                  "defaults). The gap between this table and the summary table is selection noise in the sizing stage.", "",
+                  "| Candidate | Series | Bracket | OOS return | CAGR | Sharpe | PF | Max DD | Calmar | Trades | Alloc. | Pos. years | Robust ±30% | Verdict |",
+                  "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|---|"]
+        for r in policy_rows:
+            p = r["policy"]
+            oos = p.get("oos") or {}
+            acc = p.get("acceptance") or {}
+            lines.append(
+                f"| {r['candidate']} | {r['instrument']} {r['timeframe']} | {(p.get('selected_params') or {}).get('bracket', '-')} | "
+                f"{_pct(oos.get('total_return'))} | {_pct(oos.get('cagr'))} | {_f(oos.get('sharpe'))} | {_f(oos.get('profit_factor'))} | "
+                f"{_share(oos.get('max_drawdown'))} | {_f(oos.get('calmar'))} | {oos.get('n_trades', 0)} | {_share(oos.get('avg_allocation'))} | "
+                f"{acc.get('positive_years', 0)}/{acc.get('years_total', 0)} | {_share((p.get('robustness') or {}).get('share_above_threshold'))} | "
+                f"{'**PASS**' if acc.get('passed') else 'fail'} |"
+            )
+        lines.append("")
+
     # Paper-fleet shortlist.
     lines += ["## Paper-fleet shortlist (ranked)", "",
               "Ranked by: passed all gates first, then Calmar, then Sharpe; only configurations with OOS profit factor > 1 and ≥ 30 trades. "
@@ -389,6 +425,14 @@ def render_report_v1b(run: Mapping[str, Any]) -> str:
                   f"{_f(d.get('expected_max_sr'), '{:.3f}')} per bar vs observed OOS {_f(d.get('observed_sr'), '{:.3f}')} → DSR {_f(d.get('dsr'))}.", ""]
         acc = r["acceptance"]
         lines += ["Checks: " + ", ".join(f"{k}={'yes' if v else 'no'}" for k, v in acc.items() if isinstance(v, bool) and k != "passed"), ""]
+        pol = r.get("policy") or {}
+        if pol:
+            po = pol.get("oos") or {}
+            pa = pol.get("acceptance") or {}
+            lines += [f"Fixed policy sizing `{(pol.get('sizing') or {}).get('label')}`: return {_pct(po.get('total_return'))}, CAGR {_pct(po.get('cagr'))}, "
+                      f"Sharpe {_f(po.get('sharpe'))}, PF {_f(po.get('profit_factor'))}, max DD {_share(po.get('max_drawdown'))}, Calmar {_f(po.get('calmar'))}, "
+                      f"trades {po.get('n_trades')}, robust {_share((pol.get('robustness') or {}).get('share_above_threshold'))} → "
+                      f"{'PASS' if pa.get('passed') else 'fail (' + ', '.join(pa.get('failed', [])) + ')'}.", ""]
         if r.get("holdout"):
             h = r["holdout"]
             lines += [f"**Holdout ({meta['holdout_span']}), evaluated once with the most-selected rule and sizing:** return {_pct(h.get('total_return'))}, "

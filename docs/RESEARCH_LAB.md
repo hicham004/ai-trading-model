@@ -60,5 +60,73 @@ optional extra if the owner wants it.
   or contradiction, not as a new estimate.
 - S5 only has positioning data for the months OKX serves (funding since
   2026-07, open interest since 2026-08); in earlier bars the filter passes.
-- Derivatives, 1m/5m bars, multi-asset portfolios and sizing (vol targeting,
-  drawdown ladder) are Sprint 5 topics, not covered here.
+- 1m/5m bars are not covered. Sizing, portfolios and long-history positioning
+  data are Sprint 2b (next section).
+
+## Sprint 2b — sizing, risk, timeframe and positioning data
+
+Sprint 2 ended with 0 of 42 candidate runs passing because drawdown at all-in
+sizing was the binding constraint. Sprint 2b keeps the entry rules untouched
+and engineers the risk side (master plan Sprint 2b, items 1–10). Report:
+`docs/research/ENSEMBLE_V1B_REPORT.md` (+ `ensemble_v1b_results.json`),
+written by `scripts/run_research_v1b.py`. Simulation only, as before.
+
+| Module | Purpose |
+|---|---|
+| `research/sizing.py` | Vol-targeted entry fraction `clamp(target_vol / realized_vol, 0, 1)`; crash-state de-risking (half or zero exposure while the close is more than X % below its rolling N-day peak); drawdown ladder on the strategy's own equity (−5 % → half, −10 % → flat; released by a new equity high or, for flat, after a cooling-off that resets the reference peak); the 390-variant sizing grid. Every series uses past bars only (tested). |
+| `research/bracket.py` | Mechanical exit brackets layered on a candidate: take-profit at 2R/3R, trailing stop after 1R (1R or 2R behind the running high, effective from the next bar), 30-day time stop; `none` keeps the strategy's own exits. |
+| `research/engine.py` | Extended: per-bar/per-combo size matrices, reduce-only mid-trade de-risking (a position is sold down when the decision-bar fraction drops by more than the threshold or the ladder steps; it is never added to), ladder inside the loop, trailing stop, per-column time stops, MFE/MAE per trade. With every overlay off it is bit-for-bit the Sprint 2 engine (parity test unchanged). |
+| `research/resample.py` | 1H → 6H bars on the UTC grid (complete bars only, prefix-stable). The runner resamples when the lake has no stored 6H series. |
+| `research/sized_walkforward.py` | Staged walk-forward: per window the entry rule is selected among bracket-free rules on the train slice at full size by Sharpe, then the exit bracket among that rule's siblings, then the sizing variant by Calmar among variants with train max drawdown ≤ 10 % (half the gate — a 540-day train window understates a multi-year stitched drawdown); the test slice is simulated once. A fixed a-priori "policy" sizing (10 % vol target, 15 %/90-day crash filter, ladder) is run next to it so sizing-selection noise is visible. Fixed replays for robustness, the sizing sweep, ladder/bracket effects and slippage stress. |
+| `research/portfolio.py` | Sleeves (one configuration's OOS bar returns, possibly on different bar clocks) compounded into daily returns; bucketed or daily-rebalanced combination; equal-capital / equal-risk weights; correlation and diversification ratio; portfolio-level ladder. |
+| `research/report_v1b.py` | Risk-adjusted gates, ranked paper-fleet shortlist, plain-English executive summary, Markdown report. |
+| `research/strategies/hold.py` | `hold`: always long, no stop — a passive reference that isolates what the sizing overlays alone do; reported, never shortlisted. |
+| `app/datalake/binance_public.py` | Long-history positioning features (Binance public funding since 2019, open interest since 2020-09 / 2021-12) for S5; see `docs/DATA_LAKE.md`. |
+
+Gates (master plan Sprint 2b item 8, applied to the stitched out-of-sample
+curve at the proposed sizing): profit factor > 1.2 after costs; max drawdown
+< 20 %; Sharpe > 0.7; Calmar > 0.5; positive in ≥ 4 of 5 yearly OOS windows;
+≥ 30 OOS trades; ≥ 50 % of ±30 % parameter neighbours profitable (replayed
+with the proposed sizing); deflated Sharpe reported. Acceptance: ≥ 2
+configurations pass; otherwise the report proposes Sprint 2c. Nothing goes to
+demo either way.
+
+### Running
+
+```bash
+python scripts/collect_binance_positioning.py                  # once; resumable (funding ~1 min, open interest ~1.5 h)
+python scripts/run_research_v1b.py --evaluate-holdout           # BTC/ETH × 4H/6H × hold baseline S1 S2 S3 S4 S1+S5 S2+S5 (~35 min)
+python scripts/run_research_v1b.py --quick --strategies S2 --instruments BTC-USDT --timeframes 4H   # smoke run
+```
+
+Defaults: costs 0.10 % + 0.05 % per side; train 540 d → purge 7 d → test
+180 d; entry-rule selection by Sharpe with ≥ 20 train trades among
+bracket-free rules, then the bracket among siblings; sizing selection by
+Calmar with train max DD ≤ 10 % (`--sizing-dd-cap`) and ≥ 10 train trades;
+policy sizing `vt10/30 crash15/90dh ladder` (`--policy-*` flags);
+reduce-only threshold 0.25 (`--rebalance-threshold -1` = entry-sized only);
+ladder re-arm after 30 days. Sizing grid: vol targets {10, 15, 20, 25} % ×
+lookbacks {20, 30, 60} bars + fixed {25, 50, 100} % (100 % is the Sprint 2
+reference), × {no crash filter, crash {10, 15, 20} % × {90, 180} days × {half,
+zero}}, × {ladder off, on} = 390 variants. Brackets: `none tp2 tp3 trail1
+trail2 trail1_tp3 time30`. Positioning source: `binance` (`--positioning-source
+okx|none`).
+
+### Reading the v1b report honestly
+
+- The summary table re-selects the rule and the sizing every window; the
+  sizing study, the robustness and the ladder/bracket comparisons replay ONE
+  fixed choice over the same test windows, so their numbers differ from the
+  summary by construction.
+- The sizing stage picks among 390 near-equivalent variants, so its choice
+  is noisy from window to window; compare the summary with the fixed-policy
+  table before reading anything into a particular sizing label.
+- The sizing stage selects on the TRAIN drawdown; out-of-sample drawdowns are
+  regularly larger. The gate is applied to the stitched OOS curve.
+- Brackets and sizing variants multiply the number of things tried; the
+  deflated Sharpe uses all of them, which is why it is low.
+- The `hold` reference shows what vol targeting + crash filter + ladder do to
+  plain buy-and-hold; a timing rule has to beat it to be worth running.
+- Portfolios use, per (family, instrument), the timeframe with the higher OOS
+  Calmar — a mild selection on OOS data; treat portfolio numbers as slightly
+  optimistic.

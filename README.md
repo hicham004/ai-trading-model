@@ -354,6 +354,12 @@ candidate strategies; `scripts/run_research.py` writes
 `docs/research/ENSEMBLE_V1_REPORT.md`. Simulation only; see
 `docs/RESEARCH_LAB.md`.
 
+Sprint 2b adds the risk side: vol-targeted sizing, crash-state de-risking, a
+drawdown ladder, exit brackets, 6H bars, Binance public positioning history
+as research features, portfolio combination and risk-adjusted gates;
+`scripts/run_research_v1b.py` writes `docs/research/ENSEMBLE_V1B_REPORT.md`.
+Still simulation only; nothing in it can reach an order.
+
 ## Tests
 
 ```bash
