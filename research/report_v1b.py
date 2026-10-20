@@ -380,7 +380,8 @@ def render_report_v1b(run: Mapping[str, Any]) -> str:
         lines += [f"Rule grid: {r['grid_size']} combinations (entries × exit brackets). Windows: {oos.get('windows')} ({oos.get('windows_traded')} traded, "
                   f"{oos.get('windows_positive')} positive). Most-selected rule: `{r.get('selected_params')}`. Most-selected sizing: "
                   f"`{(r.get('selected_sizing') or {}).get('label')}` (selected {r.get('sizing_frequency', {}).get((r.get('selected_sizing') or {}).get('label'), 0)} "
-                  f"of {oos.get('windows_traded')} windows; alternatives: {', '.join(f'{k}×{v}' for k, v in sorted((r.get('sizing_frequency') or {}).items(), key=lambda kv: -kv[1])[:4])}).", ""]
+                  f"of {oos.get('windows_traded')} windows; other choices: "
+                  f"{', '.join(f'{k}×{v}' for k, v in sorted((r.get('sizing_frequency') or {}).items(), key=lambda kv: -kv[1]) if k != (r.get('selected_sizing') or {}).get('label'))[:4] or 'none'}).", ""]
         if r.get("yearly"):
             lines += ["| Year | OOS return |", "|---|---:|"]
             for year, value in r["yearly"].items():
