@@ -138,6 +138,9 @@ Summarized here; the machine-checkable source of truth is the script.
   `scripts/run_shadow_period.py`.
 - CI / automation itself — `.github/`,
   `scripts/check_travel_mode_safety.py`.
+- Dependency surface (supply chain) — `requirements.in`, the generated
+  `requirements.txt` lockfile, `pyproject.toml`.
+- Database schema migrations — `migrations/`, `alembic.ini`.
 
 ## Boundaries This Mode Does NOT Cross
 

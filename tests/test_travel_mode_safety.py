@@ -47,8 +47,11 @@ SAFETY_SENSITIVE = [
     "docs/TRAVEL_MODE.md",
     "docs/GITHUB_SETUP_FOR_TRAVEL.md",
     "docs/CLAUDE_ROUTINE_SETUP.md",
+    "requirements.in",
     "requirements.txt",
     "pyproject.toml",
+    "migrations/versions/0001_baseline.py",
+    "alembic.ini",
 ]
 
 NOT_SENSITIVE = [

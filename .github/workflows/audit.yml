@@ -1,0 +1,71 @@
+name: Dependency audit
+
+# Supply-chain hygiene: audits the LOCKED dependency set (requirements.txt,
+# generated from requirements.in with hashes) against known vulnerability
+# databases, and checks that the lockfile is in sync with requirements.in.
+#
+# Same security posture as ci.yml: read-only permissions, NO secrets, never
+# merges or deploys. It runs PR code only in the sense of reading two text
+# files; it does not install or execute the project.
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "requirements.in"
+      - "requirements.txt"
+      - "pyproject.toml"
+      - ".github/workflows/audit.yml"
+  push:
+    branches-ignore: [main]
+    paths:
+      - "requirements.in"
+      - "requirements.txt"
+      - "pyproject.toml"
+      - ".github/workflows/audit.yml"
+  schedule:
+    # Weekly (Monday 03:17 UTC) so newly disclosed advisories surface even
+    # when nobody touches the dependency files.
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pip-audit:
+    name: pip-audit (locked dependency set)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install audit tooling (pinned)
+        run: |
+          python -m pip install --upgrade pip
+          pip install "pip-audit==2.10.1" "uv==0.13.3"
+
+      - name: Lockfile is in sync with requirements.in
+        # Re-resolve with the existing lock as the preferred pins; any
+        # difference means requirements.in changed without regenerating
+        # requirements.txt (or vice versa). Header lines carry the command
+        # text and are skipped.
+        run: |
+          set -euo pipefail
+          cp requirements.txt /tmp/requirements.check.txt
+          uv pip compile requirements.in --universal --generate-hashes \
+            --python-version 3.11 -o /tmp/requirements.check.txt --quiet
+          diff -u <(tail -n +3 requirements.txt) <(tail -n +3 /tmp/requirements.check.txt)
+
+      - name: Audit locked dependencies for known vulnerabilities
+        run: |
+          pip-audit -r requirements.txt --no-deps --strict \
+            --progress-spinner off --desc on

@@ -85,8 +85,12 @@ SAFETY_SENSITIVE_RULES: list[tuple[str, str]] = [
     ("docs/GITHUB_SETUP_FOR_TRAVEL.md", "travel-mode setup runbook (governance)"),
     ("docs/CLAUDE_ROUTINE_SETUP.md", "automation setup doc (governance)"),
     # --- Dependency surface: a swap can introduce a network/bypass path ---
-    ("requirements.txt", "dependency surface (supply chain)"),
+    ("requirements.in", "dependency surface (supply chain; source of requirements.txt)"),
+    ("requirements.txt", "dependency surface (supply chain; generated lockfile)"),
     ("pyproject.toml", "build / dependency surface (supply chain)"),
+    # --- Schema migrations rewrite the runtime ledger tables ---
+    ("migrations/", "database schema migrations (runtime ledger tables)"),
+    ("alembic.ini", "migration tool configuration"),
 ]
 
 _TRUTHY = {"1", "true", "yes", "on"}

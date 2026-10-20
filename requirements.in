@@ -1,0 +1,47 @@
+# Direct dependencies (hand-maintained, pinned for reproducibility).
+#
+# This is the SOURCE file. `requirements.txt` is GENERATED from it with every
+# transitive dependency pinned and hashed. Do not edit requirements.txt by hand.
+#
+# To change a dependency: edit this file, then regenerate the lockfile:
+#
+#   uv pip compile requirements.in --universal --generate-hashes \
+#       --python-version 3.11 -o requirements.txt
+#
+# Public market data, local storage, API, dashboard, migrations, and tests
+# only. No dependency here reaches a production trading endpoint.
+
+# Web API
+fastapi==0.136.0
+starlette==1.3.1
+uvicorn[standard]==0.34.0
+
+# Database
+SQLAlchemy==2.0.36
+# psycopg 3 ("psycopg") ships binary wheels (incl. Python 3.14); used via the
+# SQLAlchemy "postgresql+psycopg://" URL scheme.
+psycopg[binary]==3.3.4
+# Schema migrations (baseline added in Sprint 0; runtime still uses create_all
+# until a reviewed change switches it over).
+alembic==1.20.0
+
+# Configuration
+pydantic==2.13.4
+python-dotenv==1.2.2
+
+# HTTP client for PUBLIC OKX market data
+requests==2.33.0
+
+# Phase 3: client for the PUBLIC, UNAUTHENTICATED OKX market-data WebSocket.
+# Already present transitively via uvicorn[standard]; pinned here because it is
+# now a direct dependency. Market-data only; never used for auth or orders.
+websockets==16.0
+
+# Dashboard + data handling
+streamlit==1.58.0
+altair==6.2.1
+pandas==2.2.3
+
+# Tests
+pytest==9.0.3
+httpx==0.28.1  # used by FastAPI's TestClient

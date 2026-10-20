@@ -145,14 +145,24 @@ docker-compose.yml
 
 Requirements:
 
-- Python 3.11+
+- Python 3.13 recommended (3.11+ supported; CI runs 3.13)
 - Docker and Docker Compose for PostgreSQL
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install -e .
 ```
+
+Dependencies are locked: `requirements.in` lists the direct, pinned
+dependencies and `requirements.txt` is the generated, fully pinned and
+hashed lockfile that `pip` installs (hash-checking is automatic). To change a
+dependency edit `requirements.in`, regenerate with
+`uv pip compile requirements.in --universal --generate-hashes --python-version 3.11 -o requirements.txt`,
+and commit both files; CI (`.github/workflows/audit.yml`) checks that they are
+in sync and runs `pip-audit` on the locked set. Database schema changes go
+through Alembic (`docs/runbooks/DB_MIGRATIONS.md`).
 
 Optional local configuration:
 
