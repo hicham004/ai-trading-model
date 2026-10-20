@@ -112,6 +112,30 @@ zero}}, × {ladder off, on} = 390 variants. Brackets: `none tp2 tp3 trail1
 trail2 trail1_tp3 time30`. Positioning source: `binance` (`--positioning-source
 okx|none`).
 
+### Result (2026-10-20)
+
+32 runs (8 candidates × BTC/ETH × 4H/6H; `hold` is a passive reference):
+**0 of 28 candidate configurations pass** the Sprint 2b gates with the
+walk-forward-selected sizing, and 0 of 28 with the fixed policy sizing
+(`docs/research/ENSEMBLE_V1B_REPORT.md`). Sizing did what it was built for on
+the risk side — the median worst drawdown of the lead rules fell from 54 %
+(all-in) to 19 % — but return fell in step (median CAGR 11.4 % → 4.9 %,
+Calmar 0.28 → 0.31), so the risk-adjusted gates (Sharpe > 0.7, Calmar > 0.5)
+are missed by 27 of 28 and the 4-of-5 positive-years gate by 25 of 28 (2022
+is negative for almost every long-only rule). Best single configuration: S4
+vol-compression breakout on ETH 6H (`vt25/60 ladder`, `tp2`): CAGR 7.7 %,
+max DD 13.2 %, Sharpe 0.83, Calmar 0.58, 66 trades — it misses only the
+yearly gate; holding ETH over the same span made 17.6 %/yr with an 80 %
+drawdown (Calmar 0.22). The drawdown ladder is roughly neutral (median return
+−6 points, drawdown −4 points); trailing stops cut the give-back share from
+about 50 % to 25 % but lower the profit factor by 0.3 because these rules
+already have exits; 6H beat 4H in 8 of 16 pairs; the S5 positioning filter
+with full funding history changes little (slightly better on ETH, worse for
+S1 on BTC 4H). Portfolios of the S2/S4 (and S1) sleeves across BTC+ETH reach
+Calmar 0.28 at an 11 % drawdown (diversification ratio 1.4–1.9) — no gate.
+The holdout stayed untouched. The report proposes Sprint 2c and lists the
+owner decisions it cannot take.
+
 ### Reading the v1b report honestly
 
 - The summary table re-selects the rule and the sizing every window; the

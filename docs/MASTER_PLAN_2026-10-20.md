@@ -16,6 +16,17 @@ Status log:
   is the binding constraint, not the entry rules (`docs/research/ENSEMBLE_V1_REPORT.md`).
   Sprint 2b (sizing, risk, timeframe, positioning data) added below. Owner
   actions open: VPS 8443 override before Oct 31; open/merge PRs in order.
+- 2026-10-20 (night): Sprint 2b built on `sprint-2b/sizing-and-risk` (stacked
+  on `sprint-2/research-lab`), research only, nothing merged. Result: **0 of
+  28 candidate configurations pass the Sprint 2b gates**, with the
+  walk-forward-selected sizing and with a fixed policy sizing alike. Sizing
+  cut the median worst drawdown from 54 % to 19 % but return fell in step
+  (median Calmar 0.28 → 0.31); the Sharpe/Calmar gates and the 4-of-5
+  positive-years gate (2022) are the binding ones. Best single configuration:
+  S4 on ETH 6H (Calmar 0.58, max DD 13.2 %), one gate short
+  (`docs/research/ENSEMBLE_V1B_REPORT.md`). The report proposes Sprint 2c and
+  lists owner decisions. Owner actions open: VPS 8443 override before Oct 31;
+  open/merge the four stacked PRs in order; answer the owner decisions.
 
 ---
 
@@ -230,6 +241,8 @@ Deliverables:
 10. **Tests**: sizing math and clamps, no look-ahead in vol/peak estimates, ladder state machine, exit bracket, 6H resampling alignment, Binance feature alignment, import boundaries.
 
 Acceptance: ≥ 2 configurations pass all gates in item 8 (ideally on different assets or strategy families). If none pass, the report says precisely why and proposes Sprint 2c; nothing goes to demo either way.
+
+**Result (2026-10-20):** 0 of 28 passed (`docs/research/ENSEMBLE_V1B_REPORT.md`, 32 runs incl. the `hold` reference). Sizing worked as designed on risk (median worst drawdown of the lead rules 54 % → 19 %) but scaled return down with it (median CAGR 11.4 % → 4.9 %, Calmar 0.28 → 0.31): it makes the strategies survivable, it does not create edge. Binding gates: Sharpe > 0.7 and Calmar > 0.5 (27 of 28 miss), positive in 4 of 5 years (25 of 28 miss; 2022). Best: S4 vol-compression on ETH 6H with `vt25/60 ladder` + `tp2` (CAGR 7.7 %, max DD 13.2 %, Sharpe 0.83, Calmar 0.58, 66 trades), one gate short. The ladder is roughly neutral; trailing stops reduce give-back but cost profit factor on rules that already have exits; 6H ≈ 4H; S5 with full funding history changes little; BTC+ETH × S2/S4(/S1) portfolios reach Calmar 0.28 at 11 % drawdown. Holdout untouched. Proposed Sprint 2c (research only): regime v2 + S0 as entry gates for bear years, portfolio-level sizing against one drawdown budget, lower-turnover variants, S5 re-test with a shorter funding window — no entry-rule retuning. Owner decisions (yearly-gate definition, sizing mechanism, sequencing vs Sprint 3, Binance data, timeframes, paper-fleet controls) are listed in the report.
 
 ### Sprint 3 — Execution v2 in demo (Dec 1–Dec 15, ~5 sessions, safety-core review required)
 

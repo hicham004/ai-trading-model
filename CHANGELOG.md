@@ -33,6 +33,14 @@ authorizes a phase, live trading, or a safety-core change; see
   summary; `hold` always-long reference. Report
   `docs/research/ENSEMBLE_V1B_REPORT.md`. Docs: `docs/RESEARCH_LAB.md`,
   `docs/DATA_LAKE.md`.
+- Lake writers retry the atomic replace on transient Windows file locks.
+
+### Result
+- 0 of 28 candidate configurations pass the Sprint 2b gates (0 of 28 with the
+  fixed policy sizing as well). Sizing cut the median worst drawdown from
+  54 % to 19 % but return fell in step (median Calmar 0.28 → 0.31); best
+  single configuration S4 on ETH 6H (Calmar 0.58, max DD 13.2 %) misses only
+  the 4-of-5 positive-years gate. Holdout untouched; nothing goes to demo.
 
 ## Unreleased — Sprint 2: research lab + ensemble v1 candidates (master plan Sprint 2)
 

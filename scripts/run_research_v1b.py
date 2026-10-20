@@ -594,9 +594,20 @@ def main(argv=None) -> int:
     report_path = Path(args.report)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(render_report_v1b(run), encoding="utf-8")
-    Path(args.json).write_text(json.dumps(run, indent=1, default=_json_default), encoding="utf-8")
+    Path(args.json).write_text(json.dumps(_rounded(run), separators=(",", ":"), default=_json_default), encoding="utf-8")
     print(f"wrote {report_path} and {args.json}")
     return 0
+
+
+def _rounded(value, digits: int = 6):
+    """Round floats recursively so the results JSON stays small (6 decimals is far below reporting precision)."""
+    if isinstance(value, dict):
+        return {k: _rounded(v, digits) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_rounded(v, digits) for v in value]
+    if isinstance(value, (float, np.floating)):
+        return None if not np.isfinite(value) else round(float(value), digits)
+    return value
 
 
 def _finite(value, key: str = ""):
