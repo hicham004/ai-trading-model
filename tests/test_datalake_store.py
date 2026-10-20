@@ -117,3 +117,31 @@ def test_empty_write_and_coverage(tmp_path: Path):
 def test_to_ms_requires_timezone():
     with pytest.raises(ValueError):
         to_ms(datetime(2024, 1, 1))
+
+
+def test_atomic_replace_retries_transient_windows_locks(tmp_path: Path, monkeypatch):
+    from app.datalake import parquet_store as ps
+
+    monkeypatch.setattr(ps, "REPLACE_RETRY_DELAY", 0.0)
+    calls = {"n": 0}
+    real_replace = ps.os.replace
+
+    def flaky(src, dst):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise PermissionError(5, "Access is denied")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(ps.os, "replace", flaky)
+    tmp, target = tmp_path / "state.json.tmp", tmp_path / "state.json"
+    tmp.write_text("{}", encoding="utf-8")
+    ps.atomic_replace(tmp, target)
+    assert target.exists() and not tmp.exists() and calls["n"] == 3
+
+    def always(src, dst):
+        raise PermissionError(5, "Access is denied")
+
+    monkeypatch.setattr(ps.os, "replace", always)
+    tmp.write_text("{}", encoding="utf-8")
+    with pytest.raises(PermissionError):
+        ps.atomic_replace(tmp, target, retries=3)

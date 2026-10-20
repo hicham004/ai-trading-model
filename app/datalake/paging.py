@@ -29,6 +29,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional, Protocol, Sequence, Tuple
 
+from app.datalake.parquet_store import atomic_replace
+
 Row = Tuple[int, Any]
 
 
@@ -80,7 +82,7 @@ def save_state(path: Path, state: WalkState) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(asdict(state), indent=2, sort_keys=True), encoding="utf-8")
-    os.replace(tmp, path)
+    atomic_replace(tmp, path)
 
 
 @dataclass

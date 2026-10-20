@@ -10,6 +10,7 @@ file is replaced atomically (temp file + ``os.replace``). Files are small
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,6 +61,29 @@ class WriteResult:
     files: List[Path] = field(default_factory=list)
 
 
+REPLACE_RETRIES = 8
+REPLACE_RETRY_DELAY = 0.25  # seconds; grows linearly per attempt
+
+
+def atomic_replace(tmp: Path, path: Path, *, retries: int = REPLACE_RETRIES) -> None:
+    """``os.replace`` with retries.
+
+    On Windows a concurrent reader (a research run, a DuckDB query, a shell
+    ``cat``) can hold the target open for a moment, and ``os.replace`` then
+    raises ``PermissionError`` (WinError 5/32). The write stays atomic: the
+    temp file is complete before the first attempt and the target is never
+    partially written.
+    """
+    for attempt in range(1, max(1, retries) + 1):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt >= retries:
+                raise
+            time.sleep(REPLACE_RETRY_DELAY * attempt)
+
+
 def to_ms(value: datetime) -> int:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("timestamps must be timezone-aware")
@@ -91,7 +115,7 @@ def merge_into_parquet(path: Path, table: pa.Table, *, key: str, schema: pa.Sche
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     pq.write_table(out, tmp, compression="zstd")
-    os.replace(tmp, path)
+    atomic_replace(tmp, path)
     return MergeResult(
         path=path,
         rows_before=rows_before,

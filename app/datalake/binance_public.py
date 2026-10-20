@@ -48,7 +48,7 @@ import pyarrow as pa
 import requests
 
 from app.datalake.layout import EXTERNAL_KINDS, LakeLayout
-from app.datalake.parquet_store import TS_TYPE, WriteResult, coverage, from_ms, to_ms, write_partitioned
+from app.datalake.parquet_store import TS_TYPE, WriteResult, atomic_replace, coverage, from_ms, to_ms, write_partitioned
 from app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -355,7 +355,7 @@ def _save_state(path: Path, state: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
-    os.replace(tmp, path)
+    atomic_replace(tmp, path)
 
 
 # -- funding-rate backfill (forward, resumable) ---------------------------------
