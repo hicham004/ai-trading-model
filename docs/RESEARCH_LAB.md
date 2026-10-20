@@ -154,3 +154,92 @@ owner decisions it cannot take.
 - Portfolios use, per (family, instrument), the timeframe with the higher OOS
   Calmar — a mild selection on OOS data; treat portfolio numbers as slightly
   optimistic.
+
+## Sprint 2c — regime gates, portfolio sizing and turnover
+
+Sprint 2b ended with 0 of 28 passing: sizing made the rules survivable but
+added no edge. Sprint 2c (master plan, planner decisions 1–6) keeps every
+entry rule untouched and changes only *when* a rule may trade and *how* the
+sleeves are sized. Report: `docs/research/ENSEMBLE_V1C_REPORT.md`
+(+ `ensemble_v1c_results.json`, `paper_fleet_shortlist_v1c.json`), written
+by `scripts/run_research_v1c.py`. Simulation only, as before.
+
+| Module | Purpose |
+|---|---|
+| `research/hmm.py` | Diagonal-Gaussian hidden Markov model in numpy (EM + a forward-only filter). Written in-repo instead of `hmmlearn` so the lockfile stays audited and, more importantly, so the regime probability of a bar is the *filtered* posterior that uses only bars up to and including it (`hmmlearn` exposes smoothed posteriors, which look into the future). Tested: EM never decreases the log-likelihood, a planted two-regime series is recovered, appending future bars never changes earlier filtered rows. |
+| `research/regime_v2.py` | Regime v2: 3 states on (log return, log 7-day realized vol), fitted on each walk-forward TRAIN slice, applied forward through the test slice; states ordered by mean return (bear / chop / bull). `mode="gate"` blocks NEW entries while `P(bear) >= 0.5`; `mode="scale"` sizes them at a quarter; exits, stops and brackets never see the regime. |
+| `research/events.py` + `research/strategies/s0_filters.py` | Scheduled-event windows for the S0 no-trade filter (built-in FOMC decision days 2020–2026, ±6 h around the release; a JSON calendar can be supplied). The dates were written from memory and must be verified by the owner; they block ~6–7 % of bars together with the existing vol-spike / spread / gap rules. |
+| `research/strategies/turnover.py`, `s1_tsmom.py` (`S1h`) | Lower-turnover variants: `S1w` weekly clock (state sampled once a week), `S1d`/`S2d`/`S4d` 1D entry clock (entries only at the daily close, exits on every bar), `S1h` hysteresis bands on the vol-scaled momentum. Same entry rules, different clocks. |
+| `research/strategies/s5_positioning.py` (`+S5s`) | S5 re-test with a 7–14-day funding z-window and an open-interest change window (1 or 3 days) on the full Binance history. |
+| `research/gated_walkforward.py` | Walk-forward with the per-window regime fit, entries-only gating of the desired matrix, Sprint 2b's staged rule selection on the gated train slice, the FIXED policy sizing (`vt10/30 crash15/90dh ladder`, planner decision 2) on the test slice, an optional small train-selected sizing comparison, and fixed replays (robustness, full-size sleeve, slippage stress) that reuse the per-window regimes. `mode="none"` reproduces Sprint 2b's policy walk-forward bit for bit (tested). |
+| `research/portfolio.py` (`combine_sized`) | Portfolio-level sizing: full-size sleeves, trailing inverse-vol weights (past days only), one portfolio vol target applied to the next day, one 15 % drawdown ladder (half at 7.5 %, flat at 15 %). |
+| `research/report_v1c.py` | Gates with the yearly gate v2 (planner decision 1: >= 75 % of trailing 12-month windows sampled every 30 days positive AND no calendar year with >= 60 days of data worse than −10 %), holdout verdicts (confirmed = positive return, PF > 1, >= 10 trades), the ranked shortlist with the decision-6 controls written to a machine-readable file labelled "forward evidence only; nothing approved", the regime / turnover / S5 studies and the plain-English summary. |
+
+### Running
+
+```bash
+python scripts/run_research_v1c.py --evaluate-holdout --workers 4     # BTC/ETH x 4H/6H x 13 candidates x regime modes (~22 min on 4 cores)
+python scripts/run_research_v1c.py --quick --strategies S1 S2 --instruments BTC-USDT --timeframes 4H   # smoke run
+python scripts/run_research_v1c.py --render-from-json docs/research/ensemble_v1c_results.json          # re-render the report without re-running
+```
+
+Defaults: costs 0.10 % + 0.05 % per side; train 540 d → purge 7 d → test
+180 d; rule selection by Sharpe with >= 20 train trades among bracket-free
+rules, then the bracket among siblings; brackets `none tp2 trail1 time30`
+(none for the S5 variants); regime modes `none gate scale` for S1/S2/S4,
+`none gate` for the variants, `none` for `hold`; policy sizing as in 2b;
+S0 filter with the FOMC calendar on; positioning source `binance`; holdout
+evaluated for configurations that pass walk-forward AND for the passive
+controls. One process per instrument x timeframe (`--workers`).
+
+### Result (2026-10-20)
+
+112 runs (108 candidate configurations + 4 `hold` controls). **4 of 108 pass
+the Sprint 2c walk-forward gates at the fixed policy sizing; the untouched
+12-month holdout (2025-10-20 → 2026-10-20) confirms 1 and contradicts 3.**
+
+- Confirmed: `S1+S5` on BTC-USDT 6H, no regime gate — OOS CAGR +5.3 %, max DD
+  8.8 %, Sharpe 0.86, PF 1.68, Calmar 0.60, 139 trades, 78 % of rolling
+  12-month windows positive; holdout +2.3 % with a 3.9 % drawdown (PF 1.48, 32
+  trades). The deflated Sharpe is 0.23.
+- Contradicted: the gated `S2` family on BTC-USDT 4H (`S2`, `S2+S5`, `S2+S5s`)
+  — walk-forward Calmar 0.69–0.80 but holdout −4.9 % / −3.0 % / −4.4 % with PF
+  0.28–0.51 over ~20 trades: a walk-forward pass that the holdout rejects is
+  selection luck among 108 configurations, not edge.
+- Controls: `hold` + policy sizing made +1.8 % to +3.2 %/yr at 7–10 % drawdown
+  (Calmar 0.20–0.45) and lost 2.6–4.3 % on the holdout; plain buy-and-hold made
+  +11 % to +31 %/yr with 77–81 % drawdowns.
+- Regime v2 as an entry gate (48 rules with/without): median Calmar 0.31 →
+  0.18 (gate) / 0.27 (quarter-size), median 2022 return −2.4 % → −1.9 %, median
+  max DD 9.1 % → 9.0 %; the gate had the higher Calmar in 27 of 48 rules and the
+  threshold (0.35 / 0.5 / 0.65) barely matters. The bear state also contains the
+  recoveries these rules need: the gate is not where the missing edge is.
+- Lower-turnover clocks: median fee drag 1.1 % → 0.7 %/yr, median Calmar 0.29 →
+  0.22 (variant better in 20 of 40 pairs) — fees were not the problem either.
+- S5 with the 7–14-day funding window: small, mixed changes versus the 30-day
+  window (table in the report).
+- Portfolio-level sizing: the jointly sized BTC+ETH x S1/S2/S4 portfolio with a
+  15 % vol target and the 7.5/15 % ladder made +10.9 %/yr at a 13.2 % drawdown
+  (Sharpe 0.82, Calmar 0.83, 83 % of rolling 12-month windows positive) and is
+  the only construction that clears every gate with margin — but it is built
+  from out-of-sample sleeves with a mild timeframe selection and has no holdout
+  of its own, so it is a hypothesis for the paper fleet, not a result.
+- Acceptance clause: fewer than two configurations survived both tests, so the
+  report states, with numbers, that the edge of long-only timing on BTC/ETH spot
+  is real but thin and fragile; the Phase 7/8 product stays "risk-managed
+  exposure + news brake", the confirmed sleeve and the jointly sized portfolio
+  go to the paper fleet next to the controls, and the Phase 9 long/short design
+  study becomes the research priority. Owner decisions are listed in the report.
+
+### Reading the v1c report honestly
+
+- The walk-forward gates, the regime modes, the gate threshold, the clocks and
+  the policy sizing were all fixed before the run; the holdout is the arbiter and
+  it rejected three of the four passers. Do not re-tune any of them on these
+  results — a sweep is a new, pre-registered sprint.
+- The rolling-12-month gate uses overlapping windows (a smoothed statistic),
+  which is why it is paired with the calendar-year floor.
+- Deflated Sharpe counts the rule trials of the last train window; the regime
+  modes and clocks multiply the number of things tried and are the reason the
+  DSRs stay low.
+- The FOMC calendar is unverified data (mechanism tested, dates not).

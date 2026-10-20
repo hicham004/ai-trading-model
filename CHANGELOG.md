@@ -76,6 +76,27 @@ authorizes a phase, live trading, or a safety-core change; see
 - Dependencies: `duckdb`, `pyarrow` (now direct), `feedparser` (lockfile
   regenerated; pip-audit clean).
 
+## Unreleased — Sprint 2c: regime gates, portfolio sizing, turnover (branch `sprint-2c/regime-portfolio`)
+
+Research only (2026-10-20); no change under `app/execution`, `app/risk`,
+`app/exchange` or `config/`. Result: 4 of 108 configurations pass the
+walk-forward gates at the fixed policy sizing, the untouched holdout confirms
+1 and contradicts 3; see `docs/research/ENSEMBLE_V1C_REPORT.md` and
+`docs/RESEARCH_LAB.md`.
+
+### Added
+- `research/hmm.py` (numpy Gaussian HMM with a forward-only filter),
+  `research/regime_v2.py` (3-state regime fitted per walk-forward train slice,
+  entry gate / entry scale only), `research/events.py` + scheduled-event
+  windows in the S0 filter (FOMC calendar, owner to verify),
+  `research/strategies/turnover.py` + `S1h` hysteresis + `+S5s` re-test
+  variants, `research/gated_walkforward.py`, portfolio-level sizing
+  (`research/portfolio.py::combine_sized`), `research/report_v1c.py` (yearly
+  gate v2 on rolling 12-month windows, holdout verdicts, machine-readable
+  paper-fleet shortlist with controls), `scripts/run_research_v1c.py`
+  (parallel, `--render-from-json`), tests for every component including
+  no-look-ahead in HMM fitting/filtering.
+
 ## Unreleased — Sprint 0 (master plan `docs/MASTER_PLAN_2026-10-20.md`)
 
 ### Fixed

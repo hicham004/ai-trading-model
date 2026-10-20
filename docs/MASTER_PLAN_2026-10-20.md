@@ -27,6 +27,26 @@ Status log:
   (`docs/research/ENSEMBLE_V1B_REPORT.md`). The report proposes Sprint 2c and
   lists owner decisions. Owner actions open: VPS 8443 override before Oct 31;
   open/merge the four stacked PRs in order; answer the owner decisions.
+- 2026-10-20 (late evening): Sprint 2c built and run on `sprint-2c/regime-portfolio`
+  (stacked on `sprint-2b/sizing-and-risk`, research only; 757 tests green). Result:
+  **4 of 108 configurations pass the Sprint 2c walk-forward gates at the fixed
+  policy sizing, but the untouched 12-month holdout confirms only 1** (`S1+S5` on
+  BTC-USDT 6H, no regime gate: CAGR +5.3 %, max DD 8.8 %, Calmar 0.60; holdout
+  +2.3 %) **and contradicts 3** (the gated `S2` family on BTC 4H lost 3–5 % on the
+  holdout). The regime gate did not help on average (median Calmar 0.31 → 0.18),
+  nor did lower turnover (0.29 → 0.22); the jointly sized BTC+ETH portfolio
+  (vol target 15 %, 15 % drawdown budget) is the only construction clearing every
+  gate with margin (+10.9 %/yr, 13.2 % DD, Calmar 0.83) and has no holdout of its
+  own (`docs/research/ENSEMBLE_V1C_REPORT.md`, shortlist
+  `docs/research/paper_fleet_shortlist_v1c.json`). Sprint 3 (execution v2 in
+  demo) built on `sprint-3/exchange-side-stops` (based on `sprint-0`, safety
+  core, 590 tests green): exchange-side protective stop, post-only entry policy,
+  optional exit bracket, stop guard alarm, migration 0002, drills runbook —
+  **demo validation pending the owner's drills; independent review required**
+  (`docs/PHASE6A_EXECUTION_V2.md`, `docs/runbooks/DEMO_STOP_DRILLS.md`). Nothing
+  merged. Owner actions open: answer the v1c owner decisions; open/merge the
+  stacked research PRs and the separate Sprint 3 PR after review; run the demo
+  stop drills on a NEW demo account; VPS 8443 override before Oct 31.
 
 ---
 
@@ -271,6 +291,8 @@ Deliverables:
 
 Acceptance: ≥ 2 configurations pass; **or** a clear, numbers-backed statement that long-only timing does not beat vol-targeted holding — in which case the Phase 7/8 product becomes "risk-managed exposure + news brake" and the Phase 9 long/short design study becomes the research priority.
 
+**Result (2026-10-20):** 112 runs (`docs/research/ENSEMBLE_V1C_REPORT.md`). 4 of 108 configurations pass the walk-forward gates at the fixed policy sizing; the untouched holdout confirms 1 (`S1+S5` BTC-USDT 6H, no gate: OOS CAGR +5.3 %, max DD 8.8 %, Sharpe 0.86, PF 1.68, Calmar 0.60, 139 trades; holdout +2.3 %, DD 3.9 %, PF 1.48) and contradicts 3 (gated `S2`/`S2+S5`/`S2+S5s` on BTC 4H: walk-forward Calmar 0.69–0.80, holdout −3 % to −5 % with PF 0.3–0.5). The `hold` + policy controls lost 2.6–4.3 % on the holdout. Regime v2 as an entry gate: median Calmar 0.31 → 0.18 (gate) / 0.27 (quarter-size), 2022 median −2.4 % → −1.9 %, gate better in 27 of 48 rules, threshold-insensitive — the bear state also holds the recoveries. Lower-turnover clocks: fees/yr 1.1 % → 0.7 %, Calmar 0.29 → 0.22. S5 with a 7–14-day window: small mixed changes. Jointly sized BTC+ETH x S1/S2/S4 portfolio (15 % vol target, 7.5/15 % ladder): +10.9 %/yr, 13.2 % DD, Sharpe 0.82, Calmar 0.83, passes every gate — a hypothesis (no holdout of its own). Per the acceptance clause: the edge of long-only timing is real but thin and fragile (1 of 108 survived both tests); the Phase 7/8 product stays "risk-managed exposure + news brake", the confirmed sleeve and the jointly sized portfolio go to the paper fleet next to the controls, and the Phase 9 long/short design study is the research priority. Owner decisions in the report.
+
 ### Sprint 3 — Execution v2 in demo (Dec 1–Dec 15, ~5 sessions, safety-core review required)
 
 Deliverables:
@@ -280,6 +302,8 @@ Deliverables:
 4. Demo validation drills: stop triggers while the process is dead; kill switch; reconciliation after restart; partial fills.
 
 Acceptance: 2-week demo run with zero positions unprotected, documented drill results, independent review, owner sign-off. **This closes the hard blocker that has been open since June.**
+
+**Built (2026-10-20):** branch `sprint-3/exchange-side-stops` (based on `sprint-0`, not on the research stack). Items 1–3 implemented and tested offline (590 tests); item 4 is written as owner drills (`docs/runbooks/DEMO_STOP_DRILLS.md`) because this machine had no demo credentials. Mechanism: a stand-alone OKX SPOT conditional SELL algo order (market on trigger; OCO with the take-profit leg) placed after the entry fill and kept in sync with the fill-derived position, with the same persist-first / UNKNOWN-resolve-by-query / never-duplicate contract as orders; `attachAlgoOrds` was not used (SPOT support and partial-fill semantics undocumented). All new settings default to the reviewed behaviour; opting in needs a NEW demo account. Status: demo validation pending the drills, independent review required, not merged (`docs/PHASE6A_EXECUTION_V2.md`).
 
 ### Sprint 4 — Phase 6b News/Event Agent, log-only (Dec 1–Dec 22 build, then 30+ days forward; ~8 sessions)
 
