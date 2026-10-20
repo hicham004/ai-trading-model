@@ -139,6 +139,8 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--report", default="docs/research/ENSEMBLE_V1C_REPORT.md")
     p.add_argument("--json", default="docs/research/ensemble_v1c_results.json")
     p.add_argument("--shortlist", default="docs/research/paper_fleet_shortlist_v1c.json")
+    p.add_argument("--render-from-json", default=None, metavar="PATH",
+                   help="Re-render the report/shortlist/narrative from a saved results JSON without re-running the research.")
     return p.parse_args(argv)
 
 
@@ -566,12 +568,20 @@ def _next_step(results: Sequence[Dict[str, Any]], holds: Sequence[Dict[str, Any]
         f"hold+policy {h['instrument']} {h['timeframe']} holdout {(h.get('holdout') or {}).get('total_return', 0) * 100:+.1f}%"
         for h in holds if h.get("holdout")
     )
+    survivors = "; ".join(
+        f"{r['candidate']} {r['instrument']} {r['timeframe']} [{r['regime']['mode']}] OOS CAGR {r['oos'].get('cagr', 0) * 100:+.1f}% / max DD "
+        f"{r['oos'].get('max_drawdown', 0) * 100:.1f}% / Calmar {r['oos'].get('calmar', 0):.2f}, holdout {(r.get('holdout') or {}).get('total_return', 0) * 100:+.1f}%"
+        for r in confirmed
+    )
     return (prefix + f"Binding walk-forward gates: {top}. On {beats} of {pairs} series the best long-only timing rule beat "
-            f"vol-targeted holding by more than 0.1 Calmar on the walk-forward ({hold_holdout or 'controls not evaluated on the holdout'}). "
-            "Per the Sprint 2c acceptance clause this is the numbers-backed statement that "
-            "long-only timing does not reliably beat vol-targeted holding: the Phase 7/8 product should be 'risk-managed exposure + news brake' "
-            "(hold with the policy sizing and the regime/no-trade gates, the news agent as a brake), and the Phase 9 long/short design study becomes "
-            "the research priority. The paper fleet can still run the shortlist and the controls forward cheaply — forward evidence is the honest tiebreaker.")
+            f"vol-targeted holding by more than 0.1 Calmar on the walk-forward, and the controls lost on the holdout ({hold_holdout or 'controls not evaluated on the holdout'}), "
+            f"so the honest, numbers-backed statement is narrower than 'timing never beats holding': the edge of long-only timing on BTC/ETH spot is REAL BUT THIN "
+            f"AND FRAGILE — of {len(cands)} configurations exactly {len(confirmed)} survived both the walk-forward and the holdout"
+            + (f" ({survivors})" if survivors else "")
+            + ", and the risk-managed return is a few percent a year at under 10 % drawdown. One surviving sleeve is not an ensemble. Per the Sprint 2c "
+            "acceptance clause the Phase 7/8 product therefore stays 'risk-managed exposure + news brake' (hold with the policy sizing and the no-trade gates, "
+            "the news agent as a brake), the confirmed sleeve(s) and the jointly sized portfolio run forward in the paper fleet next to the controls as the "
+            "honest tiebreaker, and the Phase 9 long/short design study becomes the research priority.")
 
 
 def _owner_decisions(run: Dict[str, Any]) -> List[str]:
@@ -602,8 +612,35 @@ def _owner_decisions(run: Dict[str, Any]) -> List[str]:
 
 # -- main ----------------------------------------------------------------------
 
+def render_from_json(args) -> int:
+    """Re-render the report, shortlist and derived narrative from a saved results JSON (no research re-run)."""
+    saved = json.loads(Path(args.render_from_json).read_text(encoding="utf-8"))
+    results = saved["results"]
+    holds = [r for r in results if r["candidate"] in REFERENCE_CANDIDATES]
+    run = dict(saved)
+    run["meta"] = dict(saved["meta"], generated_at=datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+                       rendered_from=str(args.render_from_json), report_path=args.report, shortlist_path=args.shortlist)
+    run["regime_study"] = regime_study(results)
+    run["turnover_study"] = turnover_study(results, TURNOVER_VARIANTS)
+    run["s5_study"] = s5_study(results, S5_RETEST_VARIANTS)
+    run["shortlist"] = shortlist(results)
+    run["controls"] = controls(results, saved.get("benchmark", []))
+    run["next_step"] = _next_step(results, holds)
+    run["owner_decisions"] = _owner_decisions(run)
+    run["executive_summary"] = executive_summary(run)
+    report_path = Path(args.report)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(render_report_v1c(run), encoding="utf-8")
+    Path(args.json).write_text(json.dumps(_rounded(run), separators=(",", ":"), default=_json_default), encoding="utf-8")
+    write_shortlist_file(Path(args.shortlist), run)
+    print(f"re-rendered {report_path}, {args.json} and {args.shortlist} from {args.render_from_json}")
+    return 0
+
+
 def main(argv=None) -> int:
     args = parse_args(argv)
+    if args.render_from_json:
+        return render_from_json(args)
     args_dict = dict(vars(args))
     series_list = [(inst, tf) for inst in args.instruments for tf in args.timeframes]
     t0 = time.monotonic()
