@@ -73,8 +73,8 @@ scripts/run_live_market_data.py  ──► starts the stream (standalone process
 
 ### Endpoints used (all public/unauthenticated)
 
-- `wss://ws.okx.com:8443/ws/v5/public` — `tickers`, `trades`
-- `wss://ws.okx.com:8443/ws/v5/business` — `candle1m`
+- `wss://ws.okx.com/ws/v5/public` — `tickers`, `trades`
+- `wss://ws.okx.com/ws/v5/business` — `candle1m`
 
 ## Run instructions
 
@@ -113,8 +113,8 @@ LIVE_API_BASE=http://localhost:8000 streamlit run dashboard/streamlit_app.py
 
 | Env var | Default | Meaning |
 |---|---|---|
-| `OKX_PUBLIC_WS_URL` | `wss://ws.okx.com:8443/ws/v5/public` | public ticker/trades WS |
-| `OKX_BUSINESS_WS_URL` | `wss://ws.okx.com:8443/ws/v5/business` | public candle WS |
+| `OKX_PUBLIC_WS_URL` | `wss://ws.okx.com/ws/v5/public` | public ticker/trades WS |
+| `OKX_BUSINESS_WS_URL` | `wss://ws.okx.com/ws/v5/business` | public candle WS |
 | `LIVE_WS_AUTOSTART` | `false` | open the stream in-process on API startup |
 | `LIVE_STALE_AFTER_SECONDS` | `30` | seconds without accepted market data before "stale" |
 | `LIVE_API_BASE` | `http://localhost:8000` | dashboard → live API base URL |

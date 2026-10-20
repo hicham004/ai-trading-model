@@ -132,12 +132,12 @@ class Settings:
     # candles use the business endpoint (both public).
     okx_public_ws_url: str = field(
         default_factory=lambda: os.getenv(
-            "OKX_PUBLIC_WS_URL", "wss://ws.okx.com:8443/ws/v5/public"
+            "OKX_PUBLIC_WS_URL", "wss://ws.okx.com/ws/v5/public"
         )
     )
     okx_business_ws_url: str = field(
         default_factory=lambda: os.getenv(
-            "OKX_BUSINESS_WS_URL", "wss://ws.okx.com:8443/ws/v5/business"
+            "OKX_BUSINESS_WS_URL", "wss://ws.okx.com/ws/v5/business"
         )
     )
 
@@ -262,7 +262,7 @@ class Settings:
     )
     okx_demo_private_ws_url: str = field(
         default_factory=lambda: os.getenv(
-            "OKX_DEMO_PRIVATE_WS_URL", "wss://wspap.okx.com:8443/ws/v5/private"
+            "OKX_DEMO_PRIVATE_WS_URL", "wss://wspap.okx.com/ws/v5/private"
         )
     )
     demo_account_name: str = field(

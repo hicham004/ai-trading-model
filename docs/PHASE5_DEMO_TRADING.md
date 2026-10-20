@@ -58,7 +58,7 @@ Official references used:
 - REST demo base: `https://www.okx.com` (allowlist `{www.okx.com, aws.okx.com}`,
   https only, no path/query/credentials). Demo is selected by the header, not a
   different host.
-- Private WebSocket: `wss://wspap.okx.com:8443/ws/v5/private`. The production
+- Private WebSocket: `wss://wspap.okx.com/ws/v5/private`. The production
   host `ws.okx.com` is rejected for authenticated login.
 - Only an explicit `(method, path)` allowlist of SPOT trading + account-read
   endpoints is reachable; there is no generic request method. Forbidden path

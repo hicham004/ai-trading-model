@@ -45,9 +45,9 @@ _APPROVED_REST_PORTS = (None, 443)
 # authenticated private login must fail closed.
 DEMO_WS_HOST = "wspap.okx.com"
 _APPROVED_WS_PORTS = (None, 8443, 443)
-DEMO_PRIVATE_WS_URL = "wss://wspap.okx.com:8443/ws/v5/private"
-DEMO_PUBLIC_WS_URL = "wss://wspap.okx.com:8443/ws/v5/public"
-DEMO_BUSINESS_WS_URL = "wss://wspap.okx.com:8443/ws/v5/business"
+DEMO_PRIVATE_WS_URL = "wss://wspap.okx.com/ws/v5/private"
+DEMO_PUBLIC_WS_URL = "wss://wspap.okx.com/ws/v5/public"
+DEMO_BUSINESS_WS_URL = "wss://wspap.okx.com/ws/v5/business"
 _APPROVED_WS_PATHS = ("/ws/v5/private", "/ws/v5/public", "/ws/v5/business")
 
 # --- REST endpoint allowlist (SPOT cash + account reads only) ---------------
