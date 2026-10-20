@@ -4,6 +4,37 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — Sprint 4a: news agent core, log-only (plan row R4a; Phase 6b design §4–7, §9, §13)
+
+Phase 6b is authorized for log-only operation only; nothing here gates an
+entry, touches an order path, or is imported by the trading runtime.
+
+### Added
+- `app/news/schema.py`: the design's `NewsEvent` with exactly its enums and
+  strict validation; `TriageVerdict` / `ClassifierVerdict` structured-output
+  models; `SourceItemRef` from ingestion records.
+- `app/news/classifier.py`: Claude Haiku 5.5 triage + Claude Opus 5.5
+  classification through the Anthropic SDK with structured outputs, the frozen
+  §9 system prompt (verbatim, plus a reference appendix) behind a 1-hour
+  prompt-cache marker, strict validation; any failure or a missing
+  `ANTHROPIC_API_KEY` is NO_EFFECT; API host pinned.
+- `app/news/corroborate.py`: source families (wire copies, social-post relays,
+  same owner, verbatim headlines), LLM may only narrow; price/volume
+  confirmation from public candles closed before the decision.
+- `app/news/decay.py`: §6 TTLs, monotonic decay, source weights, thresholds and
+  reduction tiers, effective signal, most-conservative combination, event
+  assembly (`build_event`) and same-story merging without TTL refresh.
+- `app/news/overlay.py`: pure shadow overlay that can only keep, shrink or
+  block a new long entry. `app/news/dedup.py`: story-level `event_id`.
+- `app/news/store.py`: append-only `logs/news_shadow` event and decision
+  JSONL logs with secret redaction.
+- Dependency: `anthropic==1.15.0` (hashed lockfile regenerated with uv;
+  pip-audit clean).
+- Tests (offline: fakes and a mock HTTP transport, no key): schema, classifier
+  failure paths and the real SDK request shape, corroboration and look-ahead,
+  decay monotonicity, overlay invariants, logs, and import boundaries in both
+  directions.
+
 ## Unreleased — Sprint 2b: sizing, risk, timeframe and positioning data (master plan Sprint 2b, research only)
 
 ### Added

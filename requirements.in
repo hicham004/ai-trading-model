@@ -50,6 +50,12 @@ pyarrow==26.0.0
 duckdb==1.5.6
 feedparser==6.0.14
 
+# Sprint 4a news agent (Phase 6b, log-only): the official Anthropic SDK, used
+# only by app/news/classifier.py to classify sanitized headlines. It is never
+# imported by execution, risk or exchange code; without ANTHROPIC_API_KEY the
+# classifier refuses and every item is NO_EFFECT.
+anthropic==1.15.0
+
 # Tests
 pytest==9.0.3
 httpx==0.28.1  # used by FastAPI's TestClient

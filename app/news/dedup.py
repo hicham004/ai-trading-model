@@ -1,11 +1,16 @@
-"""Deduplication keys and the persisted seen-set (PHASE6B_DESIGN section 7.3, skeleton).
+"""Deduplication keys, story-level event ids and the persisted seen-set
+(PHASE6B_DESIGN sections 4 and 7.3).
 
 Two keys per item:
 
 - ``content_key``: identifies one *article* (canonical URL, else publisher+title).
-- ``story_key``:   crude same-story bucket (normalized title + UTC day). The full
-  design (entities, category, assets, source family) belongs to the classifier
-  stage, which is not built here; this key only lets the log group copies.
+- ``story_key``:   crude same-story bucket (normalized title + UTC day). The
+  classifier refines it: it may link an item to an existing event
+  (``same_story_as``), and source families are judged in ``corroborate``.
+
+``event_id`` names one *story*: a deterministic hash of category, story key,
+first-source time bucket and affected assets, so every article about the same
+story shares one id and many articles never multiply severity.
 
 The seen-set is a JSON file ``{key: first_seen_iso}`` pruned by age and size.
 """
@@ -19,10 +24,22 @@ import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Iterable, Optional
 
 _NON_WORD = re.compile(r"[^0-9a-zÀ-ɏЀ-ӿ ]+")
 _WS = re.compile(r"\s+")
+
+EVENT_TIME_BUCKET_HOURS = 6
+_CATEGORY_SLUGS = {
+    "ETF_SEC_DECISION": "etf",
+    "FED_FOMC_RATES": "fed",
+    "MACRO_CPI_PPI_JOBS": "macro",
+    "EXCHANGE_HACK_EXPLOIT": "hack",
+    "MAJOR_REGULATORY_ACTION": "reg",
+    "LIQUIDATION_CASCADE": "liq",
+    "GEOPOLITICAL_ESCALATION": "geopol",
+    "MAJOR_EXCHANGE_PROTOCOL_INCIDENT": "incident",
+}
 
 
 def normalize_title_key(title: str) -> str:
@@ -45,6 +62,35 @@ def story_key(title: str, published_at: Optional[datetime], observed_at: datetim
     when = published_at or observed_at
     day = when.astimezone(timezone.utc).date().isoformat()
     return _sha("story|" + normalize_title_key(title) + "|" + day)
+
+
+def event_id(
+    category: str,
+    story: str,
+    first_source_at: datetime,
+    assets: Iterable[str],
+    *,
+    bucket_hours: int = EVENT_TIME_BUCKET_HOURS,
+) -> str:
+    """Deterministic story-level id, e.g. ``evt_20261020_geopol_btc_eth_<12 hex>``.
+
+    Same category + story key + first-source time bucket + assets -> same id,
+    whatever article carried it. A genuinely new development is a different
+    story key (or is linked by the classifier) and gets its own id.
+    """
+    slug = _CATEGORY_SLUGS.get(str(category))
+    if slug is None:
+        raise ValueError(f"unknown category {category!r}")
+    if first_source_at.tzinfo is None or first_source_at.utcoffset() is None:
+        raise ValueError("first_source_at must be timezone-aware")
+    if bucket_hours <= 0 or 24 % bucket_hours:
+        raise ValueError("bucket_hours must divide 24")
+    when = first_source_at.astimezone(timezone.utc)
+    bucket = int(when.timestamp()) // (bucket_hours * 3600)
+    names = sorted({str(a).strip().upper() for a in assets if str(a).strip()})
+    digest = _sha(f"event|{category}|{story}|{bucket}|{','.join(names)}")[:12]
+    asset_slug = "_".join(re.sub(r"[^a-z0-9]", "", n.lower()) for n in names) or "none"
+    return f"evt_{when:%Y%m%d}_{slug}_{asset_slug}_{digest}"
 
 
 class SeenStore:

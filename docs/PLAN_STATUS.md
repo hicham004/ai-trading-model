@@ -65,3 +65,9 @@ Each line: the decision, then the recommendation. Chats add to this list instead
 - Sprint 3 design — the protective stop is a stand-alone exchange order placed right after
   each fill, not one attached to the entry order (OKX does not document attached stops for
   spot). Recommendation: accept; the drills (G3) measure the seconds between fill and stop.
+- R4a — News source tiers (Phase 6b design §17, open question): which news outlets count as
+  HIGH quality? Today every outlet found through GDELT is MEDIUM (weight 0.65), so two
+  agreeing outlets can at most halve a hypothetical new entry in the news log, and only an
+  official feed (SEC, Fed, an exchange status page) can produce a hypothetical block.
+  Recommendation: approve a short HIGH list (Reuters, AP, Bloomberg, Dow Jones/WSJ,
+  Financial Times) before the 30-day news shadow (G5). It is log-only either way.

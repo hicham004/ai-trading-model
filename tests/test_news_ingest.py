@@ -258,4 +258,6 @@ def test_news_package_never_imports_trading_modules():
     for module in pkgutil.iter_modules(pkg.__path__):
         text = (Path(pkg.__path__[0]) / f"{module.name}.py").read_text(encoding="utf-8")
         for name in forbidden:
+            if name == "anthropic" and module.name == "classifier":
+                continue  # Sprint 4a: the classifier is the one module allowed the SDK (tests/test_news_boundaries.py)
             assert f"import {name}" not in text and f"from {name}" not in text, (module.name, name)
