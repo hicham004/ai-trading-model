@@ -18,7 +18,9 @@ one is clear.
 1. **Safety regressions** (highest priority — see below).
 2. **Scope / phase boundaries** — does this PR stay inside the currently
    authorized phase? (Phases 1–5 accepted; Phase 6a authorized as the
-   mechanical shadow period only; Phase 6b and later are NOT authorized.)
+   mechanical shadow period only; Phase 6b authorized for log-only operation
+   only — owner, June 30, 2026, issue #12, reconfirmed October 20, 2026;
+   news gating of entries and Phase 7+ are NOT authorized.)
 3. **Correctness** — does the code do what it claims, with adverse cases
    handled and fail-closed behavior preserved?
 4. **Tests** — are there new/updated tests, and do they cover the change and
@@ -79,7 +81,9 @@ before merge)** and recommend the operator do NOT merge:
   token, or chat id printed, logged, or committed (including in tests or
   fixtures). P0.
 - **Phase advancement without explicit human approval** — code or docs that
-  declare a new phase complete/authorized, or begin Phase 6b+ work. P1
+  declare a new phase complete/authorized, or begin work beyond the
+  authorized scope (Phase 6b log-only is authorized; news gating of entries
+  and Phase 7+ are not). P1
   (stop and require operator approval).
 - **Removing or disabling `scripts/check_travel_mode_safety.py` or its CI
   step.** P0.

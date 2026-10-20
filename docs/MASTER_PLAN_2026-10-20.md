@@ -47,6 +47,12 @@ Status log:
   merged. Owner actions open: answer the v1c owner decisions; open/merge the
   stacked research PRs and the separate Sprint 3 PR after review; run the demo
   stop drills on a NEW demo account; VPS 8443 override before Oct 31.
+- 2026-10-20 (night): the owner approved an unattended plan runner
+  (`scripts/plan-runner.ps1`: one fresh chat per row, Opus 5.5 at max effort,
+  commits on `plan/auto`, stacked on `sprint-2c/regime-portfolio`) and recorded
+  the June 30 Phase 6b log-only authorization in the rule files. **From here the
+  live status is `docs/PLAN_STATUS.md`**; decisions the runner may not make
+  collect in its section 2.
 
 ---
 

@@ -107,8 +107,12 @@ VPS had not shown the previous `50110` whitelist failures, private-WS flapping,
 or re-arm storms. Agents must still verify the live host state before relying
 on it; do not infer current runtime health from this file alone.
 
-**Phase 6b (news agent, log-only) is designed but NOT authorized.** Phase 6b
-and all later phases require explicit human approval before any work begins.
+**Phase 6b (news/event agent) is authorized for LOG-ONLY operation** (human
+owner, June 30, 2026, GitHub issue #12; reconfirmed October 20, 2026): build,
+test and run it as a separate log-only observer per `docs/PHASE6B_DESIGN.md`.
+Using news to gate demo or live entries is NOT authorized and needs a separate
+owner decision. Phase 7 and all later phases require explicit human approval
+before any work begins.
 The operator is travelling for roughly one week around June 28, 2026; while
 away, no agent may advance a phase, weaken a safety rule, make a safety-core
 change, merge/deploy autonomously, or treat a clean test run as approval.
@@ -141,7 +145,12 @@ change, merge/deploy autonomously, or treat a clean test run as approval.
 - **Exchange-side protective stops are a HARD BLOCKER for any live phase.**
   The current stop is software-only (enforced only while the runtime process
   is alive), accepted for demo only. See `docs/PHASE5_DEMO_TRADING.md`.
-- **No auto-commit.** Commit only when the operator asks. A passing backtest
+- **No auto-commit.** Commit only when the operator asks. Standing exception
+  (owner, October 20, 2026): unattended chats started by
+  `scripts/plan-runner.ps1` commit their own step on the runner branch
+  `plan/auto` once the full test suite, the travel-mode guard and
+  `git diff --check` pass; they never push, merge or switch branches (see
+  `docs/PLAN_STATUS.md`). A passing backtest
   or test suite never authorizes paper, demo, or live execution, and no agent
   may approve its own implementation or declare a phase complete.
 - **Stop and ask** before changing agreed scope, adding authenticated
