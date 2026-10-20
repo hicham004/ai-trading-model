@@ -133,10 +133,43 @@ def trade_metrics(trades: pd.DataFrame, *, init_cash: float, n_bars: int, period
     }
 
 
-def summarize_combo(equity: np.ndarray, trades: pd.DataFrame, exposure: float, *, init_cash: float, periods_per_year: float) -> Dict[str, float]:
+def giveback_metrics(trades: pd.DataFrame, *, mfe_threshold: float = 0.03) -> Dict[str, float]:
+    """Give-back: trades that reached ``mfe_threshold`` unrealized gain yet closed at a loss.
+
+    The six-month fleets study (arXiv 2609.05663) found 43 % of positions reached
+    +3 % unrealized and half of those still closed negative. ``mfe_pct`` /
+    ``mae_pct`` are the engine's per-trade excursions; ``return_pct`` is the
+    trade's return on its outlay.
+    """
+    n = int(len(trades))
+    out = {"n_trades": n, "mfe_threshold": float(mfe_threshold), "n_reached": 0, "share_reached": 0.0,
+           "share_reached_closed_negative": 0.0, "avg_giveback_pct": 0.0, "avg_mfe_pct": 0.0, "avg_mae_pct": 0.0}
+    if n == 0 or "mfe_pct" not in trades:
+        return out
+    mfe = trades["mfe_pct"].to_numpy(dtype=float)
+    mae = trades["mae_pct"].to_numpy(dtype=float)
+    ret = trades["return_pct"].to_numpy(dtype=float)
+    reached = mfe >= mfe_threshold
+    out.update({
+        "n_reached": int(reached.sum()),
+        "share_reached": float(reached.mean()),
+        "avg_mfe_pct": float(np.nanmean(mfe)),
+        "avg_mae_pct": float(np.nanmean(mae)),
+    })
+    if reached.any():
+        out["share_reached_closed_negative"] = float((ret[reached] < 0).mean())
+        out["avg_giveback_pct"] = float((mfe[reached] - ret[reached]).mean())
+    return out
+
+
+def summarize_combo(
+    equity: np.ndarray, trades: pd.DataFrame, exposure: float, *, init_cash: float, periods_per_year: float,
+    allocation: Optional[float] = None,
+) -> Dict[str, float]:
     out = equity_metrics(equity, periods_per_year)
     out.update(trade_metrics(trades, init_cash=init_cash, n_bars=len(equity), periods_per_year=periods_per_year))
     out["exposure"] = float(exposure)
+    out["avg_allocation"] = float(exposure if allocation is None else allocation)
     return out
 
 

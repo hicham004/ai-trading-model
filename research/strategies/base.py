@@ -48,6 +48,8 @@ class SignalFrame:
     strength: pd.Series  # float raw strength (NaN when no signal); used for calibration
     target_distance: Optional[pd.Series] = None
     time_stop_bars: Optional[int] = None
+    trail_activate_r: Optional[float] = None  # trailing stop: activation threshold in R (None = off)
+    trail_r: Optional[float] = None  # trailing stop: distance below the running high, in R
 
     def __post_init__(self) -> None:
         n = len(self.desired)
