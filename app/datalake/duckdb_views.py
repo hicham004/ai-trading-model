@@ -3,7 +3,8 @@
 ``connect(layout)`` returns an in-memory DuckDB connection with these views:
 
 - ``candles``          all spot candles (instrument, timeframe, open_time, OHLCV, confirmed)
-- ``funding_rate``, ``open_interest``, ``long_short_ratio``, ``taker_volume``
+- ``funding_rate``, ``open_interest``, ``long_short_ratio``, ``taker_volume``  (OKX SWAP statistics)
+- ``binance_funding_rate``, ``binance_metrics``  (Binance public history, research features only)
 - ``liquidations``     JSON-lines liquidation records
 
 A view over a glob that matches no file is created empty with the right
@@ -20,8 +21,9 @@ import duckdb
 import pandas as pd
 import pyarrow as pa
 
+from app.datalake.binance_public import EXTERNAL_SCHEMAS
 from app.datalake.derivatives import SCHEMAS
-from app.datalake.layout import SERIES_KINDS, LakeLayout
+from app.datalake.layout import EXTERNAL_KINDS, SERIES_KINDS, LakeLayout
 from app.datalake.parquet_store import CANDLE_SCHEMA, TS_TYPE
 
 LIQUIDATION_SCHEMA = pa.schema(
@@ -39,6 +41,8 @@ LIQUIDATION_SCHEMA = pa.schema(
         ("observed_at", pa.string()),
     ]
 )
+
+EXTERNAL_VIEWS = tuple(f"binance_{kind}" for kind in EXTERNAL_KINDS)
 
 
 def _sql_str(value: str) -> str:
@@ -74,6 +78,15 @@ def connect(layout: LakeLayout, *, database: str = ":memory:") -> duckdb.DuckDBP
             f"SELECT * FROM read_parquet({_sql_str(pattern)}, union_by_name=true)",
             SCHEMAS[kind],
         )
+    for kind in EXTERNAL_KINDS:
+        pattern = layout.external_series_glob("binance", kind)
+        _create_view(
+            con,
+            f"binance_{kind}",
+            pattern,
+            f"SELECT * FROM read_parquet({_sql_str(pattern)}, union_by_name=true)",
+            EXTERNAL_SCHEMAS[kind],
+        )
     pattern = layout.liquidations_glob()
     _create_view(
         con,
@@ -106,4 +119,4 @@ def candles_frame(
     return con.execute(sql, params).df()
 
 
-__all__ = ["connect", "candles_frame", "LIQUIDATION_SCHEMA", "TS_TYPE"]
+__all__ = ["connect", "candles_frame", "LIQUIDATION_SCHEMA", "TS_TYPE", "EXTERNAL_VIEWS"]
