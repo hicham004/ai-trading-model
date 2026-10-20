@@ -10,6 +10,10 @@ Safety properties:
   allowlisted ``(method, path)``.
 * Order parameters are whitelisted: ``tdMode`` must be ``cash`` (no margin),
   and leverage/position-mode/derivative keys are rejected.
+* Algo (protective stop) orders are whitelisted even harder: ``tdMode=cash``,
+  ``side=sell`` only (a stop on a long-only SPOT position can only sell),
+  ``ordType`` ``conditional`` or ``oco``, trigger type ``last``; no
+  ``reduceOnly``/``posSide``/``closeFraction``/``ccy``/leverage keys.
 * Secrets are never logged. Request headers and bodies are never logged. Error
   messages contain only the OKX ``code``/``msg`` (which carry no secret).
 * A transport failure or timeout raises :class:`OKXDemoTransportError`, which
@@ -39,6 +43,12 @@ from app.exchange.okx_demo_endpoints import (
     ACCOUNT_TRADE_FEE,
     PUBLIC_INSTRUMENTS,
     PUBLIC_TIME,
+    TRADE_ALGO_AMEND,
+    TRADE_ALGO_CANCEL,
+    TRADE_ALGO_GET,
+    TRADE_ALGO_PLACE,
+    TRADE_ALGOS_HISTORY,
+    TRADE_ALGOS_PENDING,
     TRADE_FILLS,
     TRADE_ORDER_AMEND,
     TRADE_ORDER_CANCEL,
@@ -59,6 +69,22 @@ logger = get_logger(__name__)
 _ALLOWED_ORDER_KEYS = {"instId", "tdMode", "side", "ordType", "sz", "px", "clOrdId", "tgtCcy"}
 _ALLOWED_ORD_TYPES = {"limit", "post_only", "fok", "ioc", "market"}
 _ALLOWED_SIDES = {"buy", "sell"}
+
+# Whitelisted ALGO (protective stop) parameter keys. The stop on a long-only
+# SPOT position is always a SELL; buys, position sides, reduce-only flags,
+# close fractions and margin currencies are not representable.
+_ALLOWED_ALGO_KEYS = {
+    "instId", "tdMode", "side", "ordType", "sz", "algoClOrdId",
+    "slTriggerPx", "slOrdPx", "slTriggerPxType",
+    "tpTriggerPx", "tpOrdPx", "tpTriggerPxType",
+}
+_ALLOWED_ALGO_ORD_TYPES = {"conditional", "oco"}
+_ALLOWED_ALGO_TRIGGER_TYPES = {"last"}  # OKX: spot trigger orders support the last price only
+_ALLOWED_ALGO_AMEND_KEYS = {"newSz", "newSlTriggerPx", "newSlOrdPx", "newTpTriggerPx", "newTpOrdPx"}
+# OKX error codes that mean "no such order" for a query (treated as not found,
+# never as a rejection). 51603 is the documented regular-order code; the algo
+# variant is confirmed by the owner's demo drill (docs/runbooks/DEMO_STOP_DRILLS.md).
+_NOT_FOUND_CODES = {"51603", "51293"}
 
 
 class OKXDemoError(RuntimeError):
@@ -266,6 +292,101 @@ class OKXDemoRestClient:
         resp = self._signed_request(*TRADE_ORDER_AMEND, body=body, allow_retry=False)
         return self._single_order_result(resp)
 
+    # -- algo orders: the exchange-side protective stop (Sprint 3) ------------
+
+    def place_algo_order(self, params: dict) -> dict:
+        """Place one SPOT protective-stop algo order (conditional / OCO SELL only)."""
+        body = self._validate_algo_params(params)
+        resp = self._signed_request(*TRADE_ALGO_PLACE, body=body, allow_retry=False)
+        return self._single_order_result(resp)
+
+    def cancel_algo_order(
+        self, instrument: str, *, algo_id: Optional[str] = None, algo_cl_ord_id: Optional[str] = None
+    ) -> dict:
+        """Cancel one algo order by ``algoId`` (preferred) or ``algoClOrdId``."""
+        if not algo_id and not algo_cl_ord_id:
+            raise ValueError("cancel_algo_order requires algo_id or algo_cl_ord_id")
+        item: dict = {"instId": instrument}
+        if algo_id:
+            item["algoId"] = str(algo_id)
+        else:
+            item["algoClOrdId"] = str(algo_cl_ord_id)
+        resp = self._signed_request(*TRADE_ALGO_CANCEL, body=[item], allow_retry=False)
+        return self._single_order_result(resp)
+
+    def amend_algo_order(
+        self,
+        instrument: str,
+        *,
+        algo_id: Optional[str] = None,
+        algo_cl_ord_id: Optional[str] = None,
+        new_size: Optional[str] = None,
+        new_sl_trigger_px: Optional[str] = None,
+        new_sl_ord_px: Optional[str] = None,
+        new_tp_trigger_px: Optional[str] = None,
+        new_tp_ord_px: Optional[str] = None,
+    ) -> dict:
+        """Amend an owned algo order's size and/or trigger prices (never its side or type)."""
+        if not algo_id and not algo_cl_ord_id:
+            raise ValueError("amend_algo_order requires algo_id or algo_cl_ord_id")
+        changes = {
+            "newSz": new_size, "newSlTriggerPx": new_sl_trigger_px, "newSlOrdPx": new_sl_ord_px,
+            "newTpTriggerPx": new_tp_trigger_px, "newTpOrdPx": new_tp_ord_px,
+        }
+        body: dict = {"instId": instrument}
+        if algo_id:
+            body["algoId"] = str(algo_id)
+        else:
+            body["algoClOrdId"] = str(algo_cl_ord_id)
+        for key, value in changes.items():
+            if value is not None:
+                if key not in _ALLOWED_ALGO_AMEND_KEYS:  # pragma: no cover - defensive
+                    raise ValueError(f"forbidden algo amendment {key!r}")
+                body[key] = str(value)
+        if len(body) <= 2:
+            raise ValueError("amend_algo_order requires at least one change")
+        resp = self._signed_request(*TRADE_ALGO_AMEND, body=body, allow_retry=False)
+        return self._single_order_result(resp)
+
+    def get_algo_order(
+        self, *, algo_id: Optional[str] = None, algo_cl_ord_id: Optional[str] = None
+    ) -> Optional[dict]:
+        """Query one algo order by ``algoId`` or ``algoClOrdId``; None when the venue has no such order."""
+        if not algo_id and not algo_cl_ord_id:
+            raise ValueError("get_algo_order requires algo_id or algo_cl_ord_id")
+        params = {"algoId": str(algo_id)} if algo_id else {"algoClOrdId": str(algo_cl_ord_id)}
+        try:
+            resp = self._signed_request(*TRADE_ALGO_GET, params=params)
+        except OKXDemoError as exc:
+            if exc.code in _NOT_FOUND_CODES and not isinstance(exc, OKXDemoTransportError):
+                return None
+            raise
+        return resp.data[0] if resp.data else None
+
+    def get_pending_algo_orders(
+        self, ord_type: str = "conditional", instrument: Optional[str] = None
+    ) -> List[dict]:
+        if ord_type not in _ALLOWED_ALGO_ORD_TYPES:
+            raise ValueError(f"ordType must be one of {sorted(_ALLOWED_ALGO_ORD_TYPES)}")
+        params = {"ordType": ord_type, "instType": "SPOT"}
+        if instrument:
+            params["instId"] = instrument
+        resp = self._signed_request(*TRADE_ALGOS_PENDING, params=params)
+        return list(resp.data)
+
+    def get_algo_orders_history(
+        self, ord_type: str = "conditional", *, state: Optional[str] = None, instrument: Optional[str] = None
+    ) -> List[dict]:
+        if ord_type not in _ALLOWED_ALGO_ORD_TYPES:
+            raise ValueError(f"ordType must be one of {sorted(_ALLOWED_ALGO_ORD_TYPES)}")
+        params = {"ordType": ord_type, "instType": "SPOT"}
+        if state:
+            params["state"] = state
+        if instrument:
+            params["instId"] = instrument
+        resp = self._signed_request(*TRADE_ALGOS_HISTORY, params=params)
+        return list(resp.data)
+
     @staticmethod
     def _validate_order_params(params: dict) -> dict:
         if not isinstance(params, dict):
@@ -281,6 +402,35 @@ class OKXDemoRestClient:
             raise ValueError(f"ordType must be one of {sorted(_ALLOWED_ORD_TYPES)}")
         if not params.get("instId") or not params.get("clOrdId"):
             raise ValueError("order requires instId and clOrdId")
+        return dict(params)
+
+    @staticmethod
+    def _validate_algo_params(params: dict) -> dict:
+        """Whitelist for the protective stop: SPOT cash, SELL, conditional/oco, last-price trigger."""
+        if not isinstance(params, dict):
+            raise ValueError("algo params must be a dict")
+        extra = set(params) - _ALLOWED_ALGO_KEYS
+        if extra:
+            raise ValueError(f"forbidden algo parameter(s): {sorted(extra)}")
+        if params.get("tdMode") != "cash":
+            raise ValueError("algo tdMode must be 'cash' (margin/leverage are forbidden)")
+        if params.get("side") != "sell":
+            raise ValueError("a protective stop on a long-only SPOT position must be a SELL")
+        if params.get("ordType") not in _ALLOWED_ALGO_ORD_TYPES:
+            raise ValueError(f"algo ordType must be one of {sorted(_ALLOWED_ALGO_ORD_TYPES)}")
+        if not params.get("instId") or not params.get("algoClOrdId"):
+            raise ValueError("algo order requires instId and algoClOrdId")
+        if not params.get("sz"):
+            raise ValueError("algo order requires sz")
+        if not params.get("slTriggerPx") or not params.get("slOrdPx"):
+            raise ValueError("protective stop requires slTriggerPx and slOrdPx")
+        for key in ("slTriggerPxType", "tpTriggerPxType"):
+            if key in params and params[key] not in _ALLOWED_ALGO_TRIGGER_TYPES:
+                raise ValueError("spot algo trigger price type must be 'last'")
+        if params["ordType"] == "oco" and (not params.get("tpTriggerPx") or not params.get("tpOrdPx")):
+            raise ValueError("oco requires tpTriggerPx and tpOrdPx")
+        if params["ordType"] == "conditional" and ("tpTriggerPx" in params or "tpOrdPx" in params):
+            raise ValueError("conditional stop must not carry take-profit fields (use oco)")
         return dict(params)
 
     @staticmethod
@@ -306,7 +456,7 @@ class OKXDemoRestClient:
         path: str,
         *,
         params: Optional[dict] = None,
-        body: Optional[dict] = None,
+        body: Optional[object] = None,
         allow_retry: bool = True,
     ) -> OKXResponse:
         assert_endpoint_allowed(method, path)  # fail closed; never generic
@@ -387,6 +537,9 @@ class OKXDemoRestClient:
             TRADE_ORDER_PLACE[1],
             TRADE_ORDER_CANCEL[1],
             TRADE_ORDER_AMEND[1],
+            TRADE_ALGO_PLACE[1],
+            TRADE_ALGO_CANCEL[1],
+            TRADE_ALGO_AMEND[1],
         }
         if code != "0" and path in order_mutation_paths and data:
             # OKX commonly returns top-level code "1" / "All operations

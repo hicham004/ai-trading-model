@@ -73,6 +73,42 @@ def _get_nonnegative_unit_float(name: str, default: float) -> float:
     return value
 
 
+def _get_choice(name: str, default: str, choices: tuple) -> str:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    value = raw.strip().lower()
+    if value not in choices:
+        raise ValueError(f"{name} must be one of {choices}, got {raw!r}")
+    return value
+
+
+def _get_nonnegative_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a number, got {raw!r}") from exc
+    if not value >= 0.0 or value != value:
+        raise ValueError(f"{name} must be non-negative, got {raw!r}")
+    return value
+
+
+def _get_nonnegative_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer, got {raw!r}") from exc
+    if value < 0:
+        raise ValueError(f"{name} must be non-negative, got {raw!r}")
+    return value
+
+
 def _get_fraction(name: str, default: float) -> float:
     """Read a fraction in (0.0, 1.0], failing closed on invalid configuration."""
     raw = os.getenv(name)
@@ -365,6 +401,61 @@ class Settings:
     # flag AND valid demo credentials. It stays false for imports, API, tests.
     demo_smoke_test_enabled: bool = field(
         default_factory=lambda: _get_bool("OKX_DEMO_SMOKE_TEST", False)
+    )
+
+    # --- Sprint 3: execution v2 (demo) -------------------------------------
+    # Every default below reproduces the reviewed Phase 5/6a behaviour, so an
+    # existing demo account keeps its immutable identity unless the operator
+    # opts in (see app/execution/identity.py). Opting in requires a NEW demo
+    # account name.
+    #
+    # Protective stop: "software" = the reviewed hourly candle-low check only;
+    # "exchange" = additionally place an OKX conditional (or OCO) SELL algo
+    # order on the venue for every open position and keep it in sync.
+    demo_stop_mode: str = field(
+        default_factory=lambda: _get_choice("DEMO_STOP_MODE", "software", ("software", "exchange"))
+    )
+    # Seconds a position may exist without a live exchange-side stop before the
+    # stop guard alarms (event + Telegram) and blocks new entries.
+    demo_stop_unprotected_max_seconds: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_STOP_UNPROTECTED_MAX_SECONDS", 30.0)
+    )
+    # Bound on stop placement attempts per instrument per hour (rejections are
+    # retried on the next cycle; an UNKNOWN outcome is never retried, only resolved).
+    demo_stop_max_attempts_per_hour: int = field(
+        default_factory=lambda: _get_positive_int("DEMO_STOP_MAX_ATTEMPTS_PER_HOUR", 6, maximum=60)
+    )
+    # Entry policy: "marketable_limit" = the reviewed crossing limit at ask x (1 + band);
+    # "post_only_then_market" = post-only limit at/inside the spread, cancelled after
+    # the timeout, then one marketable limit for the remainder only if the expected
+    # slippage versus the decision-time ask is within the budget.
+    demo_entry_policy: str = field(
+        default_factory=lambda: _get_choice(
+            "DEMO_ENTRY_POLICY", "marketable_limit", ("marketable_limit", "post_only_then_market")
+        )
+    )
+    demo_entry_timeout_seconds: float = field(
+        default_factory=lambda: _get_positive_float("DEMO_ENTRY_TIMEOUT_SECONDS", 60.0)
+    )
+    demo_entry_slippage_budget: float = field(
+        default_factory=lambda: _get_nonnegative_unit_float("DEMO_ENTRY_SLIPPAGE_BUDGET", 0.001)
+    )
+    # Mechanical exit bracket (all OFF by default; the protective stop is mandatory
+    # and not configurable). Take-profit in units of R (entry - stop), placed as the
+    # TP leg of an OCO stop; trailing stop after `activate_r` R, `trail_r` R below the
+    # running high, applied by amending the exchange-side stop upward on confirmed
+    # candle closes; time stop in confirmed candles since the entry fill.
+    demo_bracket_take_profit_r: float = field(
+        default_factory=lambda: _get_nonnegative_float("DEMO_BRACKET_TAKE_PROFIT_R", 0.0)
+    )
+    demo_bracket_trail_activate_r: float = field(
+        default_factory=lambda: _get_nonnegative_float("DEMO_BRACKET_TRAIL_ACTIVATE_R", 0.0)
+    )
+    demo_bracket_trail_r: float = field(
+        default_factory=lambda: _get_nonnegative_float("DEMO_BRACKET_TRAIL_R", 0.0)
+    )
+    demo_bracket_time_stop_bars: int = field(
+        default_factory=lambda: _get_nonnegative_int("DEMO_BRACKET_TIME_STOP_BARS", 0)
     )
 
 

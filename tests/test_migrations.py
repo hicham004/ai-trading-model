@@ -37,7 +37,7 @@ def sqlite_url(tmp_path: Path) -> str:
 
 def test_single_linear_head():
     script = ScriptDirectory.from_config(_config("sqlite://"))
-    assert script.get_heads() == ["0001"], "migration history must stay linear"
+    assert script.get_heads() == ["0002"], "migration history must stay linear"
     assert script.get_base() == "0001"
 
 
@@ -83,6 +83,7 @@ def test_offline_postgres_sql_renders_without_sqlite_isms(capsys):
     sql = capsys.readouterr().out
     assert "CREATE TABLE candles" in sql
     assert "CREATE TABLE demo_order_intents" in sql
+    assert "CREATE TABLE demo_algo_orders" in sql
     assert "alembic_version" in sql
     assert "DEFAULT now()" in sql, "server defaults must compile per dialect"
     assert "CURRENT_TIMESTAMP" not in sql

@@ -14,6 +14,13 @@ unrepresentable in Phase 5:
 * Only an explicit allowlist of SPOT trading and account-read endpoints may be
   called. Funding, withdrawal, transfer, account-mode-mutation, and any other
   path are rejected, so there is no generic arbitrary-endpoint capability.
+
+Sprint 3 (execution v2, demo) adds the SPOT **algo-order** endpoints used for
+the exchange-side protective stop: place / cancel / amend a conditional (or
+OCO) stop-loss algo order and read algo orders back. They are the same
+``x-simulated-trading: 1`` signed requests on the same host allowlist; the
+REST client additionally restricts algo orders to ``tdMode=cash`` SELL
+protective orders (never a buy, never margin, never a position-side flag).
 """
 
 from __future__ import annotations
@@ -65,6 +72,13 @@ TRADE_FILLS = ("GET", "/api/v5/trade/fills")
 TRADE_ORDER_PLACE = ("POST", "/api/v5/trade/order")
 TRADE_ORDER_CANCEL = ("POST", "/api/v5/trade/cancel-order")
 TRADE_ORDER_AMEND = ("POST", "/api/v5/trade/amend-order")
+# Sprint 3: SPOT algo orders (exchange-side protective stop).
+TRADE_ALGO_PLACE = ("POST", "/api/v5/trade/order-algo")
+TRADE_ALGO_CANCEL = ("POST", "/api/v5/trade/cancel-algos")
+TRADE_ALGO_AMEND = ("POST", "/api/v5/trade/amend-algos")
+TRADE_ALGO_GET = ("GET", "/api/v5/trade/order-algo")
+TRADE_ALGOS_PENDING = ("GET", "/api/v5/trade/orders-algo-pending")
+TRADE_ALGOS_HISTORY = ("GET", "/api/v5/trade/orders-algo-history")
 
 ALLOWED_ENDPOINTS = frozenset(
     {
@@ -80,6 +94,12 @@ ALLOWED_ENDPOINTS = frozenset(
         TRADE_ORDER_PLACE,
         TRADE_ORDER_CANCEL,
         TRADE_ORDER_AMEND,
+        TRADE_ALGO_PLACE,
+        TRADE_ALGO_CANCEL,
+        TRADE_ALGO_AMEND,
+        TRADE_ALGO_GET,
+        TRADE_ALGOS_PENDING,
+        TRADE_ALGOS_HISTORY,
     }
 )
 
@@ -101,6 +121,8 @@ _FORBIDDEN_PATH_TOKENS = (
     "repay",
     "savings",
     "finance",
+    "tradingbot",  # grid / DCA / recurring bots are not part of any approved phase
+    "copytrading",
 )
 
 

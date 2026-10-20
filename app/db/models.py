@@ -456,6 +456,11 @@ class DemoRuntimeStatus(Base):
     feed_stale: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     ws_authenticated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     last_error: Mapped[str] = mapped_column(String(256), nullable=True)
+    # Sprint 3: reason the protective-stop guard is alarmed (None = healthy).
+    # Set when a position exists without a live exchange-side stop for longer
+    # than the configured grace; blocks new entries until cleared by a
+    # successful stop placement / reconciliation.
+    stop_alarm: Mapped[str] = mapped_column(String(64), nullable=True)
     lock_token: Mapped[str] = mapped_column(String(64), nullable=True)
     lock_heartbeat: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
@@ -499,6 +504,61 @@ class DemoOrderIntent(Base):
     avg_price: Mapped[str] = mapped_column(String(40), nullable=True)
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_update_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str] = mapped_column(String(256), nullable=True)
+    # Sprint 3 execution quality (entry policy): the taker reference price at
+    # decision time, the policy that produced this order, and the expected /
+    # realized slippage versus that reference in basis points (decimal strings).
+    entry_policy: Mapped[str] = mapped_column(String(24), nullable=True)
+    reference_price: Mapped[str] = mapped_column(String(40), nullable=True)
+    expected_slippage_bps: Mapped[str] = mapped_column(String(40), nullable=True)
+    realized_slippage_bps: Mapped[str] = mapped_column(String(40), nullable=True)
+    # For a market fallback after a post-only timeout: the post-only intent it replaces.
+    parent_client_order_id: Mapped[str] = mapped_column(String(32), nullable=True)
+
+
+class DemoAlgoOrder(Base):
+    """Exchange-side protective stop (OKX SPOT conditional / OCO algo order), one row per placement.
+
+    ``algo_cl_ord_id`` is deterministic (account, instrument, parent entry, version)
+    so a retry, reconnect or restart reproduces the same id and can never place a
+    second economic stop for the same position. ``status`` mirrors the order
+    lifecycle (``pending_submit`` -> ``live`` -> ``effective`` | ``canceled`` |
+    ``order_failed``; ``unknown`` / ``rejected`` / ``failed`` / ``replaced`` are
+    local outcomes). ``child_order_id`` is the venue order id of the market
+    SELL the venue creates when the stop triggers.
+    """
+
+    __tablename__ = "demo_algo_orders"
+    __table_args__ = (
+        UniqueConstraint("account_id", "algo_cl_ord_id", name="uq_demo_algo_clordid"),
+        Index("ix_demo_algo_status", "account_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("demo_accounts.id"), nullable=False, index=True
+    )
+    algo_cl_ord_id: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    algo_id: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
+    instrument: Mapped[str] = mapped_column(String(32), nullable=False)
+    parent_client_order_id: Mapped[str] = mapped_column(String(32), nullable=True)
+    side: Mapped[str] = mapped_column(String(4), nullable=False, default="sell")
+    ord_type: Mapped[str] = mapped_column(String(12), nullable=False, default="conditional")
+    size: Mapped[str] = mapped_column(String(40), nullable=False)
+    trigger_price: Mapped[str] = mapped_column(String(40), nullable=False)
+    order_price: Mapped[str] = mapped_column(String(40), nullable=False, default="-1")
+    tp_trigger_price: Mapped[str] = mapped_column(String(40), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending_submit")
+    child_order_id: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
+    child_client_order_id: Mapped[str] = mapped_column(String(32), nullable=True)
+    actual_size: Mapped[str] = mapped_column(String(40), nullable=True)
+    actual_price: Mapped[str] = mapped_column(String(40), nullable=True)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    triggered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     last_update_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_error: Mapped[str] = mapped_column(String(256), nullable=True)

@@ -4,6 +4,35 @@ from __future__ import annotations
 
 from app.config import Settings
 
+# Sprint 3 (execution v2) defaults reproduce the reviewed Phase 5/6a behaviour.
+# They are folded into the identity only when the operator opts in, so an
+# existing account (e.g. the Phase 6a shadow account) keeps booting under the
+# new code with its software-only stop until a NEW account name opts in.
+_EXECUTION_V2_DEFAULTS = {
+    "stop_mode": "software",
+    "entry_policy": "marketable_limit",
+    "bracket_take_profit_r": 0.0,
+    "bracket_trail_activate_r": 0.0,
+    "bracket_trail_r": 0.0,
+    "bracket_time_stop_bars": 0,
+}
+
+
+def execution_v2_config(settings: Settings) -> dict:
+    """The execution-v2 settings that change order behaviour (stop, entry policy, bracket)."""
+    return {
+        "stop_mode": settings.demo_stop_mode,
+        "entry_policy": settings.demo_entry_policy,
+        "bracket_take_profit_r": settings.demo_bracket_take_profit_r,
+        "bracket_trail_activate_r": settings.demo_bracket_trail_activate_r,
+        "bracket_trail_r": settings.demo_bracket_trail_r,
+        "bracket_time_stop_bars": settings.demo_bracket_time_stop_bars,
+    }
+
+
+def execution_v2_enabled(settings: Settings) -> bool:
+    return execution_v2_config(settings) != _EXECUTION_V2_DEFAULTS
+
 
 def demo_identity_config(settings: Settings) -> dict:
     """Return every setting that can change Phase 5 execution behavior.
@@ -12,7 +41,7 @@ def demo_identity_config(settings: Settings) -> dict:
     timing, or endpoint setting therefore requires a new account name instead
     of silently reusing history produced under different rules.
     """
-    return {
+    identity = {
         "strategy": settings.demo_strategy,
         "instruments": list(settings.demo_instruments),
         "timeframe": settings.demo_timeframe,
@@ -45,3 +74,11 @@ def demo_identity_config(settings: Settings) -> dict:
         "public_ws_url": settings.okx_public_ws_url,
         "business_ws_url": settings.okx_business_ws_url,
     }
+    if execution_v2_enabled(settings):
+        identity["execution_v2"] = dict(
+            execution_v2_config(settings),
+            entry_timeout_seconds=settings.demo_entry_timeout_seconds,
+            entry_slippage_budget=settings.demo_entry_slippage_budget,
+            stop_unprotected_max_seconds=settings.demo_stop_unprotected_max_seconds,
+        )
+    return identity
