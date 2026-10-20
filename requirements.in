@@ -42,6 +42,14 @@ streamlit==1.58.0
 altair==6.2.1
 pandas==2.2.3
 
+# Sprint 1 data lake (research storage; public data only): Parquet files via
+# pyarrow (already a streamlit dependency, pinned here because it is now
+# direct) and DuckDB views over them. feedparser parses official RSS feeds for
+# the news-ingestion skeleton (no LLM, no exchange access).
+pyarrow==26.0.0
+duckdb==1.5.6
+feedparser==6.0.14
+
 # Tests
 pytest==9.0.3
 httpx==0.28.1  # used by FastAPI's TestClient
