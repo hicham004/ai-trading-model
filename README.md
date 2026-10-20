@@ -347,6 +347,13 @@ skeleton collects official feeds into JSON lines without any LLM
 (`docs/NEWS_INGESTION.md`). Both are research tooling: nothing in them can
 reach an order.
 
+## Research lab (Sprint 2)
+
+`research/` holds the sweep / walk-forward harness and the ensemble v1
+candidate strategies; `scripts/run_research.py` writes
+`docs/research/ENSEMBLE_V1_REPORT.md`. Simulation only; see
+`docs/RESEARCH_LAB.md`.
+
 ## Tests
 
 ```bash

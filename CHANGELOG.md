@@ -4,6 +4,20 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — Sprint 2: research lab + ensemble v1 candidates (master plan Sprint 2)
+
+### Added
+- `research/`: dependency-free vectorized long-only sweep engine with the same
+  execution conventions as the reviewed simulator (parity tested), features,
+  candidates S0–S5 + SMA baseline in the `Strategy` contract via an adapter,
+  cartesian sweeps with ±30 % robustness, walk-forward with purge gap and
+  stitched out-of-sample curves, untouched 12-month holdout, Monte Carlo
+  trade-order bootstrap, slippage stress, regime v1 labels, deflated Sharpe,
+  hit-rate calibrated confidence. Runner `scripts/run_research.py`; report
+  `docs/research/ENSEMBLE_V1_REPORT.md` (+ JSON). Docs: `docs/RESEARCH_LAB.md`.
+- Import-boundary test: research code never imports execution, exchange,
+  shadow, OKX client, notify, paper, live or the live strategy registry.
+
 ## Unreleased — Sprint 1: data lake v2 (master plan Sprint 1)
 
 ### Added
