@@ -244,6 +244,33 @@ Acceptance: ≥ 2 configurations pass all gates in item 8 (ideally on different 
 
 **Result (2026-10-20):** 0 of 28 passed (`docs/research/ENSEMBLE_V1B_REPORT.md`, 32 runs incl. the `hold` reference). Sizing worked as designed on risk (median worst drawdown of the lead rules 54 % → 19 %) but scaled return down with it (median CAGR 11.4 % → 4.9 %, Calmar 0.28 → 0.31): it makes the strategies survivable, it does not create edge. Binding gates: Sharpe > 0.7 and Calmar > 0.5 (27 of 28 miss), positive in 4 of 5 years (25 of 28 miss; 2022). Best: S4 vol-compression on ETH 6H with `vt25/60 ladder` + `tp2` (CAGR 7.7 %, max DD 13.2 %, Sharpe 0.83, Calmar 0.58, 66 trades), one gate short. The ladder is roughly neutral; trailing stops reduce give-back but cost profit factor on rules that already have exits; 6H ≈ 4H; S5 with full funding history changes little; BTC+ETH × S2/S4(/S1) portfolios reach Calmar 0.28 at 11 % drawdown. Holdout untouched. Proposed Sprint 2c (research only): regime v2 + S0 as entry gates for bear years, portfolio-level sizing against one drawdown budget, lower-turnover variants, S5 re-test with a shorter funding window — no entry-rule retuning. Owner decisions (yearly-gate definition, sizing mechanism, sequencing vs Sprint 3, Binance data, timeframes, paper-fleet controls) are listed in the report.
 
+**Planner decisions on the Sprint 2b owner questions (2026-10-20 night; the owner may veto any of these):**
+
+1. *Yearly-consistency gate* — redefined a priori for Sprint 2c onward: rolling 12-month windows, ≥ 75 % positive, **and** no calendar year worse than −10 % at the proposed sizing. Rationale: a long-only system can at best sit out a bear year, and partial first/last years were being counted. The untouched 12-month holdout remains the final arbiter, so this is not a retroactive loosening.
+2. *Sizing mechanism* — the fixed a-priori policy (vol target + crash filter + ladder, parameters chosen before the run) is "the proposed sizing" for the gates; train-selected sizing is reported only as a comparison. Rationale: 390 near-equivalent variants are selection noise, not information.
+3. *Sequencing* — Sprint 3 (exchange-side stops in demo) proceeds now; it does not depend on research. Sprint 2c runs in parallel. The paper fleet (Sprint 5 item 3) starts as soon as 2c produces a shortlist, with the controls in decision 6 — forward evidence is cheaper and more honest than more backtests.
+4. *Binance public funding/open-interest history* — accepted as a standing research-only feature source (nightly top-up, never traded on, terms documented in `docs/DATA_LAKE.md`).
+5. *Timeframes* — 4H and 6H are the research timeframes; 1H is for execution and stop timing only; 1D is allowed as a lower-turnover entry clock in 2c.
+6. *Paper-fleet controls* — mandatory: `hold` + policy sizing on BTC and ETH, and plain buy-and-hold. A timing rule earns a place only by beating them forward.
+
+**Strategic note for the owner (decision needed later, not now):** two research sprints say the honest product of the current scope (long-only, spot, BTC/ETH) is *risk-managed exposure* — roughly 5–8 %/yr with drawdowns under 20 %, safer than holding but not richer, and flat in bear years. A professional 24/7 trader is long *and* short. Profiting in both directions means perpetual swaps with collateral ≥ notional (no leverage), which `PROJECT_RULES.md` currently forbids. Recommendation: authorize a **Phase 9 design study only** (research numbers for long/short TSMOM 2020–2025, the extra safety rules, the review path; no code near execution, no derivatives access) so the choice can be made with evidence instead of hope.
+
+### Sprint 2c — Regime gates, portfolio sizing and turnover (Oct 28–Nov 8, research only, ~5 sessions)
+
+Goal: win the gates on the risk side without retuning entries, and produce the first paper-fleet shortlist. Same rules as 2b: research only, public data only, no changes under `app/execution`, `app/risk`, `app/exchange`, `config/`; holdout evaluated only for configurations that pass walk-forward.
+
+Deliverables:
+1. **Regime v2**: 3–4-state HMM/HSMM on returns + realized vol, fitted only on train windows (walk-forward), plus the upgraded S0 no-trade filter (vol spike, spread proxy, scheduled-event windows). Regimes act as **entry gates only** — never on exits.
+2. **Bear-year handling**: trend rules stand aside or size to the policy minimum in the bear/high-vol state; report the 2022 effect explicitly.
+3. **Portfolio-level sizing**: BTC+ETH × S1/S2/S4 sleeves sized jointly against one portfolio drawdown budget (15 %) and one vol target, equal-risk weights, portfolio ladder.
+4. **Lower-turnover variants**: weekly-rebalanced TSMOM, 1D entry clock with 4H/6H exits, hysteresis bands; fee drag per variant.
+5. **S5 re-test** with a shorter funding z-window (7–14 days) and open-interest-change features, now that history is complete.
+6. **Gates**: Sprint 2b item 8 with decision 1's yearly gate; fixed-policy sizing as the proposal (decision 2); deflated Sharpe reported.
+7. **Paper-fleet shortlist**: top 10 configurations + the decision-6 controls, in a machine-readable file the fleet runner can load, labeled "forward evidence only; nothing approved".
+8. **Report** `docs/research/ENSEMBLE_V1C_REPORT.md` with the 5-bullet plain-English summary, and tests for every new component (no look-ahead in HMM fitting, regime gating, portfolio sizing, turnover variants).
+
+Acceptance: ≥ 2 configurations pass; **or** a clear, numbers-backed statement that long-only timing does not beat vol-targeted holding — in which case the Phase 7/8 product becomes "risk-managed exposure + news brake" and the Phase 9 long/short design study becomes the research priority.
+
 ### Sprint 3 — Execution v2 in demo (Dec 1–Dec 15, ~5 sessions, safety-core review required)
 
 Deliverables:
