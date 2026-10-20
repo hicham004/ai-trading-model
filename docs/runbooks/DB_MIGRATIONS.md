@@ -66,6 +66,17 @@ alembic upgrade head
    database is backed up. Prefer additive changes; never drop a ledger table
    in the same revision that stops writing to it.
 
+## Revisions
+
+- `0001` — baseline (Sprint 0): exactly the `create_all` schema.
+- `0002` — execution v2 (Sprint 3): adds `demo_algo_orders` (exchange-side
+  protective stop ledger), execution-quality columns on `demo_order_intents`
+  (`entry_policy`, `reference_price`, `expected_slippage_bps`,
+  `realized_slippage_bps`, `parent_client_order_id`) and `stop_alarm` on
+  `demo_runtime_status`. Additive only; `create_all` creates the new table on a
+  fresh database but does NOT add columns to existing tables — run
+  `alembic upgrade head` on an existing database (back up first).
+
 ## Notes
 
 - SQLite (tests) cannot ALTER most things in place; `env.py` enables Alembic

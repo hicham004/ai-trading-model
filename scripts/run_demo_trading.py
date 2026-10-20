@@ -17,6 +17,13 @@ Operator commands (local CLI; never exposed over HTTP):
     python scripts/run_demo_trading.py --release-stale-lock
     python scripts/run_demo_trading.py --run [--duration N]   # long-running driver
     python scripts/run_demo_trading.py --smoke-test           # read-only demo
+    python scripts/run_demo_trading.py --stops                # local stop ledger (+ venue algos with creds)
+
+Sprint 3 drill commands (docs/runbooks/DEMO_STOP_DRILLS.md), each DANGEROUS and
+only reachable inside --smoke-test with OKX_DEMO_SMOKE_TEST=1 while ARMED:
+--place-test-position (buy 2 x minSz, marketable limit), --tighten-test-stop PCT
+(raise the live stop's trigger to PCT below the last price; never lowers) and
+--close-test-position (reviewed exit path: cancels the stop first, then sells).
 
 Network access happens ONLY inside --reconcile/--arm/--run/--smoke-test,
 kill-switch release, and the venue-cancellation half of kill-switch engagement,
@@ -75,6 +82,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "--place-test-order", action="store_true",
         help="DANGEROUS: within --smoke-test and armed, place ONE tiny demo order.",
+    )
+    p.add_argument("--stops", action="store_true", help="List the exchange-side protective-stop ledger (and venue algos with creds).")
+    p.add_argument(
+        "--place-test-position", action="store_true",
+        help="DANGEROUS: within --smoke-test and armed, BUY 2 x minSz at a marketable limit to create a drill position.",
+    )
+    p.add_argument(
+        "--tighten-test-stop", type=float, default=None, metavar="PCT",
+        help="DANGEROUS: within --smoke-test and armed, raise the live stop's trigger to PCT (e.g. 0.0005) below the last price.",
+    )
+    p.add_argument(
+        "--close-test-position", action="store_true",
+        help="DANGEROUS: within --smoke-test and armed, close the drill position through the reviewed exit path.",
     )
     return p.parse_args(argv)
 
@@ -195,6 +215,7 @@ def _print_status(account_id) -> None:
         print(f"  ws_authenticated    : {status.ws_authenticated}")
         print(f"  lock_held           : {bool(status.lock_token)}")
         print(f"  last_error          : {status.last_error}")
+        print(f"  stop_alarm          : {status.stop_alarm}")
     if recon is not None:
         print(
             f"  last reconcile      : consistent={recon.consistent} "
@@ -202,8 +223,113 @@ def _print_status(account_id) -> None:
         )
 
 
-def _run_gate_and(driver, settings, *, arm: bool, arm_ttl, smoke: bool, place_test_order: bool) -> int:
-    """Run the unified startup gate, then optionally arm / smoke."""
+def _print_stops(store, account_id, driver=None) -> None:
+    """Read-only: the local exchange-side stop ledger, plus the venue's pending algo orders with creds."""
+    rows = store.list_algo_orders(account_id)
+    print("=" * 70)
+    print("EXCHANGE-SIDE PROTECTIVE STOPS (DEMO ONLY)")
+    print("=" * 70)
+    if not rows:
+        print("  no local stops recorded")
+    for r in rows[-20:]:
+        print(
+            f"  {r.instrument} v{r.version} status={r.status} size={r.size} trigger={r.trigger_price} "
+            f"algo_id={r.algo_id} child={r.child_order_id} tp={r.tp_trigger_price} attempts={r.attempts} "
+            f"id={r.algo_cl_ord_id}"
+        )
+    alarm = store.get_stop_alarm(account_id)
+    print(f"  stop_alarm          : {alarm}")
+    if driver is not None:
+        try:
+            venue = []
+            for ord_type in ("conditional", "oco"):
+                venue += driver.rest.get_pending_algo_orders(ord_type)
+            print(f"  venue pending algos : {len(venue)}")
+            for row in venue[:20]:
+                print(
+                    f"    {row.get('instId')} {row.get('ordType')} {row.get('side')} sz={row.get('sz')} "
+                    f"trigger={row.get('slTriggerPx')} state={row.get('state')} algoId={row.get('algoId')} "
+                    f"algoClOrdId={row.get('algoClOrdId')}"
+                )
+        except Exception as exc:  # read-only; never hide
+            print(f"  venue pending algos : unavailable ({type(exc).__name__})")
+
+
+def _drill_position(driver, settings, *, close: bool) -> None:
+    """Drill helpers: open (BUY 2 x minSz) or close (reviewed exit path) the test position."""
+    from datetime import datetime, timezone
+    from decimal import Decimal
+
+    from app.exchange.instruments import parse_instruments
+    from app.execution.lifecycle import INTENT_ENTRY
+    from app.execution.precision import decimal_to_str, quantize_price
+    from app.okx.client import OKXPublicClient
+    from app.paper.execution import FeedStatus, QuoteSnapshot
+
+    instrument = settings.demo_instruments[0]
+    meta = parse_instruments(driver.rest.get_instruments()).get(instrument)
+    if meta is None or not meta.is_tradable():
+        print(f"[DEMO] drill: {instrument} not tradable; nothing done.")
+        return
+    candles = OKXPublicClient().get_candles(instrument, timeframe="1m", limit=2)
+    if not candles:
+        print("[DEMO] drill: no reference price; nothing done.")
+        return
+    ref = Decimal(str(candles[-1].close))
+    now = datetime.now(tz=timezone.utc)
+    if close:
+        position, _ = driver.store.position_summary(driver.account_id, instrument)
+        quote = QuoteSnapshot(instrument=instrument, bid=ref, ask=ref, timestamp=now, synchronized=True, source="drill")
+        result = driver.runtime.consider_exit(
+            signal_id=f"drill-close|{instrument}|{now.date().isoformat()}", instrument=instrument, meta=meta, quote=quote,
+            feed_status=FeedStatus(True, False), base_balance=position, now=now,
+        )
+        print(f"[DEMO] drill close: {result.status if result else 'not submitted (see events: stop unknown/triggered, nothing to sell, or disarmed)'}")
+        return
+    band = Decimal(str(settings.demo_price_band))
+    px = quantize_price(ref * (Decimal(1) + band), meta.tick_size)
+    size = meta.min_size * Decimal(2)
+    print(f"[DEMO] drill: placing marketable demo BUY {decimal_to_str(size)} @ {decimal_to_str(px)} ...")
+    result = driver.lifecycle.submit(
+        signal_id=f"drill-open|{instrument}|{now.isoformat()}", instrument=instrument, intent=INTENT_ENTRY, side="buy",
+        ord_type="limit", price=decimal_to_str(px), size=decimal_to_str(size), stop_loss=decimal_to_str(quantize_price(ref * Decimal("0.98"), meta.tick_size)),
+        entry_policy="drill", reference_price=decimal_to_str(ref),
+    )
+    print(f"[DEMO] drill open: status={result.status} clOrdId={result.client_order_id}; start --run so the driver places the stop.")
+
+
+def _drill_tighten_stop(driver, settings, pct: float) -> None:
+    """Raise the live stop's trigger to ``pct`` below the last price (amendment; never lowers)."""
+    from datetime import datetime, timezone
+    from decimal import Decimal
+
+    from app.exchange.instruments import parse_instruments
+    from app.execution.stops import StopSpec
+    from app.okx.client import OKXPublicClient
+
+    if not (0.0 < pct < 0.5):
+        print("[DEMO] drill: PCT must be in (0, 0.5)")
+        return
+    instrument = settings.demo_instruments[0]
+    meta = parse_instruments(driver.rest.get_instruments()).get(instrument)
+    live = [r for r in driver.store.list_open_algo_orders(driver.account_id, instrument=instrument) if r.status == "live"]
+    if meta is None or not live:
+        print("[DEMO] drill: no live stop to tighten.")
+        return
+    candles = OKXPublicClient().get_candles(instrument, timeframe="1m", limit=2)
+    ref = Decimal(str(candles[-1].close))
+    row = live[0]
+    spec = driver.stops.desired_spec(instrument, Decimal(row.size), ref * (Decimal(1) - Decimal(str(pct))), meta)
+    if spec is None:
+        print("[DEMO] drill: target trigger not representable.")
+        return
+    status = driver.stops.amend(row.algo_cl_ord_id, spec, now=datetime.now(tz=timezone.utc))
+    print(f"[DEMO] drill tighten: trigger -> {spec.trigger} status={status}")
+
+
+def _run_gate_and(driver, settings, *, arm: bool, arm_ttl, smoke: bool, place_test_order: bool,
+                  place_test_position: bool = False, tighten_test_stop=None, close_test_position: bool = False) -> int:
+    """Run the unified startup gate, then optionally arm / smoke / drill."""
     from app.execution.store import STATUS_UNKNOWN
 
     try:
@@ -237,6 +363,22 @@ def _run_gate_and(driver, settings, *, arm: bool, arm_ttl, smoke: bool, place_te
                 )
             else:
                 _smoke_place_and_cancel(driver, settings)
+        if smoke and (place_test_position or tighten_test_stop is not None or close_test_position):
+            now = datetime.now(tz=timezone.utc)
+            armed_ok = driver.runtime.exit_block_reason(now) is None
+            if not armed_ok:
+                print("[DEMO] drill commands require an ARMED runtime holding the lock. Nothing was sent.", file=sys.stderr)
+            else:
+                if place_test_position:
+                    if driver.runtime.entry_block_reason(now) is not None:
+                        print(f"[DEMO] --place-test-position blocked: {driver.runtime.entry_block_reason(now)}", file=sys.stderr)
+                    else:
+                        _drill_position(driver, settings, close=False)
+                if tighten_test_stop is not None:
+                    _drill_tighten_stop(driver, settings, tighten_test_stop)
+                if close_test_position:
+                    _drill_position(driver, settings, close=True)
+        _print_stops(driver.store, driver.account_id, driver)
         print("[DEMO] done. SIMULATION ONLY; no real funds or production access.")
         return 0
     finally:
@@ -418,13 +560,19 @@ def main(argv: list[str] | None = None) -> int:
 
     log_account_selection(logger, account_name, _selection_source(args))
 
-    if args.status:
+    if args.status or args.stops:
         store = _build_store(account_name)
         aid = store.find_account_id()
         if aid is None:
             print(f"demo account {account_name!r} does not exist yet")
             return 0
-        _print_status(aid)
+        if args.status:
+            _print_status(aid)
+        if args.stops:
+            driver = None
+            if demo_credentials_available() and not _guard_account(account_name, args):
+                driver = _build_driver(account_name, settings, explicit=_account_selection_explicit(args))
+            _print_stops(store, aid, driver)
         return 0
 
     now = datetime.now(tz=timezone.utc)
@@ -477,6 +625,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_gate_and(
             driver, settings, arm=args.arm, arm_ttl=args.arm_ttl,
             smoke=args.smoke_test, place_test_order=args.place_test_order,
+            place_test_position=args.place_test_position, tighten_test_stop=args.tighten_test_stop,
+            close_test_position=args.close_test_position,
         )
 
     print("No command given. Use --status / --reconcile / --arm / --run / --disarm. See --help.")

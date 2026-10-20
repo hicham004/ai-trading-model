@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db.database import get_session_factory
 from app.db.models import (
+    DemoAlgoOrder,
     DemoAccount,
     DemoBalanceSnapshot,
     DemoEvent,
@@ -75,6 +76,8 @@ class DemoHealthOut(BaseModel):
     lock_held: bool = False
     last_error: Optional[str] = None
     last_heartbeat: Optional[datetime] = None
+    # Sprint 3: reason the protective-stop guard is alarmed (None = healthy).
+    stop_alarm: Optional[str] = None
     note: str = _NOTE
 
 
@@ -111,6 +114,7 @@ def demo_health(
         lock_held=bool(row.lock_token),
         last_error=row.last_error,
         last_heartbeat=_utc(row.lock_heartbeat),
+        stop_alarm=row.stop_alarm,
     )
 
 
@@ -228,6 +232,61 @@ def demo_intents(
             requested_at=_utc(r.requested_at),
             submitted_at=_utc(r.submitted_at),
             attempts=r.attempts,
+        )
+        for r in rows
+    ]
+
+
+class DemoStopOut(BaseModel):
+    """One exchange-side protective stop placement (Sprint 3). Read-only; no secret fields."""
+
+    algo_cl_ord_id: str
+    algo_id: Optional[str] = None
+    instrument: str
+    parent_client_order_id: Optional[str] = None
+    side: str
+    ord_type: str
+    size: str
+    trigger_price: str
+    order_price: str
+    tp_trigger_price: Optional[str] = None
+    version: int
+    status: str
+    child_order_id: Optional[str] = None
+    child_client_order_id: Optional[str] = None
+    actual_size: Optional[str] = None
+    actual_price: Optional[str] = None
+    requested_at: datetime
+    submitted_at: Optional[datetime] = None
+    triggered_at: Optional[datetime] = None
+    attempts: int
+    last_error: Optional[str] = None
+
+
+@router.get("/stops", response_model=List[DemoStopOut])
+def demo_stops(
+    account: str = Query(default_factory=_default_account),
+    limit: int = Query(50, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> List[DemoStopOut]:
+    aid = _account_id(db, account)
+    if aid is None:
+        return []
+    rows = db.scalars(
+        select(DemoAlgoOrder)
+        .where(DemoAlgoOrder.account_id == aid)
+        .order_by(DemoAlgoOrder.id.desc())
+        .limit(limit)
+    ).all()
+    return [
+        DemoStopOut(
+            algo_cl_ord_id=r.algo_cl_ord_id, algo_id=r.algo_id, instrument=r.instrument,
+            parent_client_order_id=r.parent_client_order_id, side=r.side, ord_type=r.ord_type, size=r.size,
+            trigger_price=r.trigger_price, order_price=r.order_price, tp_trigger_price=r.tp_trigger_price,
+            version=r.version, status=r.status, child_order_id=r.child_order_id,
+            child_client_order_id=r.child_client_order_id, actual_size=r.actual_size, actual_price=r.actual_price,
+            requested_at=_utc(r.requested_at), submitted_at=_utc(r.submitted_at), triggered_at=_utc(r.triggered_at),
+            attempts=r.attempts, last_error=r.last_error,
         )
         for r in rows
     ]

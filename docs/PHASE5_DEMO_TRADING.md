@@ -280,7 +280,11 @@ invalid account.
 
 ## Known Limitations
 
-- **HARD REQUIREMENT (protective stops) — blocks any live phase.** The current
+- **HARD REQUIREMENT (protective stops) — blocks any live phase.** *(Sprint 3,
+  2026-10-20: an exchange-side protective stop is BUILT on branch
+  `sprint-3/exchange-side-stops` — see `docs/PHASE6A_EXECUTION_V2.md` — but
+  its demo validation, independent review and owner sign-off are pending, so
+  this limitation stands until then.)* The current
   stop-loss is enforced in software only: the persisted stop is stored on the
   local intent and the running driver submits a protective SELL when a confirmed
   `1m` candle's low breaches it. No stop is attached on the exchange, and the

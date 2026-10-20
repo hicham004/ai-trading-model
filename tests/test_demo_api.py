@@ -82,6 +82,25 @@ def test_demo_intents_and_query_limits(client_and_store):
     assert client.get("/demo/intents", params={"account": "demo"}).json() == []
 
 
+def test_demo_stops_route_lists_the_ledger(client_and_store):
+    client, store = client_and_store
+    from datetime import datetime, timezone
+
+    from app.execution.store import AlgoInput
+
+    aid = store.ensure_account("fp", {"strategy": "ma"})
+    assert client.get("/demo/stops", params={"account": "demo"}).json() == []
+    store.create_algo_order(aid, AlgoInput(algo_cl_ord_id="d5sabc", instrument="BTC-USDT", size="0.001", trigger_price="95"),
+                            now=datetime(2026, 6, 10, tzinfo=timezone.utc))
+    body = client.get("/demo/stops", params={"account": "demo"}).json()
+    assert len(body) == 1 and body[0]["algo_cl_ord_id"] == "d5sabc" and body[0]["side"] == "sell" and body[0]["order_price"] == "-1"
+    assert client.get("/demo/stops", params={"limit": 0}).status_code == 422
+    health = client.get("/demo/health", params={"account": "demo"}).json()
+    assert health["stop_alarm"] is None
+    store.set_stop_alarm(aid, "protective_stop_missing", now=datetime(2026, 6, 10, tzinfo=timezone.utc))
+    assert client.get("/demo/health", params={"account": "demo"}).json()["stop_alarm"] == "protective_stop_missing"
+
+
 def test_every_demo_route_is_read_only():
     for route in app.routes:
         if route.path.startswith("/demo/"):
