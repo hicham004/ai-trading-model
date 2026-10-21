@@ -291,3 +291,44 @@ rebuilt from 1H candles (identical to OKX's stored 4H bars on 99.97 % of the
 history); the portfolio's
 estimates start from 120 days of simulated sleeve history and moving money
 between its sleeves is free, as in the research.
+
+## Sprint 5b — portfolio allocator v2 (plan row R5b)
+
+Master plan Sprint 5 item 2: the portfolio vol target, a correlation cap, the
+portfolio drawdown ladder, a weekly loss limit and cooldowns, as an optional
+allocator configuration in `research/` and in the paper fleet. Not in
+`app/risk`: the demo and live risk manager stays the reviewed core until a
+separately approved review. Report: `docs/research/ALLOCATOR_V2_REPORT.md`
+(numbers in `allocator_v2_results.json`).
+
+| Module | Purpose |
+|---|---|
+| `research/allocator.py` | Allocator v2. The v1 sizing of `combine_sized` (trailing inverse-vol weights, one portfolio vol target measured on the v1 weights, one drawdown ladder on v2's own equity) times brakes in [0, 1]: the correlation cap (sleeves on one coin, or coins whose trailing 60-day correlation is ≥ 0.70 — unknown counts as correlated — are one bet; the equity invested in one bet, from the sleeves long at the previous close, is capped at 50 %; sleeves entering during a day count from the next close), the weekly loss limit (−5 % over 7 days → cash) and its 7-day cooldown, after which the loss window restarts. "Only lowers" is relative to v2's own sizing: its ladder can leave v2 larger than v1 on days only v1's ladder halved. `step_day` sizes one day from the previous close and advances a JSON state that also carries the v1 rules on the same sleeves as a paired reference; `allocate_v2` runs it over a daily history (with a warm-up `start`); `brake_stats` counts what each brake did and estimates the re-weighting cost both allocators leave out. `DEFAULT_ALLOCATOR_V2` was fixed before the first run. |
+| `research/allocator_study.py`, `scripts/run_allocator_v2.py` | The study: the six sleeves of the v1c jointly sized portfolio replayed at full size in the same walk-forward windows (with the long/flat state after every bar); a reproduction check that stops unless v1 gives Sprint 2c's stored numbers; v2 and two ablations (each new brake alone, diagnostics only); the v1c portfolio gates unchanged; the 12-month holdout only after a walk-forward pass, with the estimators warmed up on the walk-forward history and v1 as the paired reference; the report and results JSON (the paper fleet reads the v2 account's expectations from it, checking that they describe its sleeves and brakes). |
+| `research/paper_fleet/` (changes) | `PortfolioSpec.allocator` (None = v1: rules and fingerprint unchanged); a second portfolio account `pf-s1s2s4-btceth-vt15-alloc2` with its own six sleeves; the book also keeps each sleeve's close position and one close per coin per day; the runner holds several portfolio accounts (state version 2, an R5a state is migrated when opened, also one whose portfolio was retired); shared sleeves decide once per bar; a portfolio account's sleeves continue from their warm-up (no bar skipped or doubled); a fleet is created and an account joins only once its series are ready (the bar that closed last is complete, no earlier bar still waits for a late candle); a journal of an interrupted start is set aside; the weekly report's allocator section; dry-run invariants that v2's brakes only lower its own sizing. |
+
+Result (walk-forward 2021-06 → 2025-10, after fees and slippage): v2 +10.5 %/yr,
+max DD 12.3 %, Sharpe 0.86, Calmar 0.85; v1 on the same sleeves +10.9 %, 13.2 %,
+0.82, 0.83. Both pass the v1c gates. Almost all of the difference is the
+correlation cap, which trimmed the book on 87 days (5.5 %: 5 in 2021, none in 2022,
+22, 36 and 24 in 2023–2025). It cost most in the 2024 rally (+34.7 % → +21.9 %) and
+helped in 2025 (+0.1 % → +5.8 %). Because it is checked at the previous close, a bet
+stood above 50 % at a day's close on 29 days (at most 87 %) until the next day's cap.
+The loss limit tripped once, on 2025-10-13.
+The untouched holdout (364 full days, 2025-10-21 → 2026-10-19, BTC −26 %, ETH −39 %)
+contradicts both: v2 −9.2 %, v1 −15.0 %, pooled sleeve profit factor 0.59. The jointly sized
+portfolio's walk-forward pass therefore did not survive its holdout, like three of
+Sprint 2c's four passes. The study's report says why the portfolio gates were too
+easy (no robustness gate at portfolio level, PF pooled from sleeves that did not
+pass on their own, OOS-picked timeframes, a bull-dominated span) and recommends a
+stricter, pre-registered portfolio rule for the next study.
+
+Parity is tested, not assumed: with its brakes off v2 equals `combine_sized` to
+floating-point rounding (and its paired reference always does); the fleet's
+day-by-day booking equals the research driver (including days on which a sleeve
+has no bar); a fleet started with both portfolio accounts has v2's in-journal
+reference equal to the v1 account on every day; a fleet written by the real R5a
+code (`tests/fixtures/paper_fleet_r5a`, two accounts) resumes with its records
+untouched and continues byte for byte as an uninterrupted run, while the
+allocator account joins from its own start; an account that joins on lagging data
+ends with the same forward record as one that joined on complete data.

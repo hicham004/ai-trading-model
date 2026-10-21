@@ -15,11 +15,17 @@ OKX prices, each as its own pretend account with 10,000 virtual USDT:
   one the untouched 12-month holdout confirmed),
 - the jointly sized BTC+ETH × S1/S2/S4 portfolio (`pf-s1s2s4-btceth-vt15`:
   15 % volatility target, drawdown ladder half at 7.5 %, flat at 15 %),
+- its twin with **allocator v2** (`pf-s1s2s4-btceth-vt15-alloc2`, plan row
+  R5b): the same six strategies and the same sizing, plus brakes that each
+  scale its own sizing down — a bet holding more than 50 % of the money at the
+  day's close is cut back to 50 % (BTC and ETH count as one bet while they move
+  together), and 7 days out of the market after losing 5 % in a week — so the
+  difference between the two accounts shows whether the brakes help,
 - 8 controls: *always long with the policy sizing* (`ctl-hold-…`, the same
   volatility target, crash filter and drawdown ladder, no timing) and *plain
   buy-and-hold* (`ctl-bh-…`) on BTC and ETH, 4H and 6H.
 
-19 accounts in all. Each one follows exactly the research rules — the same
+20 accounts in all. Each one follows exactly the research rules — the same
 entry rules, filters, sizing, stops, fees (0.10 %) and slippage (0.05 %) — and
 writes every decision and every pretend fill into its own journal. Once a week
 a report compares what each account did with what the backtest said it should
@@ -126,7 +132,7 @@ as if it had never stopped. Do not run it on the VPS **and** the laptop as the
 
 ```bash
 journalctl -u paper-fleet.service -n 30 --no-pager      # VPS; option B: read the PowerShell window
-# expect "paper fleet created: …/logs/paper_fleet (19 accounts, …)" and, once a 4H or 6H bar closes
+# expect "paper fleet created: …/logs/paper_fleet (20 accounts, …)" and, once a 4H or 6H bar closes
 # (00, 04, 08, 12, 16, 20 h UTC), a line "cycle N: bars {…} …"
 .venv/bin/python scripts/run_paper_fleet.py --status
 # every account with its equity (10,000.00 at the start), "flat"/"long", data "fresh"
@@ -165,6 +171,15 @@ Sunday, UTC), rewritten every hour during the week ("week to date") and marked
   - *Trade count*: about as many trades as the backtest made per year?
   - *Holdout pace*: the return range built from the untouched last 12 months of
     the research, where there is one.
+- **Allocator v2** — the allocator-v2 account next to *v1 on the same
+  sleeves* (the old rules booked inside the same journal, so the difference is
+  the brakes alone) and the v1 portfolio account; every brake that acted (on
+  how many days the 50 % cap trimmed the book, each weekly loss-limit trip with
+  its date, the days in cash afterwards); what the allocator is doing now; and
+  what the backtest expected. Its research: `docs/research/ALLOCATOR_V2_REPORT.md`.
+  Note: over the untouched last 12 months of the research both portfolio
+  accounts lost (v2 −9 %, v1 −15 %, while BTC fell 26 % and ETH 39 %); they run
+  forward anyway because the forward record is the honest test.
 - **This week** — the week's return, trades and fees, and what each account
   holds now.
 - **Data and health** — the last bars processed, bars skipped because OKX
@@ -192,18 +207,22 @@ starting again starts a new forward record from zero.
 |---|---|---|
 | `paper fleet not started: the fleet's shared rules … changed` or `the rules of c0… changed` (exit 2, no restart loop) | The updated code or shortlist changes rules the running accounts were started with; mixing them would spoil the record | Keep the old folder as the record of the old fleet and start the new one in a new folder: `PAPER_FLEET_DIR=/path/to/ai-trading-model/logs/paper_fleet_v2` in `/etc/ai-trading/paper-fleet.env`, the same path in `ReadWritePaths` of the unit, then `mkdir -p` that folder, `chown` it to the service user (step 3 of option A), `sudo systemctl daemon-reload` and restart. (A configuration *added* to the shortlist simply joins the running fleet from that moment, and one *removed* is retired with its journal kept: neither needs a new folder.) |
 | `another instance holds …/fleet.lock` (exit 3) | A manual `--loop`/`--once` is running on the same folder | Stop the manual run; the service tries again by itself a minute later |
-| `paper fleet not started yet: public data not ready …` (exit 3) | The very first start found no fresh public prices (network down, or OKX not answering), so it did not create a fleet from incomplete data | Check the network (`curl -s https://www.okx.com/api/v5/public/time`); the service tries again every minute and creates the fleet once the data is there |
+| `paper fleet not started yet: public data not ready …` (exit 3) | The very first start found no fresh public prices (network down, or OKX not answering), or the last bar's final hourly candle was not published yet, so it did not create a fleet from incomplete data | Check the network (`curl -s https://www.okx.com/api/v5/public/time`); the service tries again every minute and creates the fleet once the data is there |
 | `… S5 accounts run on 'okx' positioning data, not 'none' …` (exit 2) | A manual run used another `--positioning-source` than the fleet was started with | Run it without that option (the default is the one the service uses) |
 | `--status` shows data **STALE** | No new public candle for more than 2.5 hours | Check the network (`curl -s https://www.okx.com/api/v5/public/time`); it recovers by itself and catches up |
 | Report: "missing bars skipped" | OKX never delivered one hourly candle of a bar | Nothing; after the next bar closes the fleet waits 90 more minutes for the late candle, then skips that one bar, as a real feed outage would |
 | Report: **FOMC calendar runs out** | The built-in central-bank meeting calendar (`research/events.py`) has no dates after 2026-12-09 | Add the 2027 dates (plan row R7 verifies the existing ones); until then the no-trade filter does not block entries around meetings |
+| `paper fleet not started yet: public data not complete yet, pf-s1s2s4-btceth-vt15-alloc2 not added …` (exit 3) | A new account joins only once its markets are ready: the bar that closed last is complete (OKX publishes the last hourly candle seconds to minutes after the hour) and no earlier bar still waits for a late candle | Nothing: the service tries again every minute. Until the account joins, the whole fleet waits; then every account catches up bar by bar with the same records as if it had never stopped. A candle that never arrives delays the join until the fleet gives up on it (90 minutes after the next bar closed), as it would anyway |
+| `paper fleet resume: … (20 accounts, …)` and `accounts added: pf-s1s2s4-btceth-vt15-alloc2; retired: none` after updating the code | The fleet was started before plan row R5b with 19 accounts; the allocator-v2 account joins it now, with its own start and warm-up, and counts from that moment. The 19 accounts continue unchanged | Nothing. The state file is upgraded in place (version 2), so an older checkout can no longer open it (`fleet state version 2 is not 1`, exit 2): keep the updated code |
+| `journal_set_aside` in `fleet.jsonl`, a file `journals/<account>.unfinished-<time>.jsonl` | An earlier start of that account was interrupted after its journal was written but before the state was saved (a crash or a full disk) | Nothing: the account started again cleanly and the interrupted file is kept for reference |
 | `decision_error` in a journal | One account could not compute a decision for one bar | That account keeps its stops but takes no new position until the next good decision; if it repeats, ask for a review |
 | `cycle failed` lines | Something outside the fleet failed (disk full, …) | `df -h`. A cycle that could not be saved is redone from the last saved state, so nothing is lost or counted twice; after 10 failures in a row the program exits and systemd restarts it a minute later |
 
 ## Disk and memory
 
-About 5 MB of journals per month for all 19 accounts (measured on a 3-day
-replay), plus a few MB of price history. It uses one CPU core for a few seconds when a bar closes (up to about
+About 5–6 MB of journals per month for all 20 accounts (measured on 3- and
+10-day replays; the two portfolio accounts are the largest, about 0.7 MB a month
+each), plus a few MB of price history. It uses one CPU core for a few seconds when a bar closes (up to about
 a minute once every 180 days, when the regime models are refitted) and
 about 150 MB of memory (measured live); the unit caps it at 50 % of a core and
 2 GB.

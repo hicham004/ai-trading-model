@@ -2,7 +2,10 @@
 
 Every configuration of ``docs/research/paper_fleet_shortlist_v1c.json`` runs as
 its own LOCAL paper account next to the controls (always-long with the policy
-sizing, plain buy-and-hold) and the jointly sized BTC+ETH x S1/S2/S4 portfolio.
+sizing, plain buy-and-hold), the jointly sized BTC+ETH x S1/S2/S4 portfolio and,
+since plan row R5b, its allocator-v2 twin (the same sleeves; ``research.allocator``
+multiplies the same sizing by a correlation cap, a weekly loss limit and a
+cooldown, each between 0 and 1 of its own sizing).
 Each account starts flat at the first bar that closes after the fleet was
 created, trades only on bars that close after that, and writes one append-only
 journal. A weekly report ranks the accounts and compares the forward numbers

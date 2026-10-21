@@ -25,7 +25,7 @@ from research.data import load_candles, load_okx_series
 from research.paper_fleet.config import INSTRUMENTS, FleetManifest, load_manifest
 from research.paper_fleet.data import FUNDING_PERIOD, OI_PERIOD, SOURCE_BAR, SWAP_FOR, FleetLake, MarketData
 from research.paper_fleet.report import ReportScheduler, write_week
-from research.paper_fleet.runner import FleetSettings, PaperFleet
+from research.paper_fleet.runner import FleetNotReady, FleetSettings, PaperFleet, portfolio_states
 from research.paper_fleet.store import FleetPaths, Journal, read_state
 
 HOUR = pd.Timedelta(hours=1)
@@ -147,13 +147,15 @@ def run_dry(
     manifest: Optional[FleetManifest] = None,
     settings: FleetSettings = FleetSettings(),
     step_minutes: float = 60.0,
+    market_data: Optional[Tuple[Dict[str, pd.DataFrame], Dict[str, pd.DataFrame], Dict[str, pd.DataFrame]]] = None,
 ) -> DryRunResult:
     out = Path(out_dir) if out_dir is not None else Path(tempfile.mkdtemp(prefix="paper-fleet-dry-run-"))
     if out.exists() and any(out.iterdir()):
         raise ValueError(f"dry-run output directory {out} must be new or empty")
     out.mkdir(parents=True, exist_ok=True)
-    data = None if synthetic or lake is None else lake_market(lake)
-    source = "research lake (recorded public OKX data)" if data is not None else "synthetic market (deterministic)"
+    data = market_data if market_data is not None else (None if synthetic or lake is None else lake_market(lake))
+    source = ("given market data" if market_data is not None else
+              "research lake (recorded public OKX data)" if data is not None else "synthetic market (deterministic)")
     candles, funding, oi = data if data is not None else synthetic_market(int(settings.history_days + days + 60))
     end = min(df.index[-1] for df in candles.values()) + HOUR
     start = end - pd.Timedelta(days=float(days))
@@ -167,7 +169,15 @@ def run_dry(
         raise RuntimeError("could not lock the dry-run directory")
     cycles = 0
     try:
-        fleet.open(start.to_pydatetime())
+        for _ in range(48):  # the recorded data may have a hole at the chosen start: start an hour later, as the service would
+            try:
+                fleet.open(start.to_pydatetime())
+                break
+            except FleetNotReady:
+                start += HOUR
+                feed.now = start
+        else:
+            raise RuntimeError("the recorded data was not ready for a fleet in any of 48 hours")
         t = start + pd.Timedelta(minutes=5)
         while t <= end + pd.Timedelta(minutes=5):
             feed.now = t
@@ -222,15 +232,33 @@ def check_invariants(paths: FleetPaths, manifest: FleetManifest) -> List[Tuple[s
                     problems.append(f"{acc.account_id}: a fill before the fleet existed")
     checks.append(("every journal starts with its start record, sequence 1..n, anchor first, no fill before a decision or the start",
                    not problems, "; ".join(problems[:5])))
-    pf = [a for a in manifest.accounts if a.kind == "portfolio"]
-    if pf:
-        recs = list(Journal(paths.journal(pf[0].account_id)).read())
+    saved = portfolio_states(state) if state else {}
+    for pf in [a for a in manifest.accounts if a.kind == "portfolio"]:
+        recs = list(Journal(paths.journal(pf.account_id)).read())
         days = [r for r in recs if r.get("type") == "portfolio_day"]
-        start_day = (state.get("portfolio") or {}).get("book", {}).get("forward_start_day")
+        start_day = (saved.get(pf.account_id) or {}).get("book", {}).get("forward_start_day")
         bad = [d["day"] for d in days if start_day and d["day"] < start_day]
         caps = [d["day"] for d in days if d.get("gross_exposure_end_of_day", 0) > 1.0 + 1e-9 or d.get("vol_scale", 0) > 1.0 + 1e-12]
-        checks.append(("portfolio books forward days only, never above 100 % exposure", not bad and not caps, f"{bad[:3]} {caps[:3]}"))
+        checks.append((f"{pf.account_id}: books forward days only, never above 100 % exposure", not bad and not caps, f"{bad[:3]} {caps[:3]}"))
+        if pf.portfolio.allocator is not None:
+            checks.append((f"{pf.account_id}: allocator v2's brakes only lower its own sizing (multipliers in [0, 1], no weight above "
+                           "weight x vol scale, no bet above the cap at the previous close)", *_brakes_only_lower(days, pf.portfolio.allocator.group_cap)))
     return checks
+
+
+def _brakes_only_lower(days: List[Mapping[str, Any]], group_cap: Optional[float]) -> Tuple[bool, str]:
+    bad: List[str] = []
+    for d in days:
+        mults = [d.get("ladder_multiplier"), d.get("loss_multiplier")] + list((d.get("group_multipliers") or {}).values())
+        final, weights, held = d.get("final_weights") or {}, d.get("weights") or {}, d.get("positions_previous_close") or {}
+        if any(m is None or not (0.0 <= float(m) <= 1.0) for m in mults) or "reference_v1" not in d or not final:
+            bad.append(d.get("day"))
+            continue
+        if any(float(e) > float(weights[n]) * float(d["vol_scale"]) + 1e-12 for n, e in final.items()):
+            bad.append(d.get("day"))
+        elif group_cap is not None and any(sum(float(final[n]) for n in g if held.get(n)) > group_cap + 1e-12 for g in d.get("groups") or []):
+            bad.append(d.get("day"))
+    return not bad, str(bad[:3])
 
 
 def summarize(paths: FleetPaths, manifest: FleetManifest) -> Dict[str, Any]:

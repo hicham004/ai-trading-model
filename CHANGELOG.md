@@ -4,6 +4,55 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — Sprint 5b: portfolio allocator v2 (plan row R5b; master plan Sprint 5 item 2)
+
+Simulation only, in `research/` and the paper fleet; `app/risk` (the demo and live
+risk manager) is unchanged and stays the reviewed core. Nothing here can reach an
+order, and a good backtest or forward record approves nothing.
+
+### Added
+- `research/allocator.py`: allocator v2 = the Sprint 2c jointly sized portfolio
+  (trailing inverse-vol weights, 15 % portfolio vol target, 7.5/15 % drawdown
+  ladder with its 30-day cooling-off, on v2's own equity) times brakes between 0
+  and 1: a correlation cap (sleeves on one coin, or BTC and ETH while their 60-day
+  correlation is ≥ 0.70, are one bet; a bet above 50 % of equity at the previous
+  close is scaled back to 50 %; entries during a day count from the next close),
+  a weekly loss limit (−5 % over 7 days → cash) and a 7-day cooldown after it.
+  Set before the study first ran (`DEFAULT_ALLOCATOR_V2`), sized from the
+  previous close only; one step function shared by research and the fleet; a
+  paired "v1 on the same sleeves" reference; with every brake off it equals
+  `combine_sized` to floating-point rounding.
+- `research/allocator_study.py`, `scripts/run_allocator_v2.py`: rebuild the six
+  sleeves of the v1c portfolio with their daily positions, stop unless v1
+  reproduces Sprint 2c's stored numbers (it does, to 1e-6), run v2 and two
+  ablations, apply the unchanged v1c portfolio gates, and open the 12-month
+  holdout only after a walk-forward pass. Results:
+  `docs/research/ALLOCATOR_V2_REPORT.md`, `docs/research/allocator_v2_results.json`.
+  Walk-forward 2021-06 → 2025-10: v2 +10.5 %/yr, max DD 12.3 %, Sharpe 0.86,
+  Calmar 0.85 against v1 +10.9 %, 13.2 %, 0.82, 0.83; both pass. Holdout
+  (364 full days 2025-10-21 → 2026-10-19, a bear market, BTC −26 %, ETH −39 %):
+  v2 −9.2 %, v1 −15.0 %; neither confirmed.
+- Paper fleet: `PortfolioSpec.allocator` (None = v1, rules and fingerprint
+  unchanged) and a 20th account, `pf-s1s2s4-btceth-vt15-alloc2`, on the same
+  six sleeves with its own journal and the study's expectations; its journal
+  books v1 on its own sleeves beside it. Fleets created by the R5a code resume:
+  their state is migrated to version 2 (portfolio states keyed by account id),
+  the 19 accounts continue unchanged and the new account joins from its own
+  start. Shared sleeves decide once per bar. A portfolio account's sleeves
+  continue from their warm-up, a fleet is created and an account joins only once
+  its series are ready (the bar that closed last is complete and no earlier bar is
+  still waiting for a late candle; else exit 3, retry), and a journal left by an
+  interrupted start is set aside. The weekly report gains an
+  allocator section (v2, v1 on the same sleeves, the v1 account, every brake
+  that acted, the state now, the research expectations); the dry run checks
+  that v2's brakes only lower its own sizing; `--status` shows the allocator's
+  state.
+- Tests: `tests/test_research_allocator.py`, `tests/test_research_allocator_study.py`,
+  and new cases in the paper-fleet config, portfolio, runner and report tests
+  (pinned R5a fingerprints, research/fleet parity, resuming a fleet written by the
+  real R5a code from `tests/fixtures/paper_fleet_r5a`, joining on lagging data,
+  an interrupted start).
+
 ## Unreleased — Sprint 5a: paper fleet (plan row R5a; master plan Sprint 5 item 3)
 
 Simulation only: every fill is virtual arithmetic on public OKX prices; no keys,

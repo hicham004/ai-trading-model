@@ -19,10 +19,17 @@ entry gate (3-state HMM, bear >= 0.5) refitted on 540 days of history ending 7
 days before every 180-day forward window, and the portfolio's 15 % vol target
 with the 7.5/15 % ladder. The manifest's fingerprint is stored with the fleet:
 a changed manifest refuses to resume (start a new fleet directory instead).
+
+Plan row R5b adds a second portfolio account on the same six sleeves,
+``pf-s1s2s4-btceth-vt15-alloc2``: allocator v2 (``research.allocator``, its
+brakes fixed before the first run) with its expectations from
+``docs/research/allocator_v2_results.json``. A portfolio spec without an
+allocator is allocator v1 and keeps exactly the rules (and fingerprint) it had.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import math
@@ -31,6 +38,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from research.allocator import DEFAULT_ALLOCATOR_V2, AllocatorV2Config
 from research.engine import Costs
 from research.regime_v2 import RegimeV2Config
 from research.sizing import LadderConfig, SizingSpec
@@ -41,6 +49,7 @@ from research.strategies.s0_filters import NoTradeConfig
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SHORTLIST = ROOT / "docs" / "research" / "paper_fleet_shortlist_v1c.json"
 DEFAULT_RESULTS = ROOT / "docs" / "research" / "ensemble_v1c_results.json"
+DEFAULT_ALLOCATOR_RESULTS = ROOT / "docs" / "research" / "allocator_v2_results.json"
 SHORTLIST_STATUS = "forward evidence only; nothing approved"
 
 INSTRUMENTS: Tuple[str, ...] = ("BTC-USDT", "ETH-USDT")
@@ -64,6 +73,10 @@ PORTFOLIO_WEIGHT_LOOKBACK_DAYS = 60
 PORTFOLIO_LADDER = LadderConfig(half_dd=0.075, flat_dd=0.15, recovery_bars=30)  # days (one row per UTC day)
 PORTFOLIO_WARMUP_DAYS = 120  # sleeve history simulated before the start to seed weights and the vol estimate
 PORTFOLIO_NAME = "S1+S2+S4 x BTC+ETH — jointly sized, vol target 15%, ladder 7.5/15"
+PORTFOLIO_ACCOUNT = "pf-s1s2s4-btceth-vt15"
+ALLOCATOR_V2_ACCOUNT = "pf-s1s2s4-btceth-vt15-alloc2"
+ALLOCATOR_V2_NAME = ("S1+S2+S4 x BTC+ETH — allocator v2: vol target 15%, ladder 7.5/15, correlation cap 50%, "
+                     "weekly loss limit 5% with a 7-day cooldown")
 # Candidates whose own signal frame carries exits beyond the stop (S3's time stop): the fleet takes exits only from the
 # rule's stop and the bracket, so it refuses them rather than silently dropping an exit (tested for every other candidate).
 OWN_EXIT_CANDIDATES = frozenset({"S3"})
@@ -162,11 +175,19 @@ class PortfolioSpec:
     ladder: LadderConfig = PORTFOLIO_LADDER
     cap: float = 1.0
     warmup_days: int = PORTFOLIO_WARMUP_DAYS
+    allocator: Optional[AllocatorV2Config] = None  # None = allocator v1 (combine_sized); a config = allocator v2's brakes on top
+
+    @property
+    def sleeve_assets(self) -> Dict[str, str]:
+        return {name: s.instrument for name, s in self.sleeves}
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"sleeves": {name: s.to_dict() for name, s in self.sleeves}, "target_vol": self.target_vol,
-                "vol_lookback_days": self.vol_lookback_days, "weight_lookback_days": self.weight_lookback_days,
-                "ladder": self.ladder.to_dict(), "cap": self.cap, "warmup_days": self.warmup_days}
+        out = {"sleeves": {name: s.to_dict() for name, s in self.sleeves}, "target_vol": self.target_vol,
+               "vol_lookback_days": self.vol_lookback_days, "weight_lookback_days": self.weight_lookback_days,
+               "ladder": self.ladder.to_dict(), "cap": self.cap, "warmup_days": self.warmup_days}
+        if self.allocator is not None:  # absent for v1, so the v1 account's rules (and fingerprint) are what they were
+            out["allocator"] = {k: v for k, v in self.allocator.to_dict().items() if k != "label"}
+        return out
 
 
 @dataclass(frozen=True)
@@ -315,7 +336,8 @@ def _expectations(result: Mapping[str, Any], timeframe: str) -> Dict[str, Any]:
     return out
 
 
-def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path = DEFAULT_RESULTS) -> FleetManifest:
+def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path = DEFAULT_RESULTS,
+                  allocator_results_path: Path = DEFAULT_ALLOCATOR_RESULTS) -> FleetManifest:
     """Build the fleet from the shortlist and the results file (fails loudly on any mismatch)."""
     shortlist = json.loads(Path(shortlist_path).read_text(encoding="utf-8"))
     results_doc = json.loads(Path(results_path).read_text(encoding="utf-8"))
@@ -361,15 +383,42 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
             raise ValueError(f"unknown control {row['candidate']!r}")
 
     portfolio = _portfolio_from_results(results_doc)
+    sources = {"shortlist": str(Path(shortlist_path).as_posix()), "shortlist_sha256": _sha256(shortlist_path),
+               "results": str(Path(results_path).as_posix()), "results_sha256": _sha256(results_path),
+               "shortlist_generated_at": shortlist.get("generated_at"), "positioning_source_research": meta.get("positioning_source")}
     if portfolio is not None:
         spec, exp = portfolio
-        accounts.append(AccountSpec("pf-s1s2s4-btceth-vt15", "portfolio", "portfolio", PORTFOLIO_NAME, portfolio=spec, expectations=exp))
-    return FleetManifest(
-        accounts=tuple(accounts),
-        sources={"shortlist": str(Path(shortlist_path).as_posix()), "shortlist_sha256": _sha256(shortlist_path),
-                 "results": str(Path(results_path).as_posix()), "results_sha256": _sha256(results_path),
-                 "shortlist_generated_at": shortlist.get("generated_at"), "positioning_source_research": meta.get("positioning_source")},
-    )
+        accounts.append(AccountSpec(PORTFOLIO_ACCOUNT, "portfolio", "portfolio", PORTFOLIO_NAME, portfolio=spec, expectations=exp))
+        # Plan row R5b: the same six sleeves under allocator v2 (a new account: the v1 account and its record are untouched).
+        v2 = dataclasses.replace(spec, allocator=DEFAULT_ALLOCATOR_V2)
+        accounts.append(AccountSpec(ALLOCATOR_V2_ACCOUNT, "portfolio", "portfolio", ALLOCATOR_V2_NAME, portfolio=v2,
+                                    expectations=allocator_expectations(allocator_results_path, v2)))
+        sources.update({"allocator_results": str(Path(allocator_results_path).as_posix()), "allocator_results_sha256": _sha256(allocator_results_path)})
+    return FleetManifest(accounts=tuple(accounts), sources=sources)
+
+
+def allocator_expectations(path: Path, spec: PortfolioSpec) -> Dict[str, Any]:
+    """The allocator-v2 account's expectations, from the study of exactly its sleeves and its brakes (fails loudly otherwise)."""
+    from research.allocator_study import expectations_from_results
+
+    result = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not str(result.get("status", "")).startswith("SIMULATION ONLY"):
+        raise ValueError("the allocator results must be labelled SIMULATION ONLY")
+    meta = result.get("meta") or {}
+    studied = {s["name"]: (s["candidate"], s["instrument"], s["timeframe"], _params(s["params"])) for s in meta.get("sleeves", [])}
+    running = {name: (s.candidate, s.instrument, s.timeframe, dict(s.params)) for name, s in spec.sleeves}
+    if studied != running:
+        raise ValueError("the allocator results were computed on other sleeves than the fleet's portfolio")
+    if spec.allocator is None or AllocatorV2Config.from_dict(meta.get("allocator_v2") or {}) != spec.allocator:
+        raise ValueError("the allocator results were computed with other brakes than the fleet's allocator-v2 account")
+    settings = meta.get("settings") or {}
+    lad = settings.get("ladder") or {}
+    if (settings.get("target_vol"), settings.get("vol_lookback_days"), settings.get("weight_lookback_days")) != (
+            spec.target_vol, spec.vol_lookback_days, spec.weight_lookback_days) or not (
+            math.isclose(lad.get("half_dd", -1), spec.ladder.half_dd) and math.isclose(lad.get("flat_dd", -1), spec.ladder.flat_dd)
+            and int(lad.get("recovery_bars", -1)) == spec.ladder.recovery_bars):
+        raise ValueError("the allocator results were computed with another vol target or ladder than the fleet's portfolio")
+    return expectations_from_results(result)
 
 
 def _portfolio_from_results(results_doc: Mapping[str, Any]) -> Optional[Tuple[PortfolioSpec, Dict[str, Any]]]:

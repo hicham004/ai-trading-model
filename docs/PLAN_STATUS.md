@@ -61,6 +61,16 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   (b) making the URL cleaner (`app/news/items.py`, `canonicalize_url`) skip a malformed link
   instead of failing the whole collection round (details: `docs/NEWS_AGENT.md`, known gaps).
   Recommendation: yes to both; each can only make the news log more careful or more complete.
+- From R5b: the jointly sized portfolio's untouched last 12 months, opened for the first time as allocator v2's paired
+  reference, lost 15.0 % (allocator v2: −9.2 %) in the 2025–26 bear market (BTC −26 %, ETH −39 %; the always-long
+  controls lost 3–4 %, the confirmed S1+S5 BTC 6H sleeve made +2.3 %; `docs/research/ALLOCATOR_V2_REPORT.md`). Should
+  the Sprint 2c framing (the fleet decides between the confirmed sleeve, the portfolio and the controls) change?
+  Recommendation: change nothing in the fleet (both portfolio accounts keep running; forward evidence is free), but read
+  the confirmed sleeve and the controls as the lead candidates at G7 and the portfolio as contradicted by its holdout.
+- From R5b: the portfolio gates proved too easy (no robustness gate at portfolio level, profit factor pooled from sleeves
+  that did not pass on their own, timeframes picked on out-of-sample numbers). Recommendation: pre-register for the next
+  portfolio study that a portfolio counts as a candidate only when its sleeves pass on their own or its holdout confirms
+  it; nothing already run is re-judged.
 
 ### Decided — the owner, 2026-10-21 ("yes to all of your recommendations")
 

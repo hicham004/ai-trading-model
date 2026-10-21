@@ -30,7 +30,7 @@ def _imports(path: Path):
 
 def test_research_package_and_runner_stay_in_the_sandbox():
     files = list((ROOT / "research").rglob("*.py")) + [ROOT / "scripts" / "run_research.py", ROOT / "scripts" / "run_research_v1b.py", ROOT / "scripts" / "run_research_v1c.py",
-                                                       ROOT / "scripts" / "run_paper_fleet.py"]
+                                                       ROOT / "scripts" / "run_paper_fleet.py", ROOT / "scripts" / "run_allocator_v2.py"]
     assert files
     for path in files:
         for module in _imports(path):
@@ -38,6 +38,18 @@ def test_research_package_and_runner_stay_in_the_sandbox():
                 assert not (module == forbidden or module.startswith(forbidden + ".")), (
                     f"{path.relative_to(ROOT)} imports {module} (forbidden: {forbidden})"
                 )
+
+
+def test_the_allocator_code_imports_no_risk_database_or_broker_code_either():
+    """Plan row R5b: allocator v2 stays research code; `app/risk` (the demo and live risk manager) is never touched or used."""
+    stricter = FORBIDDEN + ("app.risk", "app.db", "app.broker", "app.backtest")
+    for path in [ROOT / "research" / "allocator.py", ROOT / "research" / "allocator_study.py", ROOT / "scripts" / "run_allocator_v2.py",
+                 *sorted((ROOT / "research" / "paper_fleet").glob("*.py"))]:
+        for module in _imports(path):
+            for forbidden in stricter:
+                assert not (module == forbidden or module.startswith(forbidden + ".")), f"{path.relative_to(ROOT)} imports {module}"
+    for path in (ROOT / "app").rglob("*.py"):
+        assert "research.allocator" not in path.read_text(encoding="utf-8"), path
 
 
 def test_research_is_not_wired_into_the_live_registry():

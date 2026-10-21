@@ -15,6 +15,7 @@ from research.paper_fleet.report import (
     ForwardMetrics,
     ReportScheduler,
     build_report_data,
+    render,
     count_band,
     return_band,
     sharpe_band,
@@ -167,3 +168,101 @@ def test_a_week_to_date_file_is_finalized_once_the_week_is_over(tmp_path):
     assert any(p.endswith("weekly-2026-W45.md") for p in written)
     first = (paths.reports / "weekly-2026-W45.md").read_text(encoding="utf-8").splitlines()[0]
     assert "final" in first and "week to date" not in first
+
+
+# -- plan row R5b: the allocator section -----------------------------------------------------------------------------
+
+SLEEVES = {"S1/BTC/6H": {"candidate": "S1"}, "S1/ETH/6H": {"candidate": "S1"}}
+V2_CFG = {"corr_lookback_days": 60, "corr_min_days": 20, "corr_threshold": 0.7, "group_cap": 0.5, "loss_window_days": 7, "loss_limit": 0.05,
+          "cooldown_days": 7}
+
+
+def _pf_day(day: pd.Timestamp, idx: float, ret: float, *, v2: bool, ref_idx: float = 1.0, ref_ret: float = 0.0, cap: bool = False,
+            trip: bool = False, cool: int = 0, in_cool: bool = False, seq: int = 1):
+    rec = {"type": "portfolio_day", "day": day.strftime("%Y-%m-%d"), "equity_index": idx, "portfolio_return": ret, "equity": 10_000 * idx,
+           "gross_exposure_end_of_day": 0.2, "vol_scale": 1.0, "ladder_multiplier": 1.0, "seq": seq}
+    if v2:
+        brakes = (["correlation cap"] if cap else []) + (["cooldown"] if in_cool else [])
+        rec.update({"allocator": "v2", "brakes": brakes, "invested_share": 0.5 if cap else 0.2, "invested_share_reference": 0.8 if cap else 0.2,
+                    "invested_before_cap": {"S1/BTC/6H+S1/ETH/6H": 0.8 if cap else 0.2}, "groups": [["S1/BTC/6H", "S1/ETH/6H"]],
+                    "loss_limit_tripped": trip, "loss_window_return": -0.061 if trip else -0.01, "loss_multiplier": 0.0 if in_cool else 1.0,
+                    "cooldown_days_left": cool, "ladder_level_after": 0, "correlations": {"BTC-USDT/ETH-USDT": 0.83},
+                    "reference_v1": {"return": ref_ret, "equity_index": ref_idx, "ladder_multiplier": 1.0}})
+    return rec
+
+
+def _fleet_with_portfolios(tmp_path, *, created="2026-11-02T00:00:00Z", last_cycle="2026-12-15T00:05:00Z", days=40):
+    paths = FleetPaths(tmp_path)
+    paths.ensure()
+    v2_exp = {"walk_forward": {"cagr": 0.1047, "ann_vol": 0.124, "sharpe": 0.86, "max_drawdown": 0.1229, "trades_per_year": 152.0},
+              "reference_v1": {"walk_forward": {"cagr": 0.1093, "ann_vol": 0.1387, "sharpe": 0.82, "max_drawdown": 0.1318}},
+              "brakes": {"correlation_cap_days_share": 0.0548, "loss_limit_trips_per_year": 0.23},
+              "holdout": {"total_return": -0.0928, "ann_vol": 0.083, "max_drawdown": 0.1444, "bars": 366, "confirmed": False}}
+    accounts = [
+        {"account_id": "pf-s1s2s4-btceth-vt15", "role": "portfolio", "kind": "portfolio", "label": "v1", "instrument": None, "timeframe": None,
+         "portfolio": {"sleeves": SLEEVES}, "expectations": {"walk_forward": {"cagr": 0.1093, "ann_vol": 0.1387, "sharpe": 0.82, "max_drawdown": 0.1318}}},
+        {"account_id": "pf-s1s2s4-btceth-vt15-alloc2", "role": "portfolio", "kind": "portfolio", "label": "allocator v2", "instrument": None,
+         "timeframe": None, "portfolio": {"sleeves": SLEEVES, "allocator": V2_CFG}, "expectations": v2_exp},
+    ]
+    state = {"version": 2, "created_at": created, "last_cycle": last_cycle, "cycles": 10, "fingerprint": "f", "positioning_source": "okx",
+             "manifest": {"init_cash": 10_000.0, "accounts": accounts}, "series": {}, "fits": {}, "portfolios": {},
+             "health": {"stale": False, "newest_candle": {"BTC-USDT": last_cycle}}}
+    write_state(paths.state_file, state)
+    t0 = pd.Timestamp(created) + pd.Timedelta(days=1)
+    v1 = [{"type": "start", "seq": 1}, {"type": "portfolio_warmup", "forward_start_day": t0.strftime("%Y-%m-%d"), "seq": 2}]
+    v2 = [{"type": "start", "seq": 1}, {"type": "portfolio_warmup", "forward_start_day": t0.strftime("%Y-%m-%d"), "seq": 2}]
+    e1 = e2 = 1.0
+    for i in range(days):
+        day = t0 + pd.Timedelta(days=i)
+        r1 = -0.004 if i % 3 == 0 else 0.002
+        # As allocator v2 books it: tripped at the close of day 20, in cash on days 21-27, re-armed from day 28.
+        trip, in_cool, cap = i == 20, 21 <= i <= 27, i in (5, 6, 30)
+        cool = 7 if trip else (27 - i if in_cool else 0)
+        r2 = 0.0 if in_cool else (r1 * 0.6 if cap else r1)
+        e1 *= 1 + r1
+        e2 *= 1 + r2
+        v1.append(_pf_day(day, e1, r1, v2=False, seq=i + 3))
+        v2.append(_pf_day(day, e2, r2, v2=True, ref_idx=e1, ref_ret=r1, cap=cap, trip=trip, cool=cool, in_cool=in_cool, seq=i + 3))
+    Journal(paths.journal("pf-s1s2s4-btceth-vt15")).append(v1)
+    Journal(paths.journal("pf-s1s2s4-btceth-vt15-alloc2")).append(v2)
+    return paths
+
+
+def test_the_allocator_section_compares_v2_with_v1_on_the_same_sleeves_and_lists_every_brake(tmp_path):
+    paths = _fleet_with_portfolios(tmp_path)
+    data = build_report_data(paths, datetime(2026, 12, 15, 1, 0, tzinfo=timezone.utc))
+    row = next(r for r in data["rows"] if r["account"]["account_id"].endswith("alloc2"))
+    act, ref = row["allocator"]["since_start"], row["allocator"]["reference"]
+    assert act["days"] == 40 and act["cap_days"] == 3 and act["cooldown_days"] == 7 and act["trips"] == [("2026-11-23", -0.061)]
+    assert act["cap_average_cut"] == pytest.approx(1 - 0.5 / 0.8) and ref.days == 40
+    twin = next(r for r in data["rows"] if r["account"]["account_id"] == "pf-s1s2s4-btceth-vt15")
+    assert ref.total_return == pytest.approx(twin["metrics"].total_return)  # the reference IS the v1 account here (same start, same sleeves)
+    text = render(data)
+    section = text[text.index("## Allocator v2"):text.index("## This week")]
+    assert text.index("## Ranking") < text.index("## Allocator v2") < text.index("## This week")
+    assert "| v1 on the same sleeves (in its journal) | 40 |" in section and "| v1 account (`pf-s1s2s4-btceth-vt15`) | 40 |" in section
+    assert "correlation cap on 3 days" in section and "tripped once (2026-11-23 after -6.10% in a week)" in section
+    assert "7 days in cash for the cooldown" in section and "coins count as one bet" in section
+    assert "not confirmed" in section and "+10.47% a year" in section and "brakes' own effect so far" in section
+    assert "its allocator-v2 twin" in text and "SIMULATION ONLY" in text
+
+
+def test_the_allocator_section_names_the_holdout_span_and_survives_a_retired_v1_account(tmp_path):
+    paths = _fleet_with_portfolios(tmp_path)
+    state = json.loads(paths.state_file.read_text(encoding="utf-8"))
+    alloc = state["manifest"]["accounts"][1]
+    alloc["expectations"]["holdout"].update(first_day="2025-10-21", last_day="2026-10-19", reference_v1_total_return=-0.15)
+    state["manifest"]["accounts"] = [alloc]  # the v1 portfolio account retired: only the allocator-v2 account is left
+    write_state(paths.state_file, state)
+    text = render(build_report_data(paths, datetime(2026, 12, 15, 1, 0, tzinfo=timezone.utc)))
+    assert "1 paper accounts: 0 shortlisted configurations, the allocator-v2 portfolio and 0 controls" in text
+    section = text[text.index("## Allocator v2"):text.index("## This week")]
+    assert "(2025-10-21 to 2026-10-19)" in section and "v1 on the same sleeves -15.00%" in section and "not confirmed" in section
+    assert "v1 account (`" not in section and "| v1 on the same sleeves (in its journal) |" in section
+    assert "multiplier between 0 and 1 on v2's own sizing" in section and "count from the next close" in section
+
+
+def test_no_allocator_section_without_an_allocator_account(tmp_path):
+    paths = _fleet(tmp_path, "2026-11-02T00:00:00Z", "2026-11-04T00:05:00Z")
+    text = write_week(paths, datetime(2026, 11, 4, 0, 30, tzinfo=timezone.utc)).read_text(encoding="utf-8")
+    assert "## Allocator v2" not in text and "allocator-v2 twin" not in text

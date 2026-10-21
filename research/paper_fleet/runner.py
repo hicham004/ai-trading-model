@@ -9,13 +9,22 @@ Each cycle (every minute in the service):
    every account on that series execute the decision made at the previous
    bar's close (:class:`research.paper_fleet.engine.SleeveEngine`) and make
    the next decision (:mod:`research.paper_fleet.signals`);
-3. book every UTC day the portfolio's six sleeves have finished;
+3. book every UTC day a portfolio account's six sleeves have finished (each
+   portfolio account — allocator v1 and, since plan row R5b, allocator v2 —
+   runs its own sleeves, so its record does not depend on when another started);
 4. append the journal records, then save the state atomically.
 
 An account starts flat with 10,000 virtual USDT at the first bar of its series
 that CLOSES after the account was created — when the fleet was created, or when
 an account added to the shortlist later joined it (the anchor bar: its decision
-is the first one; nothing fills before the next bar's open). A bar that cannot be
+is the first one; nothing fills before the next bar's open). A portfolio
+account's sleeves instead continue from their warm-up: every bar after the last
+one they processed, none skipped and none twice. A fleet is created, and an
+account joins, only once its series are ready: the bar that closed last is
+complete and no earlier bar is still waiting for a late 1H candle within
+``grace_minutes`` (else "not ready", retried a minute later; the whole fleet
+waits). A journal left by an earlier attempt that never reached the state file
+is set aside first. A bar that cannot be
 built because a 1H candle is missing is waited for ``grace_minutes`` and then
 skipped with a note (the S0 filter then blocks entries for three bars, as in
 the research). A decision that fails is journaled as an error and leaves the
@@ -25,18 +34,19 @@ new entry and no signal exit (fail closed).
 
 from __future__ import annotations
 
+import json
 import traceback
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 import pandas as pd
 
 from app.datalake.layout import LakeLayout
 from app.strategy.timeframes import parse_timeframe
 
-from research.paper_fleet.config import AccountSpec, FleetManifest, SleeveSpec, account_fingerprint
+from research.paper_fleet.config import PORTFOLIO_ACCOUNT, AccountSpec, FleetManifest, SleeveSpec, account_fingerprint
 from research.paper_fleet.data import MarketData, frame_until
 from research.paper_fleet.engine import BarOutcome, EngineConfig, SleeveEngine, SleeveState
 from research.paper_fleet.portfolio import PortfolioBook, SleeveDays, book_day
@@ -54,7 +64,7 @@ from research.paper_fleet.signals import (
 )
 from research.paper_fleet.store import FleetLock, FleetPaths, Journal, append_fleet_log, read_state, write_state
 
-STATE_VERSION = 1
+STATE_VERSION = 2  # 2: several portfolio accounts under ``portfolios`` (plan row R5b); a version-1 state is migrated when it is opened
 
 
 class FleetError(RuntimeError):
@@ -82,6 +92,33 @@ def series_key(instrument: str, timeframe: str) -> str:
     return f"{instrument} {timeframe}"
 
 
+def portfolio_states(state: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """Every portfolio account's saved book and sleeves, from a version-2 state or a version-1 one (one ``portfolio``)."""
+    if state.get("portfolios") is not None:
+        return dict(state["portfolios"])
+    legacy = state.get("portfolio")
+    if legacy is None:
+        return {}
+    kinds = {a.get("account_id"): a.get("kind") for a in (state.get("manifest") or {}).get("accounts", [])}
+    accounts = state.get("accounts") or {}
+    owners = [aid for aid in accounts if kinds.get(aid) == "portfolio"]
+    if not owners and PORTFOLIO_ACCOUNT in accounts:
+        owners = [PORTFOLIO_ACCOUNT]  # the only portfolio account the R5a code could create; once retired it left the stored manifest
+    if len(owners) != 1:
+        raise FleetError(f"a version-1 fleet state holds one portfolio, but {len(owners)} portfolio accounts are registered in it")
+    return {owners[0]: legacy}
+
+
+def migrate_state(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Version 1 (R5a: one portfolio under ``portfolio``) -> version 2 (``portfolios`` by account id); nothing else changes."""
+    if state.get("version") == 1:
+        state["portfolios"] = portfolio_states(state)
+        state.pop("portfolio", None)
+        state["version"] = 2
+        state.setdefault("migrations", []).append({"from": 1, "to": 2, "change": "portfolio state keyed by account id (plan row R5b)"})
+    return state
+
+
 def _ts(value: Any) -> pd.Timestamp:
     out = pd.Timestamp(value)
     return out.tz_localize("UTC") if out.tzinfo is None else out.tz_convert("UTC")
@@ -107,19 +144,19 @@ class PaperFleet:
         self.lock = FleetLock(paths.lock_file)
         self.state: Dict[str, Any] = {}
         self.engines: Dict[str, SleeveEngine] = {}
-        self.pf_engines: Dict[str, SleeveEngine] = {}
-        self.pf_days: Dict[str, SleeveDays] = {}
-        self.book: Optional[PortfolioBook] = None
+        self.pf_engines: Dict[str, Dict[str, SleeveEngine]] = {}  # portfolio account -> sleeve name -> engine
+        self.pf_days: Dict[str, Dict[str, SleeveDays]] = {}
+        self.books: Dict[str, PortfolioBook] = {}
         self.fits: Dict[str, RegimeFit] = {}
         self._by_series: Dict[str, List[AccountSpec]] = defaultdict(list)
-        self._pf_by_series: Dict[str, List[Tuple[str, SleeveSpec]]] = defaultdict(list)
+        self._pf_by_series: Dict[str, List[Tuple[str, str, SleeveSpec]]] = defaultdict(list)  # series -> (account, sleeve name, sleeve)
         self._gated: Dict[str, List[AccountSpec]] = defaultdict(list)
-        self._pf_account: Optional[AccountSpec] = None
+        self._pf_accounts: Dict[str, AccountSpec] = {}
         for acc in manifest.accounts:
             if acc.kind == "portfolio":
-                self._pf_account = acc
+                self._pf_accounts[acc.account_id] = acc
                 for name, sleeve in acc.portfolio.sleeves:
-                    self._pf_by_series[series_key(*sleeve.series)].append((name, sleeve))
+                    self._pf_by_series[series_key(*sleeve.series)].append((acc.account_id, name, sleeve))
             else:
                 key = series_key(acc.instrument, acc.timeframe)
                 self._by_series[key].append(acc)
@@ -155,6 +192,7 @@ class PaperFleet:
         now_ts = _ts(now)
         if state is None:
             return self._create(now_ts)
+        state = migrate_state(state)
         if state.get("version") != STATE_VERSION:
             raise FleetError(f"fleet state version {state.get('version')!r} is not {STATE_VERSION}")
         if state.get("fleet_fingerprint") != self.manifest.fleet_fingerprint():
@@ -177,6 +215,11 @@ class PaperFleet:
         current = {a.account_id for a in self.manifest.accounts}
         records: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         added = [a for a in self.manifest.accounts if a.account_id not in known]
+        if added:
+            # An account joins only from ready data: its warm-up would otherwise lack a bar that the series processes later.
+            incomplete = self._series_not_ready(now_ts, [p for a in added for p in self._account_series(a)])
+            if incomplete:  # nothing has been written yet: the service simply tries again a minute later
+                raise FleetNotReady(f"public data not complete yet, {', '.join(a.account_id for a in added)} not added: " + "; ".join(incomplete))
         for acc in added:
             self._add_account(acc, now_ts, records)
         retired = sorted(aid for aid, meta in known.items() if aid not in current and not meta.get("retired_at"))
@@ -202,11 +245,13 @@ class PaperFleet:
             last = self.market.last_candle_open(inst)
             if last is None or now - (last + pd.Timedelta(hours=1)) > pd.Timedelta(minutes=self.settings.stale_minutes):
                 problems.append(f"{inst}: newest confirmed 1H candle {None if last is None else iso(last)}")
+        if not problems:
+            problems.extend(self._series_not_ready(now, self.manifest.series()))
         if problems:
             raise FleetNotReady("public data not ready, no fleet created: " + "; ".join(problems))
         self.state = {
             "version": STATE_VERSION, "fingerprint": self.manifest.fingerprint(), "fleet_fingerprint": self.manifest.fleet_fingerprint(),
-            "created_at": iso(now), "manifest": self.manifest.to_dict(), "series": {}, "accounts": {}, "portfolio": None, "fits": {},
+            "created_at": iso(now), "manifest": self.manifest.to_dict(), "series": {}, "accounts": {}, "portfolios": {}, "fits": {},
             "cycles": 0, "positioning_source": self.market.positioning, "settings": self.settings.__dict__.copy(), "reports": {},
         }
         records: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
@@ -218,18 +263,56 @@ class PaperFleet:
         append_fleet_log(self.paths.fleet_log, rec)
         return rec
 
+    @staticmethod
+    def _account_series(acc: AccountSpec) -> List[Tuple[str, str]]:
+        return [s.series for _, s in acc.portfolio.sleeves] if acc.kind == "portfolio" else [(acc.instrument, acc.timeframe)]
+
+    def _series_not_ready(self, now: pd.Timestamp, series) -> List[str]:
+        """Series a warm-up cannot start from yet: the bar that closed last before ``now`` cannot be built, or an earlier bar
+        is missing while its 1H candle may still arrive (the cycle waits ``grace_minutes`` after the next bar closed, as
+        :meth:`_plan_series` does). A bar that never arrives stops blocking once that grace has passed: the series then
+        skips it, and so does the warm-up."""
+        out: List[str] = []
+        grace = pd.Timedelta(minutes=self.settings.grace_minutes)
+        epoch = pd.Timestamp(0, tz="UTC")
+        for inst, tf in sorted(set(series)):
+            delta = parse_timeframe(tf)
+            idx = self.market.bars(inst, tf).index
+            latest = epoch + ((now - epoch) // delta) * delta - delta  # bars sit on the UTC clock: this one closed at the last boundary
+            if latest not in idx:
+                out.append(f"{inst} {tf}: the bar {iso(latest)} closed at {iso(latest + delta)} but is not complete in the data yet")
+                continue
+            for ts in idx[(idx + delta <= now) & (idx + delta + grace > now)]:
+                if ts - delta not in idx:
+                    out.append(f"{inst} {tf}: the bar {iso(ts - delta)} is missing and may still arrive (waited for until "
+                               f"{iso(ts + delta + grace)})")
+                    break
+        return out
+
     def _add_account(self, acc: AccountSpec, now: pd.Timestamp, records: Dict[str, List[Dict[str, Any]]]) -> None:
-        """Register an account that starts now: flat, at the first bar of its series that closes after ``now``."""
+        """Register an account that starts now: flat, at the first bar of its series that closes after ``now`` (a portfolio
+        account: its warm-up up to ``now``, then its sleeves continue bar by bar)."""
+        journal = self.paths.journal(acc.account_id)
+        if journal.exists() and journal.stat().st_size > 0:
+            # An earlier start of this account wrote its journal but never its state (a crash in between): keep that file, start afresh.
+            aside = journal.with_name(f"{acc.account_id}.unfinished-{now:%Y%m%dT%H%M%SZ}.jsonl")
+            n = 1
+            while aside.exists():  # never overwrite an earlier set-aside file
+                n += 1
+                aside = journal.with_name(f"{acc.account_id}.unfinished-{now:%Y%m%dT%H%M%SZ}-{n}.jsonl")
+            journal.replace(aside)
+            append_fleet_log(self.paths.fleet_log, {"type": "journal_set_aside", "now": iso(now), "account": acc.account_id, "file": aside.name,
+                                                    "note": "an earlier start of this account never reached the state file; its journal is kept "
+                                                            "under this name and the account starts again now"})
         self.state["accounts"][acc.account_id] = {"seq": 0, "engine": None, "fingerprint": account_fingerprint(acc),
                                                   "created_at": iso(now), "retired_at": None}
-        pairs = [s.series for _, s in acc.portfolio.sleeves] if acc.kind == "portfolio" else [(acc.instrument, acc.timeframe)]
-        for inst, tf in pairs:
+        for inst, tf in self._account_series(acc):
             self.state["series"].setdefault(series_key(inst, tf), {"anchor": None, "last_bar": None, "bars": 0, "gaps": 0, "created_at": iso(now)})
         if acc.kind != "portfolio":
             self.engines[acc.account_id] = SleeveEngine(self._engine_cfg(acc))
         records[acc.account_id].append(self._start_record(acc, now))
         if acc.kind == "portfolio":
-            records[acc.account_id].extend(self._portfolio_warmup(now))
+            records[acc.account_id].extend(self._portfolio_warmup(acc, now))
 
     def _engine_cfg(self, acc: AccountSpec) -> EngineConfig:
         if acc.kind == "buy_and_hold":
@@ -258,22 +341,28 @@ class PaperFleet:
                 continue
             raw = meta.get("engine")
             self.engines[acc.account_id] = SleeveEngine(self._engine_cfg(acc), SleeveState.from_dict(raw) if raw else None)
-        pf = state.get("portfolio")
-        if pf is not None and self._pf_account is not None and self._pf_account.account_id in state["accounts"]:
-            self.book = PortfolioBook.from_dict(pf["book"])
-            for name, sleeve in self._pf_account.portfolio.sleeves:
+        saved = portfolio_states(state)
+        for aid, acc in self._pf_accounts.items():
+            pf = saved.get(aid)
+            if pf is None or aid not in state["accounts"]:
+                continue
+            self.books[aid] = PortfolioBook.from_dict(pf["book"])
+            self.pf_engines[aid], self.pf_days[aid] = {}, {}
+            for name, sleeve in acc.portfolio.sleeves:
                 cfg = engine_config(sleeve, costs=self.manifest.costs, init_cash=self.manifest.init_cash)
-                self.pf_engines[name] = SleeveEngine(cfg, SleeveState.from_dict(pf["sleeves"][name]["engine"]))
-                self.pf_days[name] = SleeveDays.from_dict(pf["sleeves"][name]["days"])
+                self.pf_engines[aid][name] = SleeveEngine(cfg, SleeveState.from_dict(pf["sleeves"][name]["engine"]))
+                self.pf_days[aid][name] = SleeveDays.from_dict(pf["sleeves"][name]["days"])
         self.fits = {k: RegimeFit.from_dict(v) for k, v in (state.get("fits") or {}).items()}
 
     # -- portfolio warm-up -----------------------------------------------------------
 
-    def _portfolio_warmup(self, now: pd.Timestamp) -> List[Dict[str, Any]]:
-        acc = self._pf_account
+    def _portfolio_warmup(self, acc: AccountSpec, now: pd.Timestamp) -> List[Dict[str, Any]]:
         spec = acc.portfolio
+        aid = acc.account_id
         forward_start = (now.floor("D") + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-        self.book = PortfolioBook(forward_start_day=forward_start)
+        book = PortfolioBook(forward_start_day=forward_start)
+        self.books[aid] = book
+        self.pf_engines[aid], self.pf_days[aid] = {}, {}
         warm_from = now - pd.Timedelta(days=spec.warmup_days)
         summary: Dict[str, Any] = {}
         for name, sleeve in spec.sleeves:
@@ -289,21 +378,26 @@ class PaperFleet:
             warm = hist[hist.index >= warm_from]
             for (ts, row), dec in zip(warm.iterrows(), decisions):
                 out = engine.step(iso(ts), float(row["open"]), float(row["high"]), float(row["low"]), float(row["close"]), dec)
-                days.on_bar(ts, ts + tf, out.equity, self.manifest.init_cash)
-            self.book.absorb(name, days)
-            self.pf_engines[name] = engine
-            self.pf_days[name] = days
+                days.on_bar(ts, ts + tf, out.equity, self.manifest.init_cash, in_position=out.in_position, close=float(row["close"]))
+            book.absorb(name, days, sleeve.instrument)
+            self.pf_engines[aid][name] = engine
+            self.pf_days[aid][name] = days
             summary[name] = {"bars": int(len(warm)), "equity": engine.state.equity, "in_position": engine.state.in_pos,
-                             "trades_closed": engine.state.trades_closed}
-        return [{"type": "portfolio_warmup", "from": iso(warm_from), "until": iso(now), "forward_start_day": forward_start,
-                 "sleeves": summary, "days_of_history": len(self.book.daily),
-                 "note": "warm-up history only seeds the trailing weights and the vol estimate; it is not part of the forward record"}]
+                             "trades_closed": engine.state.trades_closed, "last_bar": engine.state.last_bar_time}
+        rec = {"type": "portfolio_warmup", "from": iso(warm_from), "until": iso(now), "forward_start_day": forward_start,
+               "sleeves": summary, "days_of_history": len(book.daily),
+               "note": "warm-up history only seeds the trailing weights and the vol estimate; it is not part of the forward record"}
+        if spec.allocator is not None:
+            rec["allocator"] = dict(spec.allocator.to_dict(), version="v2")
+            rec["note"] = ("warm-up history only seeds the trailing weights, the vol estimate, the coin correlation and the positions at the "
+                           "previous close; it is not part of the forward record")
+        return [rec]
 
     # -- one cycle ----------------------------------------------------------------------
 
     def cycle(self, now: datetime) -> Dict[str, Any]:
         now_ts = _ts(now)
-        summary: Dict[str, Any] = {"now": iso(now_ts), "bars": {}, "errors": [], "portfolio_days": [], "gaps": []}
+        summary: Dict[str, Any] = {"now": iso(now_ts), "bars": {}, "errors": [], "portfolio_days": {}, "gaps": []}
         try:
             refresh = self.market.refresh(now_ts.to_pydatetime())
             summary["data"] = refresh.to_dict()
@@ -331,7 +425,7 @@ class PaperFleet:
             failed = True
         summary["processing_failed"] = failed
         try:
-            if self.book is not None and not failed:
+            if self.books and not failed:
                 summary["portfolio_days"] = self._book_portfolio_days(records)
             self.state["cycles"] = int(self.state.get("cycles", 0)) + 1
             self.state["last_cycle"] = iso(now_ts)
@@ -353,8 +447,8 @@ class PaperFleet:
     def _reload_after_error(self) -> None:
         state = read_state(self.paths.state_file)
         if state is not None:
-            self.engines, self.pf_engines, self.pf_days = {}, {}, {}
-            self._load(state)
+            self.engines, self.pf_engines, self.pf_days, self.books = {}, {}, {}, {}
+            self._load(migrate_state(state))
 
     def _plan_series(self, key: str, now: pd.Timestamp) -> List[Tuple[pd.Timestamp, str, pd.Timestamp, Optional[Dict[str, Any]]]]:
         """The complete bars of one series still to process, in order, with a gap note where bars are missing.
@@ -397,8 +491,9 @@ class PaperFleet:
             for acc in self._by_series.get(key, []):
                 if self._account_started(acc.account_id, ts + delta):
                     records[acc.account_id].append(dict(gap))
-            if self._pf_by_series.get(key) and self._pf_account is not None and self._account_started(self._pf_account.account_id, ts + delta):
-                records[self._pf_account.account_id].append(dict(gap))
+            for aid in sorted({aid for aid, _, _ in self._pf_by_series.get(key, [])}):
+                if any(self._sleeve_due(self.pf_engines[aid][name], ts) for a, name, _ in self._pf_by_series[key] if a == aid):
+                    records[aid].append(dict(gap))
         self._process_bar(inst, tf, ts, self.market.bars(inst, tf), records)
         s["last_bar"] = iso(ts)
         if s["anchor"] is None:
@@ -429,15 +524,27 @@ class PaperFleet:
             info, err = self._decide(acc.sleeve, acc.kind, window, ctx, fit)
             out = self.engines[acc.account_id].step(iso(ts), o, h, low, c, None if info is None else info.decision)
             records[acc.account_id].append(self._bar_record(ts, delta, (o, h, low, c), out, info, err, ages if acc.sleeve is not None and acc.sleeve.uses_positioning else None))
-        pf_live = self._pf_account is not None and self._account_started(self._pf_account.account_id, ts + delta)
-        for name, sleeve in (self._pf_by_series.get(key, []) if pf_live else []):
-            info, err = self._decide(sleeve, "sleeve", window, ctx, None)
-            engine = self.pf_engines[name]
+        # Portfolio sleeves: a sleeve shared by two portfolio accounts gets the same decision (same rule, same bars), computed once.
+        decided: Dict[str, Tuple[Optional[DecisionInfo], Optional[str]]] = {}
+        for aid, name, sleeve in self._pf_by_series.get(key, []):
+            engine = self.pf_engines[aid][name]
+            if not self._sleeve_due(engine, ts):
+                continue  # already in this sleeve's warm-up (an account that joined while the series was catching up)
+            rule = json.dumps(sleeve.to_dict(), sort_keys=True, default=str)
+            if rule not in decided:
+                decided[rule] = self._decide(sleeve, "sleeve", window, ctx, None)
+            info, err = decided[rule]
             out = engine.step(iso(ts), o, h, low, c, None if info is None else info.decision)
-            self.pf_days[name].on_bar(ts, ts + delta, out.equity, self.manifest.init_cash)
+            self.pf_days[aid][name].on_bar(ts, ts + delta, out.equity, self.manifest.init_cash, in_position=out.in_position, close=c)
             rec = self._bar_record(ts, delta, (o, h, low, c), out, info, err, None)
             rec["sleeve"] = name
-            records[self._pf_account.account_id].append(rec)
+            records[aid].append(rec)
+
+    @staticmethod
+    def _sleeve_due(engine: SleeveEngine, ts: pd.Timestamp) -> bool:
+        """A portfolio sleeve continues from its warm-up: it processes every bar after the last one it processed."""
+        last = engine.state.last_bar_time
+        return last is None or ts > _ts(last)
 
     def _decide(self, sleeve: Optional[SleeveSpec], kind: str, window: pd.DataFrame, ctx, fit: Optional[RegimeFit]) -> Tuple[Optional[DecisionInfo], Optional[str]]:
         try:
@@ -462,17 +569,21 @@ class PaperFleet:
             rec["positioning_age_hours"] = ages
         return rec
 
-    def _book_portfolio_days(self, records: Dict[str, List[Dict[str, Any]]]) -> List[str]:
-        acc = self._pf_account
-        for name, days in self.pf_days.items():
-            self.book.absorb(name, days)
-        booked: List[str] = []
-        for day in self.book.days_ready(self.pf_days):
-            in_pos = {name: eng.state.in_pos for name, eng in self.pf_engines.items()}
-            rec = book_day(self.book, acc.portfolio, day, in_pos)
-            rec["equity"] = self.manifest.init_cash * self.book.equity
-            records[acc.account_id].append(rec)
-            booked.append(day)
+    def _book_portfolio_days(self, records: Dict[str, List[Dict[str, Any]]]) -> Dict[str, List[str]]:
+        booked: Dict[str, List[str]] = {}
+        for aid, acc in self._pf_accounts.items():
+            book = self.books.get(aid)
+            if book is None:
+                continue
+            assets = acc.portfolio.sleeve_assets
+            for name, days in self.pf_days[aid].items():
+                book.absorb(name, days, assets[name])
+            for day in book.days_ready(self.pf_days[aid]):
+                in_pos = {name: eng.state.in_pos for name, eng in self.pf_engines[aid].items()}
+                rec = book_day(book, acc.portfolio, day, in_pos)
+                rec["equity"] = self.manifest.init_cash * book.equity
+                records[aid].append(rec)
+                booked.setdefault(aid, []).append(day)
         return booked
 
     # -- persistence --------------------------------------------------------------------
@@ -490,10 +601,11 @@ class PaperFleet:
             Journal(self.paths.journal(acc.account_id)).append(new)
             if acc.kind != "portfolio":
                 meta["engine"] = self.engines[acc.account_id].state.to_dict()
-        if self.book is not None:
-            self.state["portfolio"] = {
-                "book": self.book.to_dict(),
-                "sleeves": {name: {"engine": self.pf_engines[name].state.to_dict(), "days": self.pf_days[name].to_dict()} for name in self.pf_engines},
+        portfolios = self.state.setdefault("portfolios", {})
+        for aid, book in self.books.items():
+            portfolios[aid] = {
+                "book": book.to_dict(),
+                "sleeves": {name: {"engine": eng.state.to_dict(), "days": self.pf_days[aid][name].to_dict()} for name, eng in self.pf_engines[aid].items()},
             }
         write_state(self.paths.state_file, self.state)
 
@@ -544,13 +656,22 @@ def status_from_state(state: Dict[str, Any], manifest: Optional[FleetManifest] =
                          "last_bar": eng.get("last_bar_time"), "trades_closed": eng.get("trades_closed"), "fees_paid": eng.get("fees_paid"),
                          "ladder_level": eng.get("lad_level")})
         out["accounts"][aid] = item
-    pf = state.get("portfolio")
-    if pf:
+    init = (state.get("manifest") or {}).get("init_cash", 10_000.0)
+    try:
+        saved = portfolio_states(state)
+    except FleetError as exc:  # the status view never fails; opening the fleet reports the problem
+        saved = {}
+        out["warnings"] = [str(exc)]
+    for aid, pf in saved.items():
+        item = out["accounts"].get(aid)
+        if item is None:
+            continue
         book = pf["book"]
-        init = (state.get("manifest") or {}).get("init_cash", 10_000.0)
-        for aid, item in out["accounts"].items():
-            if labels.get(aid, {}).get("kind") == "portfolio":
-                item.update({"equity": init * float(book.get("equity", 1.0)), "forward_start_day": book.get("forward_start_day"),
-                             "days_booked": len(book.get("done_days") or []), "ladder_level": book.get("lad_level"),
-                             "sleeves_in_position": {n: s["engine"].get("in_pos") for n, s in pf["sleeves"].items()}})
+        item.update({"equity": init * float(book.get("equity", 1.0)), "forward_start_day": book.get("forward_start_day"),
+                     "days_booked": len(book.get("done_days") or []), "ladder_level": book.get("lad_level"),
+                     "sleeves_in_position": {n: s["engine"].get("in_pos") for n, s in pf["sleeves"].items()}})
+        alloc = book.get("alloc")
+        if alloc:
+            item["allocator"] = {"version": "v2", "cooldown_days_left": alloc.get("cooldown_left"), "loss_limit_trips": alloc.get("trips"),
+                                 "reference_v1_equity": init * float(alloc.get("ref_equity", 1.0))}
     return out

@@ -1,8 +1,10 @@
 """Paper fleet (plan row R5a): the Sprint 2c shortlist run forward on live PUBLIC OKX data — SIMULATION ONLY.
 
 Every configuration of ``docs/research/paper_fleet_shortlist_v1c.json``, the
-jointly sized BTC+ETH x S1/S2/S4 portfolio and the controls (always long with
-the policy sizing; plain buy-and-hold) run as separate LOCAL paper accounts
+jointly sized BTC+ETH x S1/S2/S4 portfolio, its allocator-v2 twin (plan row
+R5b: the same sleeves with a correlation cap, a weekly loss limit and a
+cooldown) and the controls (always long with the policy sizing; plain
+buy-and-hold) run as separate LOCAL paper accounts
 with virtual fills, one append-only journal each, and a weekly ranking report
 that compares the forward numbers with the walk-forward and holdout
 expectations. Public data only (OKX public REST: candles, funding rate, open
@@ -28,7 +30,7 @@ to resume (start a new directory, or give a changed configuration a new id).
 Exit codes: 0 = done; 1 = a dry run failed an invariant, or repeated cycle
 failures; 2 = a setup error a restart cannot fix (changed rules, a bad option);
 3 = not startable right now (another instance holds the fleet, or the public data
-is missing or stale) — the service is simply started again a minute later.
+is missing, stale or not yet complete for the bar that closed last) — the service is simply started again a minute later.
 
 This process needs no secrets: started as a script, it keeps ``python-dotenv``
 from loading the repository ``.env`` (which holds the OKX demo keys) into its
@@ -185,6 +187,11 @@ def cmd_status(args: argparse.Namespace, env: Mapping[str, str]) -> int:
             pos = "long " + ",".join(n for n, v in a["sleeves_in_position"].items() if v) if any(a["sleeves_in_position"].values()) else "flat"
         lines.append(f"  {aid:28s} equity {'-' if eq is None else f'{eq:,.2f}'}  {pos}  trades {a.get('trades_closed', '-')}  "
                      f"journal records {a.get('journal_records')}")
+        alloc = a.get("allocator")
+        if alloc:
+            cool = alloc.get("cooldown_days_left") or 0
+            lines.append(f"  {'':28s} allocator v2: " + (f"IN CASH for {cool} more day(s) after a weekly loss-limit trip" if cool else "armed")
+                         + f", {alloc.get('loss_limit_trips') or 0} trip(s) so far, v1 on the same sleeves {alloc.get('reference_v1_equity', 0):,.2f}")
     if health.get("last_errors"):
         lines.append(f"  last errors: {health['last_errors']}")
     _print(args, st, "\n".join(lines))
@@ -222,6 +229,9 @@ def cmd_live(args: argparse.Namespace, env: Mapping[str, str]) -> int:
             return EXIT_RETRY_LATER
         print(f"paper fleet {opened['type']}: {fleet.paths.root} ({len(fleet.manifest.accounts)} accounts, "
               f"fingerprint {fleet.manifest.fingerprint()[:12]})", flush=True)
+        if opened.get("added") or opened.get("retired"):
+            print(f"  accounts added: {', '.join(opened.get('added') or []) or 'none'}; retired: {', '.join(opened.get('retired') or []) or 'none'}",
+                  flush=True)
         return _loop(args, fleet)
     finally:
         fleet.release()

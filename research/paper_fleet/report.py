@@ -27,6 +27,11 @@ Verdicts need at least 30 forward days ("too early" before that); the ranking
 (by forward Sharpe, controls excluded) is labelled "not meaningful yet" before
 90 days. Controls come first: a timing rule earns its place only by beating
 them forward (planner decision 6).
+
+Since plan row R5b the report also has an allocator section: the allocator-v2
+account next to "v1 on the same sleeves" (booked inside its own journal, so the
+difference is the brakes alone) and the v1 portfolio account, every brake that
+acted, the allocator's state now, and the research study's expectations.
 """
 
 from __future__ import annotations
@@ -307,6 +312,56 @@ def verdicts(account: Mapping[str, Any], m: ForwardMetrics) -> Dict[str, Any]:
 # -- assembling ----------------------------------------------------------------------
 
 
+def reference_metrics(records: Sequence[Mapping[str, Any]], *, until: Optional[pd.Timestamp] = None) -> Optional[ForwardMetrics]:
+    """The v1 rules on an allocator-v2 account's own sleeves (``reference_v1`` of its days), as forward metrics."""
+    days = [r for r in records if r.get("type") == "portfolio_day" and r.get("reference_v1")
+            and (until is None or _ts(r["day"]) + pd.Timedelta(days=1) <= until)]
+    if not days:
+        return None
+    idx = np.array([1.0] + [float(r["reference_v1"]["equity_index"]) for r in days])
+    rets = np.array([float(r["reference_v1"]["return"]) for r in days])
+    sharpe, vol = _sharpe(rets, DAYS_PER_YEAR)
+    inv = [float(r.get("invested_share_reference") or 0.0) for r in days]
+    return ForwardMetrics(days=float(len(days)), start=days[0]["day"], end=days[-1]["day"], equity=float(idx[-1]), total_return=float(idx[-1] - 1.0),
+                          ann_vol=vol, sharpe=sharpe, max_drawdown=_max_dd(idx), entries=0, closed_trades=0, wins=0, profit_factor=None, fees=0.0,
+                          exposure=float(np.mean([x > 0 for x in inv])), avg_allocation=float(np.mean(inv)), in_position=inv[-1] > 0,
+                          allocation_now=inv[-1], bars=len(days))
+
+
+def allocator_activity(records: Sequence[Mapping[str, Any]], *, since: Optional[pd.Timestamp] = None,
+                       until: Optional[pd.Timestamp] = None) -> Dict[str, Any]:
+    """What allocator v2's brakes did on the booked days of a journal (optionally one week of them)."""
+    days = [r for r in records if r.get("type") == "portfolio_day" and r.get("allocator") == "v2"
+            and (since is None or _ts(r["day"]) >= since) and (until is None or _ts(r["day"]) + pd.Timedelta(days=1) <= until)]
+    cap = [d for d in days if "correlation cap" in (d.get("brakes") or [])]
+    cuts = [1.0 - float(d["invested_share"]) / sum(d["invested_before_cap"].values()) for d in cap if sum((d.get("invested_before_cap") or {}).values()) > 0]
+    inv = [float(d.get("invested_share") or 0.0) for d in days]
+    return {
+        "days": len(days), "cap_days": len(cap), "cap_average_cut": float(np.mean(cuts)) if cuts else None,
+        "one_bet_days": sum(1 for d in days if len(d.get("groups") or []) == 1),
+        "trips": [(d["day"], d.get("loss_window_return")) for d in days if d.get("loss_limit_tripped")],
+        "cooldown_days": sum(1 for d in days if d.get("loss_multiplier") == 0.0),
+        "ladder_half_days": sum(1 for d in days if d.get("ladder_multiplier") == 0.5),
+        "ladder_flat_days": sum(1 for d in days if d.get("ladder_multiplier") == 0.0),
+        "invested_mean": float(np.mean(inv)) if inv else None, "invested_max": float(np.max(inv)) if inv else None,
+        "last": days[-1] if days else None,
+    }
+
+
+def _allocator_pairs(rows: Sequence[Mapping[str, Any]]) -> List[Tuple[Mapping[str, Any], Optional[Mapping[str, Any]]]]:
+    """Each allocator-v2 account with the v1 portfolio account that runs the same sleeves (if the fleet has one)."""
+    pf = [r for r in rows if r["account"].get("kind") == "portfolio"]
+    out = []
+    for r in pf:
+        spec = r["account"].get("portfolio") or {}
+        if not spec.get("allocator"):
+            continue
+        twin = next((t for t in pf if not (t["account"].get("portfolio") or {}).get("allocator")
+                     and (t["account"].get("portfolio") or {}).get("sleeves") == spec.get("sleeves")), None)
+        out.append((r, twin))
+    return out
+
+
 def load_journals(paths: FleetPaths, account_ids: Iterable[str]) -> Dict[str, List[Dict[str, Any]]]:
     return {aid: list(Journal(paths.journal(aid)).read()) for aid in account_ids}
 
@@ -344,12 +399,16 @@ def build_report_data(paths: FleetPaths, now: datetime, *, year: Optional[int] =
         base = wk_start.equity if wk_start.bars or wk_start.days else init_cash
         week_stats = _trade_stats(week_recs)
         last_bar = next((r for r in reversed(recs) if r.get("type") == "bar" and "sleeve" not in r), None)
-        rows.append({
+        row = {
             "account": acc, "metrics": m, "verdicts": verdicts(acc, m),
             "week": {"return": (m.equity / base - 1.0) if base else None, **week_stats},
             "last_decision": (last_bar or {}).get("decision"), "decision_error": (last_bar or {}).get("decision_error"),
             "notes": [r for r in recs if r.get("type") in ("gap", "regime_fit") and w_start <= _ts(r.get("bar") or r.get("next_bar") or r.get("missing_from")) < w_end],
-        })
+        }
+        if acc["kind"] == "portfolio" and (acc.get("portfolio") or {}).get("allocator"):
+            row["allocator"] = {"reference": reference_metrics(recs, until=until), "since_start": allocator_activity(recs, until=until),
+                                "this_week": allocator_activity(recs, since=w_start, until=until)}
+        rows.append(row)
     controls = {(r["account"]["instrument"], r["account"]["timeframe"]): r for r in rows
                 if r["account"]["role"] == "control" and (r["account"].get("sleeve") or {}).get("candidate") == "hold"}
     bh = {(r["account"]["instrument"], r["account"]["timeframe"]): r for r in rows if r["account"]["kind"] == "buy_and_hold"}
@@ -404,8 +463,15 @@ def render(data: Mapping[str, Any]) -> str:
     health = state.get("health") or {}
     lines.append("## In short (plain English)")
     lines.append("")
-    lines.append(f"- The fleet has run forward for **{days:.1f} days** with {len(rows)} paper accounts: {len(others) - 1 if any(r['account']['kind'] == 'portfolio' for r in rows) else len(others)} "
-                 f"shortlisted configurations, the jointly sized portfolio and {len(ctl_rows)} controls. Public data "
+    n_pf = sum(1 for r in rows if r["account"]["kind"] == "portfolio")
+    n_v2 = sum(1 for r in rows if r["account"]["kind"] == "portfolio" and (r["account"].get("portfolio") or {}).get("allocator"))
+    n_v1 = n_pf - n_v2
+    portfolio_parts = (["the jointly sized portfolio"] if n_v1 else []) + (
+        ["its allocator-v2 twin" if n_v1 else "the allocator-v2 portfolio"] if n_v2 else [])
+    portfolios = ", ".join(portfolio_parts) or "no portfolio"
+    n_ctl = len(ctl_rows)
+    lines.append(f"- The fleet has run forward for **{days:.1f} days** with {len(rows)} paper accounts: {len(others) - n_pf} "
+                 f"shortlisted configurations, {portfolios} and {n_ctl} control{'' if n_ctl == 1 else 's'}. Public data "
                  f"{'is STALE (no fresh candles)' if health.get('stale') else 'is fresh'} as of the last cycle ({state.get('last_cycle')}).")
     hold_ctl = [r for r in ctl_rows if r["account"]["kind"] == "sleeve"]
     bh_ctl = [r for r in ctl_rows if r["account"]["kind"] == "buy_and_hold"]
@@ -475,11 +541,13 @@ def render(data: Mapping[str, Any]) -> str:
                      f"{_sharpe_text(m)} | {_pct(m.max_drawdown, False)} | {entries} | {m.closed_trades} | {win} | {fees} | {band} | "
                      f"{v['return']} | {v['sharpe']} | {v['drawdown']} | {v['entries']} | {v['holdout']} | **{v['status']}** |")
     lines.append("")
-    lines.append("The portfolio's entries, closed trades and win/PF are pooled over its six full-size sleeves (as the research pooled them); "
+    lines.append("A portfolio's entries, closed trades and win/PF are pooled over its six full-size sleeves (as the research pooled them); "
                  "its costs are inside its daily returns.")
     lines.append("")
     lines.append("Configurations (shortlist rank → account): " + "; ".join(f"`{r['account']['account_id']}` = {r['account']['label']}" for r in others) + ".")
     lines.append("")
+    for v2, twin in _allocator_pairs(rows):
+        lines.extend(_allocator_section(v2, twin))
     # -- this week
     lines.append(f"## This week ({ws:%Y-%m-%d} to {min(data['until'], we):%Y-%m-%d %H:%M} UTC)")
     lines.append("")
@@ -573,6 +641,93 @@ def render(data: Mapping[str, Any]) -> str:
                  "close, costs included): the research's numbers include those restarts, and without them a long-held, reduce-only "
                  "position could only ever shrink. A fill never uses a price from before its decision.")
     return "\n".join(lines) + "\n"
+
+
+def _whole(v: Any) -> str:
+    return "-" if _f(v) is None else f"{float(v) * 100:.0f} %"
+
+
+def _times(n: int) -> str:
+    return "never" if n == 0 else ("once" if n == 1 else f"{n} times")
+
+
+def _allocator_section(row: Mapping[str, Any], twin: Optional[Mapping[str, Any]]) -> List[str]:
+    acc, m = row["account"], row["metrics"]
+    cfg = (acc.get("portfolio") or {}).get("allocator") or {}
+    info = row.get("allocator") or {}
+    ref: Optional[ForwardMetrics] = info.get("reference")
+    act, week = info.get("since_start") or {}, info.get("this_week") or {}
+    exp = acc.get("expectations") or {}
+    cap = cfg.get("group_cap")
+    lines = ["## Allocator v2 — the same six sleeves with extra brakes (plan row R5b)", ""]
+    lines.append(f"`{acc['account_id']}` runs the jointly sized portfolio's six sleeves with allocator v2: the v1 sizing (15 % vol target, drawdown "
+                 f"ladder 7.5/15 %) plus a **correlation cap** (one bet — sleeves on the same coin, or BTC and ETH while the correlation of their "
+                 f"daily returns over {cfg.get('corr_lookback_days')} days is {_num(cfg.get('corr_threshold'))} or more — holding more than "
+                 f"{_whole(cap)} of equity at the previous close is scaled back to {_whole(cap)}; sleeves entering during a day count from the next "
+                 f"close), a **weekly loss limit** (a loss of {_whole(cfg.get('loss_limit'))} in {cfg.get('loss_window_days')} days sends the book to "
+                 f"cash) and a **{cfg.get('cooldown_days')}-day cooldown** after it. Each brake is a multiplier between 0 and 1 on v2's own sizing and "
+                 "is decided from the previous close; v2's drawdown ladder follows v2's own equity, so on some days v2 holds more than v1. Its "
+                 "journal also books the v1 rules on its own sleeves (*v1 on the same sleeves*), so the difference between those two lines is the "
+                 "brakes alone.")
+    lines.append("")
+    lines.append("| | Days | Return | Max DD | Sharpe | Avg invested | Status |")
+    lines.append("|---|---:|---:|---:|---:|---:|---|")
+    lines.append(f"| allocator v2 (`{acc['account_id']}`) | {m.days:.0f} | {_pct(m.total_return)} | {_pct(m.max_drawdown, False)} | {_sharpe_text(m)} | "
+                 f"{_pct(act.get('invested_mean'), False)} | {row['verdicts']['status']} |")
+    if ref is not None:
+        lines.append(f"| v1 on the same sleeves (in its journal) | {ref.days:.0f} | {_pct(ref.total_return)} | {_pct(ref.max_drawdown, False)} | "
+                     f"{_sharpe_text(ref)} | {_pct(ref.avg_allocation, False)} | reference |")
+    if twin is not None:
+        tm = twin["metrics"]
+        lines.append(f"| v1 account (`{twin['account']['account_id']}`) | {tm.days:.0f} | {_pct(tm.total_return)} | {_pct(tm.max_drawdown, False)} | "
+                     f"{_sharpe_text(tm)} | - | {twin['verdicts']['status']} |")
+    lines.append("")
+    if ref is not None and act.get("days"):
+        lines.append(f"- **The brakes' own effect so far:** return {_pct(m.total_return - ref.total_return)} against v1 on the same sleeves; "
+                     f"worst fall {_pct(m.max_drawdown, False)} against {_pct(ref.max_drawdown, False)}"
+                     + (" (too early to mean anything)." if m.days < MIN_DAYS_FOR_VERDICT else "."))
+    if twin is not None and ref is not None and twin["metrics"].start != ref.start:
+        lines.append("- The v1 account started on another day than this account, so its sleeves are not in the same 180-day phase: compare with "
+                     "*v1 on the same sleeves* for the brakes' effect.")
+    trips = act.get("trips") or []
+    lines.append(f"- **Brakes that acted** since the start ({act.get('days', 0)} days; this week {week.get('days', 0)}): correlation cap on "
+                 f"{act.get('cap_days', 0)} days ({week.get('cap_days', 0)} this week)"
+                 + (f", cutting the invested money by {_pct(act.get('cap_average_cut'), False)} on average" if act.get("cap_average_cut") else "")
+                 + ("; the weekly loss limit never tripped" if not trips else f"; the weekly loss limit tripped {_times(len(trips))} ("
+                    + ", ".join(f"{d} after {_pct(loss)} in a week" for d, loss in trips) + ")")
+                 + f"; {act.get('cooldown_days', 0)} days in cash for the cooldown; ladder at half size on {act.get('ladder_half_days', 0)} and "
+                 f"flat on {act.get('ladder_flat_days', 0)} days.")
+    last = act.get("last")
+    if last:
+        rho = next(iter((last.get("correlations") or {}).values()), None)
+        bets = "one bet" if len(last.get("groups") or []) == 1 else "separate bets"
+        cool = last.get("cooldown_days_left") or 0
+        lines.append(f"- **Now** (after {last['day']}): BTC/ETH correlation {_num(rho)} → the coins count as {bets}; drawdown ladder level "
+                     f"{last.get('ladder_level_after')} (0 = full, 1 = half, 2 = flat); "
+                     + (f"in cash for {cool} more day(s) after a weekly loss-limit trip." if cool else
+                        f"loss over the last {cfg.get('loss_window_days')} days {_pct(last.get('loss_window_return'))}."))
+    wf = exp.get("walk_forward") or {}
+    ref_wf = (exp.get("reference_v1") or {}).get("walk_forward") or {}
+    brakes = exp.get("brakes") or {}
+    if wf:
+        lines.append(f"- **Backtest expectation** (walk-forward of the same sleeves, `docs/research/ALLOCATOR_V2_REPORT.md`): v2 {_pct(_f(wf.get('cagr')))} a year, "
+                     f"worst fall {_pct(_f(wf.get('max_drawdown')), False)}, Sharpe {_num(_f(wf.get('sharpe')))}; v1 {_pct(_f(ref_wf.get('cagr')))}, "
+                     f"{_pct(_f(ref_wf.get('max_drawdown')), False)}, {_num(_f(ref_wf.get('sharpe')))}. In the backtest the cap acted on "
+                     f"{_pct(_f(brakes.get('correlation_cap_days_share')), False)} of days and the loss limit tripped "
+                     f"{_num(_f(brakes.get('loss_limit_trips_per_year')))} times a year.")
+    hold = exp.get("holdout") or None
+    if hold:
+        span = f"{hold['first_day']} to {hold['last_day']}" if hold.get("first_day") and hold.get("last_day") else "the research's last 12 months"
+        ref_ret = _f(hold.get("reference_v1_total_return"))
+        lines.append(f"- **Its untouched holdout** ({span}): v2 {_pct(_f(hold.get('total_return')))} with a {_pct(_f(hold.get('max_drawdown')), False)} "
+                     "worst fall" + (f", v1 on the same sleeves {_pct(ref_ret)}" if ref_ret is not None else "") + " — "
+                     + ("confirmed." if hold.get("confirmed") else "not confirmed. Read the forward record with that in mind."))
+    per_year = _f(brakes.get("loss_limit_trips_per_year"))
+    lines.append("- **How to read it:** a brake earns its place only if, forward, it cuts losses or drawdowns by more than it costs in return. "
+                 + (f"With {_num(per_year)} loss-limit trips a year in the backtest, that brake needs a long record before it says anything; the "
+                    "correlation cap speaks sooner." if per_year is not None else "A rare brake needs a long record before it says anything."))
+    lines.append("")
+    return lines
 
 
 def write_week(paths: FleetPaths, now: datetime, *, year: Optional[int] = None, week: Optional[int] = None) -> Path:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -365,3 +366,266 @@ def test_a_late_candle_within_the_grace_period_is_not_a_gap(tmp_path, data, ligh
     assert waited and not any(r["type"] == "gap" for r in hold)
     bars = [r["bar"] for r in hold if r["type"] == "bar"]
     assert "2026-10-16T08:00:00Z" in bars and bars == sorted(bars)
+
+
+# -- plan row R5b: two portfolio accounts, and a fleet started by the R5a code ---------------------------------------
+
+PF = "pf-s1s2s4-btceth-vt15"
+ALLOC = "pf-s1s2s4-btceth-vt15-alloc2"
+PAIR = ("ctl-hold-btc-4h", PF, ALLOC)
+PAIR_END = pd.Timestamp("2026-10-18 04:10", tz="UTC")
+
+
+@pytest.fixture(scope="module")
+def pair():
+    return _subset(PAIR)
+
+
+@pytest.fixture(scope="module")
+def pair_straight(tmp_path_factory, data, pair):
+    root = tmp_path_factory.mktemp("pair_straight")
+    fleet, feed = make(root, data, pair, T0)
+    advance(fleet, feed, T0 + pd.Timedelta(minutes=40), PAIR_END)
+    fleet.release()
+    return root
+
+
+def _strip(records):
+    return [{k: v for k, v in r.items() if k not in ("seq", "account")} for r in records]
+
+
+def test_both_portfolios_book_the_same_days_and_v2s_reference_is_the_v1_account(pair_straight, pair):
+    js = journals(pair_straight, pair)
+    v1 = [r for r in js[PF] if r["type"] == "portfolio_day"]
+    v2 = [r for r in js[ALLOC] if r["type"] == "portfolio_day"]
+    assert [d["day"] for d in v1] == [d["day"] for d in v2] == ["2026-10-16", "2026-10-17"]
+    for a, b in zip(v1, v2):
+        # Started together on the same sleeves: the v1 rules inside the v2 journal ARE the v1 account.
+        assert b["allocator"] == "v2" and "allocator" not in a and b["sleeve_returns"] == a["sleeve_returns"]
+        assert b["reference_v1"]["equity_index"] == pytest.approx(a["equity_index"], rel=1e-12)
+        assert b["weights"] == pytest.approx(a["weights"], rel=1e-12) and b["vol_scale"] == pytest.approx(a["vol_scale"], rel=1e-12)
+    assert _strip(r for r in js[PF] if r["type"] == "bar") == _strip(r for r in js[ALLOC] if r["type"] == "bar")  # one decision per sleeve and bar
+    warm = next(r for r in js[ALLOC] if r["type"] == "portfolio_warmup")
+    assert warm["allocator"]["version"] == "v2" and warm["allocator"]["group_cap"] == 0.5 and warm["forward_start_day"] == "2026-10-16"
+    assert all(ok for _, ok, _ in check_invariants(FleetPaths(pair_straight), pair)), check_invariants(FleetPaths(pair_straight), pair)
+    state = read_state(pair_straight / "_state" / "fleet_state.json")
+    assert state["version"] == 2 and set(state["portfolios"]) == {PF, ALLOC} and "portfolio" not in state
+    assert state["portfolios"][ALLOC]["book"]["alloc"]["days"] == 2 and state["portfolios"][PF]["book"]["alloc"] is None
+    status = status_from_state(state)
+    assert status["accounts"][ALLOC]["allocator"]["version"] == "v2" and status["accounts"][ALLOC]["days_booked"] == 2
+    assert status["accounts"][ALLOC]["allocator"]["reference_v1_equity"] == pytest.approx(status["accounts"][PF]["equity"], rel=1e-12)
+
+
+def test_a_restart_with_two_portfolios_changes_nothing(pair_straight, tmp_path, data, pair):
+    mid = pd.Timestamp("2026-10-16 13:10", tz="UTC")
+    fleet, feed = make(tmp_path, data, pair, T0)
+    advance(fleet, feed, T0 + pd.Timedelta(minutes=40), mid, step=pd.Timedelta(hours=3))
+    fleet.release()
+    later = mid + pd.Timedelta(hours=7)
+    fleet2, feed2 = make(tmp_path, data, pair, later)
+    advance(fleet2, feed2, later, PAIR_END)
+    fleet2.release()
+    assert journals(pair_straight, pair) == journals(tmp_path, pair)
+
+
+R5A_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "paper_fleet_r5a"
+JOIN = pd.Timestamp("2026-10-16 18:10", tz="UTC")
+
+
+def _copy_r5a_fleet(root: Path) -> None:
+    shutil.copytree(R5A_FIXTURE / "_state", root / "_state")
+    shutil.copytree(R5A_FIXTURE / "journals", root / "journals")
+    shutil.copy2(R5A_FIXTURE / "fleet.jsonl", root / "fleet.jsonl")
+
+
+def test_a_fleet_written_by_the_r5a_code_resumes_and_the_allocator_account_joins_at_its_own_time(pair_straight, tmp_path, data, pair):
+    _copy_r5a_fleet(tmp_path)
+    path = tmp_path / "_state" / "fleet_state.json"
+    old = read_state(path)
+    assert old["version"] == 1 and "portfolio" in old and "portfolios" not in old  # written by the R5a code (tests/fixtures/paper_fleet_r5a)
+    assert status_from_state(old)["accounts"][PF]["days_booked"] == 0  # --status still reads it before it is resumed
+    fleet2, feed2 = make(tmp_path, data, pair, JOIN)  # the current code, with the allocator account added
+    advance(fleet2, feed2, JOIN, PAIR_END)
+    fleet2.release()
+    for aid in ("ctl-hold-btc-4h", PF):
+        before = (R5A_FIXTURE / "journals" / f"{aid}.jsonl").read_bytes().splitlines()
+        after = (tmp_path / "journals" / f"{aid}.jsonl").read_bytes().splitlines()
+        straight = (pair_straight / "journals" / f"{aid}.jsonl").read_bytes().splitlines()
+        assert after[:len(before)] == before  # what the R5a code wrote stays as it was
+        assert len(after) > len(before) and after[len(before):] == straight[len(before):]  # and the record goes on byte for byte as an uninterrupted run
+    alloc = journals(tmp_path, pair)[ALLOC]
+    assert alloc[0]["type"] == "start" and alloc[0]["created_at"] == "2026-10-16T18:10:00Z"
+    assert alloc[1]["type"] == "portfolio_warmup" and alloc[1]["forward_start_day"] == "2026-10-17"
+    assert [r["day"] for r in alloc if r["type"] == "portfolio_day"] == ["2026-10-17"]
+    first = {r["sleeve"]: r["bar"] for r in reversed(alloc) if r["type"] == "bar"}
+    assert first == {"S1/BTC/6H": "2026-10-16T18:00:00Z", "S1/ETH/6H": "2026-10-16T18:00:00Z", "S2/BTC/4H": "2026-10-16T16:00:00Z",
+                     "S2/ETH/4H": "2026-10-16T16:00:00Z", "S4/BTC/6H": "2026-10-16T18:00:00Z", "S4/ETH/6H": "2026-10-16T18:00:00Z"}  # right after its warm-up
+    state = read_state(path)
+    assert state["version"] == 2 and set(state["portfolios"]) == {PF, ALLOC} and "portfolio" not in state
+    assert state["migrations"] == [{"from": 1, "to": 2, "change": "portfolio state keyed by account id (plan row R5b)"}]
+    assert all(ok for _, ok, _ in check_invariants(FleetPaths(tmp_path), pair)), check_invariants(FleetPaths(tmp_path), pair)
+    log = [json.loads(line) for line in (tmp_path / "fleet.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert any(r["type"] == "resume" and r["added"] == [ALLOC] for r in log)
+
+
+def _r5a_like_fleet_until_mid(root: Path, data):
+    r5a = _subset(("ctl-hold-btc-4h", PF))
+    fleet, feed = make(root, data, r5a, T0)
+    advance(fleet, feed, T0 + pd.Timedelta(minutes=40), pd.Timestamp("2026-10-16 09:10", tz="UTC"), step=pd.Timedelta(hours=3))
+    fleet.release()
+
+
+def _join(root: Path, data, manifest, now: pd.Timestamp, *, data_until: pd.Timestamp):
+    """Open ``root`` at ``now`` while the public feed has only published candles up to ``data_until``."""
+    candles, funding, oi = data
+    feed = ReplayFeed(candles, funding, oi)
+    feed.now = data_until
+    paths = FleetPaths(root)
+    fleet = PaperFleet(manifest, paths, MarketData(FleetLake(paths.lake), feed, instruments=INSTRUMENTS, history_days=SETTINGS.history_days),
+                       settings=SETTINGS)
+    assert fleet.acquire()
+    return fleet, feed
+
+
+def _approx_equal(a, b, rel: float = 1e-9, abs_: float = 1e-12) -> bool:
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(_approx_equal(a[k], b[k], rel, abs_) for k in a)
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_approx_equal(x, y, rel, abs_) for x, y in zip(a, b))
+    if isinstance(a, float) and isinstance(b, float):
+        return a == pytest.approx(b, rel=rel, abs=abs_)
+    return a == b
+
+
+def test_an_account_does_not_join_while_the_public_data_lags(tmp_path, data, pair):
+    _r5a_like_fleet_until_mid(tmp_path, data)
+    before = read_state(tmp_path / "_state" / "fleet_state.json")
+    fleet, _ = _join(tmp_path, data, pair, JOIN, data_until=JOIN - pd.Timedelta(hours=9))  # the public feed is 9 hours behind
+    with pytest.raises(FleetNotReady, match="not complete"):
+        fleet.open(JOIN.to_pydatetime())
+    fleet.release()
+    assert read_state(tmp_path / "_state" / "fleet_state.json") == before and not (tmp_path / "journals" / f"{ALLOC}.jsonl").exists()
+
+
+def test_portfolio_sleeves_continue_from_their_warm_up_even_when_they_joined_on_lagging_data(tmp_path, data, pair, monkeypatch):
+    """The refusal above is the first defence; with it switched off, a late join still skips no bar and processes none twice."""
+    fresh, lagging = tmp_path / "fresh", tmp_path / "lagging"
+    for root in (fresh, lagging):
+        root.mkdir()
+        _r5a_like_fleet_until_mid(root, data)
+    f1, feed1 = _join(fresh, data, pair, JOIN, data_until=JOIN)
+    f1.open(JOIN.to_pydatetime())
+    advance(f1, feed1, JOIN, PAIR_END)
+    f1.release()
+    monkeypatch.setattr(PaperFleet, "_series_not_ready", lambda self, now, series: [])
+    f2, feed2 = _join(lagging, data, pair, JOIN, data_until=JOIN - pd.Timedelta(hours=9))
+    f2.open(JOIN.to_pydatetime())  # joins with a warm-up that ends 9 hours early ...
+    advance(f2, feed2, JOIN, PAIR_END)  # ... and the late bars arrive in the first cycle
+    f2.release()
+    a, b = journals(fresh, pair)[ALLOC], journals(lagging, pair)[ALLOC]
+    warm_a, warm_b = a[1]["sleeves"], b[1]["sleeves"]
+    assert all(warm_b[n]["last_bar"] < warm_a[n]["last_bar"] for n in warm_a)  # the lagging warm-up really ended earlier
+    for name, tf in (("S2/BTC/4H", 4), ("S1/ETH/6H", 6)):
+        live = [r["bar"] for r in b if r["type"] == "bar" and r["sleeve"] == name]
+        step = pd.Timedelta(hours=tf)
+        assert pd.Timestamp(live[0]) == pd.Timestamp(warm_b[name]["last_bar"]) + step  # the first live bar follows its warm-up
+        assert all(pd.Timestamp(y) - pd.Timestamp(x) == step for x, y in zip(live, live[1:]))  # and none is skipped
+    # The same forward record as an account that joined on complete data (late bars decided live instead of in the warm-up:
+    # the two decision paths agree to floating-point rounding, tests/test_paper_fleet_signals.py).
+    days_a = [{k: v for k, v in r.items() if k not in ("seq", "account")} for r in a if r["type"] == "portfolio_day"]
+    days_b = [{k: v for k, v in r.items() if k not in ("seq", "account")} for r in b if r["type"] == "portfolio_day"]
+    assert days_a and _approx_equal(days_a, days_b)
+    sa, sb = read_state(fresh / "_state" / "fleet_state.json"), read_state(lagging / "_state" / "fleet_state.json")
+    assert _approx_equal({n: s["engine"] for n, s in sa["portfolios"][ALLOC]["sleeves"].items()},
+                         {n: s["engine"] for n, s in sb["portfolios"][ALLOC]["sleeves"].items()})
+
+
+def test_an_account_whose_first_start_crashed_is_set_aside_and_starts_cleanly(tmp_path, data, pair, monkeypatch):
+    _r5a_like_fleet_until_mid(tmp_path, data)
+    real = runner_mod.write_state
+
+    def disk_full(path, state):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(runner_mod, "write_state", disk_full)
+    fleet, _ = _join(tmp_path, data, pair, JOIN, data_until=JOIN)
+    with pytest.raises(OSError):
+        fleet.open(JOIN.to_pydatetime())  # the new account's journal is written, the state that registers it is not
+    fleet.release()
+    monkeypatch.setattr(runner_mod, "write_state", real)
+    assert (tmp_path / "journals" / f"{ALLOC}.jsonl").exists() and ALLOC not in read_state(tmp_path / "_state" / "fleet_state.json")["accounts"]
+    older = tmp_path / "journals" / f"{ALLOC}.unfinished-20261016T201000Z.jsonl"
+    older.write_text('{"seq": 1, "type": "start", "note": "an even older attempt"}\n', encoding="utf-8")  # same name as the next one
+    again = JOIN + pd.Timedelta(hours=2)
+    fleet2, feed2 = make(tmp_path, data, pair, again)
+    advance(fleet2, feed2, again, PAIR_END)
+    fleet2.release()
+    alloc = journals(tmp_path, pair)[ALLOC]
+    assert alloc[0]["type"] == "start" and alloc[0]["created_at"] == "2026-10-16T20:10:00Z" and [r["seq"] for r in alloc] == list(range(1, len(alloc) + 1))
+    aside = tmp_path / "journals" / f"{ALLOC}.unfinished-20261016T201000Z-2.jsonl"
+    assert aside.exists() and json.loads(aside.read_text(encoding="utf-8").splitlines()[0])["created_at"] == "2026-10-16T18:10:00Z"
+    assert "an even older attempt" in older.read_text(encoding="utf-8")  # not overwritten
+    log = [json.loads(line) for line in (tmp_path / "fleet.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert any(r["type"] == "journal_set_aside" and r["account"] == ALLOC for r in log)
+    assert all(ok for _, ok, _ in check_invariants(FleetPaths(tmp_path), pair)), check_invariants(FleetPaths(tmp_path), pair)
+
+
+def test_version_1_states_migrate_even_with_a_retired_portfolio_and_status_never_fails():
+    retired = {"version": 1, "portfolio": {"book": {"forward_start_day": "2026-10-16"}, "sleeves": {}},
+               "accounts": {PF: {"retired_at": "2026-10-17T00:00:00Z", "seq": 3}, "ctl-hold-btc-4h": {"seq": 5}},
+               "manifest": {"accounts": [{"account_id": "ctl-hold-btc-4h", "kind": "sleeve"}]}}  # the R5a code dropped a retired account from it
+    out = runner_mod.migrate_state(json.loads(json.dumps(retired)))
+    assert out["version"] == 2 and set(out["portfolios"]) == {PF} and "portfolio" not in out
+    odd = {"version": 1, "portfolio": {"book": {}}, "accounts": {PF: {}, ALLOC: {}},
+           "manifest": {"accounts": [{"account_id": PF, "kind": "portfolio"}, {"account_id": ALLOC, "kind": "portfolio"}]}}
+    with pytest.raises(FleetError, match="one portfolio"):
+        runner_mod.migrate_state(json.loads(json.dumps(odd)))
+    status = status_from_state(odd)
+    assert "one portfolio" in status["warnings"][0] and set(status["accounts"]) == {PF, ALLOC}
+
+
+def test_an_account_waits_for_a_late_candle_in_an_earlier_bar_before_it_joins(tmp_path, data, pair):
+    """A candle inside the 04:00 4H / 00:00 6H bar is published late (13:00): at 12:10 the bars that closed last are complete,
+    but the series still waits for that candle, so the join waits too; at 13:10 it joins with a complete warm-up."""
+    candles, funding, oi = data
+    hidden, arrives = pd.Timestamp("2026-10-17 05:00", tz="UTC"), pd.Timestamp("2026-10-17 13:00", tz="UTC")
+    late, fresh = tmp_path / "late", tmp_path / "fresh"
+    for root in (late, fresh):
+        root.mkdir()
+        _r5a_like_fleet_until_mid(root, data)
+
+    def opened(root, feed, at):
+        feed.now = at
+        paths = FleetPaths(root)
+        fleet = PaperFleet(pair, paths, MarketData(FleetLake(paths.lake), feed, instruments=INSTRUMENTS, history_days=SETTINGS.history_days),
+                           settings=SETTINGS)
+        assert fleet.acquire()
+        return fleet
+
+    feed = LateFeed(candles, funding, oi, instrument="BTC-USDT", hidden=hidden, arrives=arrives)
+    early = opened(late, feed, pd.Timestamp("2026-10-17 12:10", tz="UTC"))
+    with pytest.raises(FleetNotReady, match="may still arrive"):
+        early.open(pd.Timestamp("2026-10-17 12:10", tz="UTC").to_pydatetime())
+    early.release()
+    join = pd.Timestamp("2026-10-17 13:10", tz="UTC")
+    for root, f in ((late, LateFeed(candles, funding, oi, instrument="BTC-USDT", hidden=hidden, arrives=arrives)), (fresh, ReplayFeed(candles, funding, oi))):
+        fleet = opened(root, f, join)
+        fleet.open(join.to_pydatetime())
+        advance(fleet, f, join, pd.Timestamp("2026-10-18 04:10", tz="UTC"))
+        fleet.release()
+    a, b = journals(late, pair)[ALLOC], journals(fresh, pair)[ALLOC]
+    assert a[1]["sleeves"]["S2/BTC/4H"]["last_bar"] == "2026-10-17T08:00:00Z" and a == b  # nothing missing: as if the candle had been on time
+
+
+def test_the_dry_run_starts_later_when_its_first_hour_is_not_ready(tmp_path):
+    from research.paper_fleet.replay import run_dry
+
+    settings = FleetSettings(window_days=90.0, history_days=400.0)
+    candles, funding, oi = synthetic_market(days=520, end=pd.Timestamp("2026-10-19 00:00", tz="UTC"))
+    end = min(df.index[-1] for df in candles.values()) + pd.Timedelta(hours=1)
+    start = end - pd.Timedelta(days=1.5)
+    hole = start.floor("4h") - pd.Timedelta(hours=1)  # the last candle of the 4H bar that closed last before the start never arrives
+    candles = dict(candles, **{"BTC-USDT": candles["BTC-USDT"].drop(index=[hole])})
+    result = run_dry(tmp_path / "dry", days=1.5, manifest=_subset(LIGHT), settings=settings, market_data=(candles, funding, oi))
+    assert result.ok, result.checks
+    assert pd.Timestamp(result.start) > start and result.source == "given market data"
