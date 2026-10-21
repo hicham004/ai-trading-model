@@ -104,10 +104,11 @@ def test_each_phase6a_candidate_gets_the_right_counterfactual(baseline_run):
     rows = {d["candle_ts"]: d for d in decisions(baseline_run.out_dir)}
     assert set(rows) == {"2026-10-19T10:00:00+00:00", "2026-10-19T11:00:00+00:00", "2026-10-19T12:00:00+00:00"}
     reduce_, blocked_baseline, block = (rows[f"2026-10-19T{h}:00:00+00:00"] for h in ("10", "11", "12"))
-    # 11:00 decision, allowed by Phase 6a, while the confirmed Meridex event is live: reduced to 75 %.
-    assert reduce_["action"] == "REDUCE_SIZE" and reduce_["size_multiplier"] == "0.75"
+    # 11:00 decision, allowed by Phase 6a, while the confirmed Meridex event is live: reduced to 50 %
+    # (Reuters is a HIGH outlet: the event is classified as a block and has faded to x0.50 by 11:00).
+    assert reduce_["action"] == "REDUCE_SIZE" and reduce_["size_multiplier"] == "0.50"
     assert reduce_["would_have_reduced_here"] and not reduce_["would_have_blocked_here"]
-    assert Decimal(reduce_["hypothetical_adjusted_notional"]) == Decimal(reduce_["baseline_notional"]) * Decimal("0.75")
+    assert Decimal(reduce_["hypothetical_adjusted_notional"]) == Decimal(reduce_["baseline_notional"]) * Decimal("0.50")
     # 12:00: Phase 6a had already blocked it (confidence floor); news would block too, but it is NOT counted.
     assert not blocked_baseline["baseline_allowed"] and blocked_baseline["baseline_reason"] == "confidence_too_low"
     assert blocked_baseline["action"] == "BLOCK_NEW_LONGS" and not blocked_baseline["would_have_blocked_here"]
@@ -215,7 +216,8 @@ def test_a_weak_repeat_cannot_switch_off_a_live_event(tmp_path: Path, no_network
     hack = [r for r in records(result.out_dir) if r["kind"] == "event_deduplicated" and r.get("event") and r["event"]["event_id"].startswith("evt_20261019_hack_btc_eth_30")]
     last = hack[-1]["event"]
     assert last["corroboration_status"] == "INDEPENDENT_SOURCE_CONFIRMED"
-    assert last["source_quality"]["independent_source_count"] == 3 and last["action"] == "REDUCE_SIZE"
+    # The confirmed event's classified action (a block: Reuters is a HIGH outlet) survives the repeat.
+    assert last["source_quality"]["independent_source_count"] == 3 and last["action"] == "BLOCK_NEW_LONGS"
     rows = {d["candle_ts"]: d for d in decisions(result.out_dir)}
     assert rows["2026-10-19T10:00:00+00:00"]["would_have_reduced_here"]
     assert result.report_data["headline"]["invariants_ok"]

@@ -34,6 +34,29 @@ def canonicalize_url(url: str) -> str:
     return urlunsplit((parts.scheme.lower(), host, path, urlencode(query, doseq=True), ""))
 
 
+_MULTI_PART_SUFFIXES = frozenset({"co", "com", "org", "net", "gov", "ac", "edu"})
+
+
+def registrable_domain(url: str) -> str:
+    """The site a URL belongs to: its host's last two labels (three under a
+    two-letter country code such as ``co.uk``), or "" when there is no host.
+
+    A subdomain belongs to its site (``uk.reuters.com`` -> ``reuters.com``); a
+    look-alike keeps its own (``reuters.com.evil.example`` -> ``evil.example``).
+    Source tiers and source families both use this, so they never disagree.
+    """
+    try:
+        host = (urlsplit(url).hostname or "").lower() if url else ""
+    except ValueError:  # a malformed URL (e.g. an unbalanced IPv6 bracket) has no site
+        return ""
+    if host.startswith("www."):
+        host = host[4:]
+    labels = [p for p in host.split(".") if p]
+    if len(labels) >= 3 and len(labels[-1]) == 2 and labels[-2] in _MULTI_PART_SUFFIXES:
+        return ".".join(labels[-3:])
+    return ".".join(labels[-2:])
+
+
 @dataclass
 class RawItem:
     """One item as the source delivered it (before sanitization)."""

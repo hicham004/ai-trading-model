@@ -35,10 +35,23 @@ classifier's judgment protects (listed by the `always_block` row of
 `--self-test`). Grading is on the final action, category and source facts, never
 on wording, so a model is not rewarded for phrasing answers like the author.
 
+The news-rule changes of plan row R4d (October 21, 2026: the owner's HIGH
+outlets, credits to "the Associated Press" and "Agence France-Presse" in any
+capitalisation, Dow Jones's four brands as one source) changed the tier of 46
+stories (MEDIUM to HIGH) and the source families of one
+(`syn-ap-attribution-capitalized`), but no right answer: every effect story that
+is now HIGH already accepted a block, and no story's count of independent sources
+rose, so no label changed.
+Three explanations were brought up to date (the `corroborated` description,
+`corr-hack-kryvex` and `syn-ap-attribution-capitalized`, which the rules now
+collapse to one source without the classifier's help).
+
 Effect labels backed only by MEDIUM-tier outlets sit near the thresholds: the
 final action depends on the confidence, impact and horizon the model gives (for
-example `corr-liq-below-67k` or `corr-geo-nato`), so a missed effect there can
-mean cautious numbers rather than a misread story.
+example `corr-liq-below-67k` or `corr-incident-stakewell`), so a missed effect
+there can mean cautious numbers rather than a misread story. A story with a HIGH
+outlet can also end with a block when the model's reading is confident and
+high-impact; its label accepts that.
 
 ## Layout
 
@@ -79,8 +92,11 @@ mean cautious numbers rather than a misread story.
 
 - `items` are articles exactly as a source delivers them, before sanitization:
   `source` is a source id from `app/news/sources.py` (default `gdelt_doc`, whose
-  articles carry only a domain and a headline and are MEDIUM tier; official
-  feeds such as `sec_press` supply their own publisher and OFFICIAL tier). Times
+  articles carry only a domain and a headline; like the fetcher, the loader makes
+  them HIGH tier on the HIGH outlets' sites — reuters.com, apnews.com,
+  bloomberg.com, wsj.com, dowjones.com, ft.com — and MEDIUM everywhere else;
+  official feeds such as `sec_press` supply their own publisher and OFFICIAL
+  tier). Times
   are ISO-8601 or offsets from `now` (`-15m`, `-3d`). Every character outside
   ASCII is written as a JSON `\u` escape, so hidden and look-alike characters
   stay visible: `\u200b` zero-width space, `\u0435` Cyrillic e, `\u202e`

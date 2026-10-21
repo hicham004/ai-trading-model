@@ -1052,8 +1052,28 @@ Operator questions before implementation:
 - Is X API access approved, and what exact official/tiny watchlist should be
   used?
 - Which publishers count as `HIGH`, `MEDIUM`, or `LOW` source quality?
+  **Answered by the owner on October 21, 2026 and built in plan row R4d:**
+  `HIGH` = Reuters, AP, Bloomberg, Dow Jones/WSJ (one owner family) and the
+  Financial Times, by the sites they publish on (`reuters.com`, `apnews.com`,
+  `bloomberg.com`, `wsj.com`, `dowjones.com`, `ft.com`, subdomains included,
+  look-alikes not), also when an aggregator such as GDELT found the article;
+  paid press releases, press rooms and sponsored or partner pages those sites
+  host stay `MEDIUM`. Every other aggregator hit is `MEDIUM`; official primary
+  sources are `OFFICIAL`; `LOW` and `UNKNOWN` keep zero weight in v1
+  (`app/news/sources.py`, `article_tier`).
 - What exact independence rules should apply to wire services and shared media
-  ownership?
+  ownership? **Answered in part (owner, October 21, 2026; R4d):** a wire's own
+  articles and every article crediting it ("Reuters", "the Associated Press",
+  "Agence France-Presse", "Bloomberg", in any capitalisation) are one source;
+  The Wall Street Journal, Dow Jones Newswires, Barron's and MarketWatch share
+  one owner (Dow Jones) and are one source, by site and by credit. An article
+  that matches several of these recognitions may stand for any of those
+  sources, and the count is the fewest sources that explain every article:
+  never more than before them, and two outlets that each published the story
+  never count as one because a third article names both. Other shared
+  ownership counts once only when the feed or an operator override names the
+  owner, and credits to non-wire outlets (for example "the Financial Times
+  reported") are not yet recognised (`app/news/corroborate.py`).
 - Should v1 store events only in JSONL, or add database tables despite the
   current `create_all` / no-migrations limitation?
 - What source outage threshold should alert the operator?

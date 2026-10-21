@@ -3,13 +3,23 @@
 Only the v1 watchlist categories. Sources are official or high-quality public
 feeds; nothing here scrapes social media. Disabled entries record a URL that
 still needs operator confirmation (checked 2026-10-20) and are skipped.
+
+A source's tier is the tier of the articles it publishes. An aggregator (GDELT,
+NewsAPI.ai) only finds articles, so its hits take the tier of the outlet whose
+site they are on: HIGH for the owner's HIGH outlets, otherwise the aggregator's
+MEDIUM (``article_tier``).
 """
 
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Iterable, List, Mapping, Optional, Sequence, Tuple
+from urllib.parse import unquote, urlsplit
+
+from app.news.items import registrable_domain
 
 CATEGORIES: Tuple[str, ...] = (
     "ETF_SEC_DECISION",
@@ -27,6 +37,33 @@ GDELT_DEFAULT_QUERY = (
     '(bitcoin OR ethereum OR "crypto exchange" OR stablecoin OR "SEC ETF" OR FOMC) sourcelang:english'
 )
 USER_AGENT = "ai-trading-model-news-ingest/0.1 (research; log-only; +https://github.com/hicham004/ai-trading-model)"
+
+# The owner's HIGH outlets (decision of 2026-10-21): Reuters, AP, Bloomberg, Dow
+# Jones/WSJ (one owner family) and the Financial Times, by the sites they publish
+# on. Subdomains count (``uk.reuters.com``); look-alikes do not. Dow Jones's
+# Barron's and MarketWatch stay MEDIUM. Which outlets are one source family is
+# decided in ``corroborate`` (Dow Jones's four brands always are).
+HIGH_TIER_DOMAINS: Mapping[str, str] = MappingProxyType(
+    {
+        "reuters.com": "Reuters",
+        "apnews.com": "Associated Press",
+        "bloomberg.com": "Bloomberg",
+        "wsj.com": "The Wall Street Journal (Dow Jones)",
+        "dowjones.com": "Dow Jones Newswires",
+        "ft.com": "Financial Times",
+    }
+)
+# Pages on those sites that are not the outlet's own reporting (paid press releases,
+# the company's own press room, sponsored, partner and branded content, company
+# announcements) are not HIGH. Matched on the decoded path, one segment at a time.
+_NOT_REPORTING_PATH = re.compile(
+    r"/(?:press|press-?(?:releases?|room)|sponsored(?:-?content)?|partner-?content|brand-?features?|plus"
+    r"|advertorials?|paid-?posts?|announce(?:ments?)?)(?:/|$)",
+    re.I,
+)
+_NOT_REPORTING_HOSTS = ("partners.", "sponsored.")
+_PLAIN_HOST = re.compile(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+")
+AGGREGATOR_KINDS = frozenset({"gdelt", "newsapi_ai"})
 
 
 @dataclass(frozen=True)
@@ -160,6 +197,40 @@ def get_sources(
         if unknown:
             raise ValueError(f"unknown source id(s): {sorted(unknown)}")
     return out
+
+
+def high_outlet(url: str) -> Optional[str]:
+    """The HIGH outlet whose own reporting ``url`` is, else None.
+
+    Only a plain http(s) URL with an ASCII host counts: no backslash, user-info or
+    bad port, which URL parsers read differently, and no third-party section of
+    the site (press releases and press rooms, sponsored, partner or branded pages).
+    """
+    url = url or ""
+    try:
+        parts = urlsplit(url)
+        host = (parts.hostname or "").rstrip(".")
+        parts.port  # raises ValueError for a port that is not a number in range
+    except ValueError:
+        return None
+    if parts.scheme.lower() not in ("http", "https") or "\\" in url or "@" in parts.netloc:
+        return None
+    if not _PLAIN_HOST.fullmatch(host) or host.startswith(_NOT_REPORTING_HOSTS) or _NOT_REPORTING_PATH.search(unquote(parts.path)):
+        return None
+    return HIGH_TIER_DOMAINS.get(registrable_domain(url))
+
+
+def article_tier(source: Source, url: str) -> str:
+    """The tier of one article ``source`` delivered, from the article's own URL.
+
+    An aggregator hit on a HIGH outlet's own reporting (``high_outlet``) is HIGH;
+    every other aggregator hit keeps the aggregator's MEDIUM, and a feed's own
+    articles keep the feed's tier. An aggregator the operator rated LOW or UNKNOWN
+    stays switched off: only a MEDIUM aggregator's hits are raised.
+    """
+    if source.kind in AGGREGATOR_KINDS and source.tier == "MEDIUM" and high_outlet(url):
+        return "HIGH"
+    return source.tier
 
 
 def gdelt_request(source: Source, *, query: str = GDELT_DEFAULT_QUERY, timespan: str = "1h", max_records: int = 75) -> Tuple[str, dict]:

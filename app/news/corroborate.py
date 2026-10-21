@@ -3,7 +3,7 @@
 An event may affect risk only after a second *independent* credible source, or
 public price/volume confirmation, backs it. This module decides both:
 
-Independence (``source_family``): every article is mapped to the family it
+Independence (``assign_families``): every article is mapped to the family it
 really comes from, and only distinct families count.
 
 - A wire service's own article and every article attributing the story to that
@@ -12,6 +12,15 @@ really comes from, and only distinct families count.
   "screenshot", "Telegram channel") are one family: the post.
 - Outlets with the same known owner are one family.
 - Articles carrying the same headline are copies of the earliest one.
+- Recognitions added later (owner decisions of 2026-10-21) let an article also
+  stand for a wire or owner group it is linked to: credits to "the Associated
+  Press" and "Agence France-Presse" in any capitalisation, and Dow Jones's four
+  brands (The Wall Street Journal, Dow Jones Newswires, Barron's, MarketWatch) by
+  site and by credit, which never count as two sources. The count is the fewest
+  families that every counted article can stand for: never more than the rules
+  above give, two sources that each published the story are never merged because
+  a third article names both, and an official source or a wire's own article is
+  never given a link.
 - LOW and UNKNOWN tiers never count (their v1 weight is zero), nor do
   quarantined items. The classifier may *narrow* the counted set (it lists the
   sources it believes independent) but can never add to it, and its
@@ -31,15 +40,16 @@ Public market data only; nothing here reads credentials or touches an order.
 
 from __future__ import annotations
 
+import itertools
 import math
 import re
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
-from urllib.parse import urlsplit
+from typing import AbstractSet, Dict, FrozenSet, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 from app.news.dedup import normalize_title_key
+from app.news.items import registrable_domain
 from app.news.schema import (
     CorroborationStatus,
     ExpectedReaction,
@@ -75,6 +85,33 @@ _WIRE_ATTRIBUTION: Tuple[Tuple[str, re.Pattern], ...] = (
     ("bloomberg", re.compile(r"\bbloomberg\b", re.I)),
     ("dowjones", re.compile(r"\bdow jones newswires?\b", re.I)),
 )
+# Recognitions added later (owner decisions of 2026-10-21, plan row R4d). They never
+# replace the family the rules above give an article: they name further families it
+# may stand for instead (``family_links``); ``assess`` counts the fewest families.
+# Between words: spaces, hyphens, dashes or a minus sign, or nothing (the sanitizer
+# deletes a soft hyphen, leaving "FrancePresse").
+_SEP = r"[\s\-\u2010-\u2015\u2212]*"
+_LINKED_SITES: Mapping[str, str] = {
+    # Dow Jones & Company publishes Dow Jones Newswires, The Wall Street Journal,
+    # Barron's and MarketWatch: one owner, never two independent sources.
+    "dowjones.com": "dowjones",
+    "wsj.com": "dowjones",
+    "barrons.com": "dowjones",
+    "marketwatch.com": "dowjones",
+}
+_LINKED_CREDITS: Tuple[Tuple[str, re.Pattern], ...] = (
+    # The wires' full names in any capitalisation (the rules above match them in lower case only).
+    ("ap", re.compile(rf"\bassociated{_SEP}press\b", re.I)),
+    ("afp", re.compile(rf"\bagence{_SEP}france{_SEP}presse\b", re.I)),
+    # Dow Jones's four brands. "Dow Jones" alone is usually the stock index, not a credit.
+    (
+        "dowjones",
+        re.compile(
+            r"\bdow\s+jones\s+newswires?\b|\bwall\s+street\s+journal\b|\bwsj\b|\bbarron['\u2019]?s\b|\bmarketwatch\b",
+            re.I,
+        ),
+    ),
+)
 _SOCIAL_PATTERNS: Tuple[re.Pattern, ...] = (
     re.compile(
         r"\b(?:posted|post|posts|wrote|said|says|announced|claimed|shared)\s+(?:on|to|via)\s+"
@@ -88,17 +125,6 @@ _SOCIAL_PATTERNS: Tuple[re.Pattern, ...] = (
     re.compile(r"\bviral (?:post|video|tweet|clip)\b", re.I),
     re.compile(r"\baccording to (?:a|an) (?:social media )?post\b", re.I),
 )
-_MULTI_PART_SUFFIXES = frozenset({"co", "com", "org", "net", "gov", "ac", "edu"})
-
-
-def _domain(url: str) -> str:
-    host = (urlsplit(url).hostname or "").lower() if url else ""
-    if host.startswith("www."):
-        host = host[4:]
-    labels = [p for p in host.split(".") if p]
-    if len(labels) >= 3 and len(labels[-1]) == 2 and labels[-2] in _MULTI_PART_SUFFIXES:
-        return ".".join(labels[-3:])
-    return ".".join(labels[-2:])
 
 
 def _norm(text: str) -> str:
@@ -116,9 +142,30 @@ def quotes_social_post(text: str) -> bool:
     return any(p.search(text or "") for p in _SOCIAL_PATTERNS)
 
 
+def linked_credits(text: str) -> FrozenSet[str]:
+    """The wires and owner groups ``text`` credits under the later recognitions."""
+    return frozenset(wire for wire, pattern in _LINKED_CREDITS if pattern.search(text or ""))
+
+
+def family_links(item: SourceItemRef) -> FrozenSet[str]:
+    """The further families an article may stand for under the later recognitions,
+    by its site and its credits. None for an official source or for a wire's own
+    article: each is always its own family, whatever else it mentions."""
+    domain = registrable_domain(item.canonical_url)
+    if item.tier is SourceTier.OFFICIAL or domain in _WIRE_DOMAINS:
+        return frozenset()
+    wires = set(linked_credits(f"{item.title} {item.excerpt}"))
+    group = _LINKED_SITES.get(domain)
+    if group:
+        wires.add(group)
+    return frozenset(f"wire:{wire}" for wire in wires)
+
+
 def source_family(item: SourceItemRef, owner_overrides: Optional[Mapping[str, str]] = None) -> str:
-    """The family an article really comes from (independence unit; see module doc)."""
-    domain = _domain(item.canonical_url)
+    """The family an article itself comes from, by the first rule that matches (wire
+    site, wire credit, social-post relay, owner, site). ``assign_families`` applies
+    copies, ``assess`` the later recognitions (see module doc)."""
+    domain = registrable_domain(item.canonical_url)
     owner = _norm((owner_overrides or {}).get(domain, "") or item.publisher_owner)
     if item.tier is SourceTier.OFFICIAL:
         # An official primary source is its own family (never a copy of a wire).
@@ -165,6 +212,38 @@ def assign_families(
         else:
             families[item.item_id] = by_title[title_key]
     return families
+
+
+def _fewest_families(
+    counted: Sequence[SourceItemRef], families: Mapping[str, str], official: AbstractSet[str]
+) -> Dict[str, str]:
+    """``item_id -> family`` for the counted articles: the fewest families that each
+    of them can stand for, its own (``families``) or one it is linked to
+    (``family_links``; never from an official family).
+
+    The links name only a few families, so every combination of them is tried and
+    the result is exact. Taking no link is one of the combinations, so the count is
+    never above the original rules'; an article with no link always keeps its
+    family, so two articles that only stand for themselves are never merged through
+    a third. An article keeps its own family whenever that family is counted.
+    """
+    options: Dict[str, Tuple[str, FrozenSet[str]]] = {}
+    for item in counted:
+        own = families[item.item_id]
+        links = frozenset() if own in official else family_links(item) - {own}
+        options[item.item_id] = (own, links)
+    forced = {own for own, links in options.values() if not links}
+    pending = [(own, links) for own, links in options.values() if own not in forced and not links & forced]
+    linked = sorted(set().union(*(links for _, links in pending)))
+    best: Set[str] = set()
+    for size in range(len(linked) + 1):
+        for combo in itertools.combinations(linked, size):
+            chosen = set(combo)
+            chosen |= {own for own, links in pending if own not in chosen and not links & chosen}
+            if size == 0 or len(chosen) < len(best):
+                best = chosen
+    keep = forced | best
+    return {item_id: own if own in keep else min(links & keep) for item_id, (own, links) in options.items()}
 
 
 # -- price / volume confirmation -------------------------------------------------
@@ -408,15 +487,17 @@ def assess(
     """Deterministic corroboration status for one story's items (design 7.5)."""
     usable = [i for i in items if not i.quarantined]
     families = assign_families(usable, owner_overrides)
+    official = {families[i.item_id] for i in usable if i.tier is SourceTier.OFFICIAL}
     supporting = None if supporting_ids is None else set(supporting_ids)
     counted = [
         i
         for i in usable
         if i.tier in CREDIBLE_TIERS and (supporting is None or i.item_id in supporting)
     ]
+    counted_family = _fewest_families(counted, families, official)
     grouped: Dict[str, List[SourceItemRef]] = {}
     for item in counted:
-        grouped.setdefault(families[item.item_id], []).append(item)
+        grouped.setdefault(counted_family[item.item_id], []).append(item)
     family_tier = {f: max((i.tier for i in its), key=TIER_RANK.__getitem__) for f, its in grouped.items()}
     count = len(grouped)
     if family_tier:

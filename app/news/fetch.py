@@ -20,7 +20,7 @@ import requests
 
 from app.logging_config import get_logger
 from app.news.items import RawItem
-from app.news.sources import USER_AGENT, Source, gdelt_request, newsapi_request
+from app.news.sources import USER_AGENT, Source, article_tier, gdelt_request, newsapi_request
 
 logger = get_logger(__name__)
 
@@ -135,7 +135,7 @@ def parse_gdelt(text: str, source: Source, observed_at: datetime) -> List[RawIte
                 published_at=_parse_gdelt_date(str(article.get("seendate") or "")),
                 category_hints=source.category_hints,
                 language=str(article.get("language") or source.language)[:16],
-                source_tier=source.tier,
+                source_tier=article_tier(source, url),
             )
         )
     return items
@@ -156,19 +156,20 @@ def parse_newsapi_ai(text: str, source: Source, observed_at: datetime) -> List[R
             except ValueError:
                 published = None
         src = article.get("source") or {}
+        url = str(article.get("url") or "")
         items.append(
             RawItem(
                 source_id=source.source_id,
                 publisher=str(src.get("title") or src.get("uri") or "unknown"),
                 publisher_owner="",
-                url=str(article.get("url") or ""),
+                url=url,
                 title=str(article.get("title") or ""),
                 excerpt=str(article.get("body") or "")[:2000],
                 observed_at=observed_at,
                 published_at=published,
                 category_hints=source.category_hints,
                 language=str(article.get("lang") or source.language)[:8],
-                source_tier=source.tier,
+                source_tier=article_tier(source, url),
                 external_id=str(article.get("uri") or ""),
             )
         )

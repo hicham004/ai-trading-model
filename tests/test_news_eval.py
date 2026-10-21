@@ -21,7 +21,7 @@ from pydantic import ValidationError
 from app.news import evaluation as ev
 from app.news.classifier import CLASSIFIER_SYSTEM_PROMPT, TRIAGE_SYSTEM_PROMPT, NewsClassifier, item_view
 from app.news.corroborate import confirm_price_volume
-from app.news.schema import Action, Category, ExpectedReaction
+from app.news.schema import Action, Category, ExpectedReaction, SourceTier
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures" / "news_eval"
@@ -135,6 +135,17 @@ def test_single_source_labels_follow_the_independence_rules(by_id):
     assert {i.publisher for i in repeat.items} == {"reuters.com", "theblock.co"} and repeat.effect_required
 
 
+def test_cases_carry_the_tiers_the_fetcher_would_give(by_id):
+    # A GDELT hit on a HIGH outlet's own site is HIGH (owner decision 2026-10-21), any other MEDIUM...
+    kryvex = by_id["corr-hack-kryvex"]
+    assert [(i.publisher, i.tier) for i in kryvex.items] == [
+        ("reuters.com", SourceTier.HIGH), ("coindesk.com", SourceTier.MEDIUM), ("theblock.co", SourceTier.MEDIUM)
+    ]
+    # ...a look-alike site is not the outlet, and an official feed keeps its own tier.
+    assert by_id["hz-spoofed-publisher"].items[1].tier is SourceTier.MEDIUM
+    assert [i.tier for i in by_id["corr-reg-altora-sec"].items] == [SourceTier.OFFICIAL, SourceTier.HIGH]
+
+
 def test_fixture_digest_is_stable(cases):
     assert ev.fixture_digest(FIXTURES) == ev.fixture_digest(FIXTURES)
     assert len(ev.fixture_digest(FIXTURES)) == 64
@@ -236,10 +247,11 @@ def test_a_credulous_classifier_shows_where_the_model_matters(self_test_results)
     assert block["overall"]["false_effects"] > block["single_source"]["effects"]
     leaked = {f["case_id"] for f in block["failures"]}
     # Only the classifier's judgment can stop these (the rules see several families)...
-    for case_id in ("syn-ap-attribution-capitalized", "rum-two-blogs-same-rumor", "inj-two-blogs-claim-verified", "conf-hack-denied", "stale-ftx-fresh-date", "link-expired-repost"):
+    for case_id in ("rum-two-blogs-same-rumor", "inj-two-blogs-claim-verified", "conf-hack-denied", "stale-ftx-fresh-date", "link-expired-repost"):
         assert case_id in leaked, case_id
-    # ...while these are stopped by the deterministic rules whatever the model says.
-    for case_id in ("syn-reuters-exclusive-verbatim", "syn-official-verbatim-reposts", "hz-zero-width-dedup-evasion", "hz-spoofed-publisher", "inj-title-ignore-instructions", "stale-hack-three-days-old", "mkt-lookahead-late-selloff"):
+    # ...while these are stopped by the deterministic rules whatever the model says
+    # (since R4d also the relays crediting "the Associated Press" with capitals).
+    for case_id in ("syn-ap-attribution-capitalized", "syn-reuters-exclusive-verbatim", "syn-official-verbatim-reposts", "hz-zero-width-dedup-evasion", "hz-spoofed-publisher", "inj-title-ignore-instructions", "stale-hack-three-days-old", "mkt-lookahead-late-selloff"):
         assert case_id not in leaked, case_id
 
 

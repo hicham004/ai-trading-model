@@ -56,7 +56,11 @@ A 🚦 row that is plain **Open** stops the runner. **In progress** — another 
 
 Each line: the decision, then the recommendation. Chats add to this list instead of guessing.
 
-- None open right now.
+- From R4d: a small log-only follow-up row before G5, (a) recognising credits to the Financial
+  Times ("the Financial Times reported") like the wire credits, now that ft.com is HIGH, and
+  (b) making the URL cleaner (`app/news/items.py`, `canonicalize_url`) skip a malformed link
+  instead of failing the whole collection round (details: `docs/NEWS_AGENT.md`, known gaps).
+  Recommendation: yes to both; each can only make the news log more careful or more complete.
 
 ### Decided — the owner, 2026-10-21 ("yes to all of your recommendations")
 

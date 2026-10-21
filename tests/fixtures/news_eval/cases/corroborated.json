@@ -1,6 +1,6 @@
 {
   "kind": "corroborated",
-  "description": "Real-looking risk-off events reported by at least two independent credible sources (or an official source plus independent reporting). A careful classifier ends with a restriction: REDUCE_SIZE or BLOCK_NEW_LONGS. With today's tiers every GDELT outlet is MEDIUM (weight 0.65), so decayed severity tops out in REDUCE_SIZE unless an official source is among the independent families.",
+  "description": "Real-looking risk-off events reported by at least two independent credible sources (or an official source plus independent reporting). A careful classifier ends with a restriction: REDUCE_SIZE or BLOCK_NEW_LONGS. A GDELT hit on a HIGH outlet's own site (Reuters, AP, Bloomberg, WSJ/Dow Jones, FT) is HIGH (weight 0.90) and every other GDELT outlet is MEDIUM (0.65): with MEDIUM outlets alone decayed severity tops out in REDUCE_SIZE, and a block needs an official source or a HIGH outlet with a confident, high-impact reading soon after the news.",
   "cases": [
     {
       "id": "corr-hack-kryvex",
@@ -12,7 +12,7 @@
         {"key": "c", "publisher": "theblock.co", "published": "-10m", "observed": "-7m", "title": "On-chain data shows stolen Kryvex funds moving through mixers"}
       ],
       "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "EXCHANGE_HACK_EXPLOIT", "assets": ["BTC", "ETH"], "single_source": false},
-      "why": "Three independent outlets with their own headlines and reporting (a wire plus two crypto newsrooms) confirm a large exchange hack. All are MEDIUM tier, so the effect is a size reduction; a block is also acceptable."
+      "why": "Three independent outlets with their own headlines and reporting (a wire plus two crypto newsrooms) confirm a large exchange hack. The wire's own site is HIGH tier and the newsrooms MEDIUM; with a careful reading the effect is a size reduction, and a block is also acceptable."
     },
     {
       "id": "corr-hack-meridex",

@@ -21,15 +21,19 @@ The story, cycle by cycle:
   effect, expiring at 11:20.
 - **09:35** — a prompt-injection headline and a homoglyph headline are
   quarantined and never reach the model.
-- **10:05** — a Reuters report of a Meridex hot-wallet breach, copied word for word
-  by two sites: one triage call, one source family (`wire:reuters`), no effect.
+- **10:05** — a Reuters report of a Meridex hot-wallet breach (HIGH tier: it is on
+  reuters.com), copied word for word by two sites: one triage call, one source
+  family (`wire:reuters`), no effect.
 - **10:25** — an independent outlet confirms it while BTC and ETH fall on volume:
   linked to the same event, judged over all four articles, two independent
-  families plus market confirmation, REDUCE_SIZE x0.75 (medium-quality sources
-  cannot reach a block). Its expiry stays 16:05: a repeat never re-fires it.
+  families plus market confirmation. With a HIGH source the event is classified
+  BLOCK_NEW_LONGS, but twenty minutes of fading have already taken it just under
+  the block line: its strongest effect is REDUCE_SIZE x0.50 (severity 0.689).
+  Its expiry stays 16:05: a repeat never re-fires it.
 - **10:40** — one more copy of the Reuters headline is attached to the event
   without any model call.
-- **11:00** — Phase 6a allows a new long: the news layer **would have reduced** it.
+- **11:00** — Phase 6a allows a new long: the news layer **would have reduced** it
+  (to 50 %).
 - **11:10** — the SEC press release about the Meridex operator: one official
   source, no effect yet. **11:15** — an independent outlet corroborates it:
   BLOCK_NEW_LONGS, fading over the next 24 hours (block, then reduce, then nothing).

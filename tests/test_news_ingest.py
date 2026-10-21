@@ -13,9 +13,19 @@ import pytest
 
 from app.news import dedup, sanitize
 from app.news.fetch import NewsFetcher, parse_gdelt, parse_newsapi_ai, parse_rss
-from app.news.items import RawItem, canonicalize_url
+from app.news.items import RawItem, canonicalize_url, registrable_domain
 from app.news.pipeline import run_once
-from app.news.sources import CATEGORIES, DEFAULT_SOURCES, Source, get_sources, gdelt_request, newsapi_request
+from app.news.schema import SourceItemRef, SourceTier
+from app.news.sources import (
+    CATEGORIES,
+    DEFAULT_SOURCES,
+    HIGH_TIER_DOMAINS,
+    Source,
+    article_tier,
+    get_sources,
+    gdelt_request,
+    newsapi_request,
+)
 from app.news.store import NewsStore
 
 NOW = datetime(2026, 10, 20, 12, 0, tzinfo=timezone.utc)
@@ -52,6 +62,16 @@ def test_canonicalize_url_strips_tracking_fragments_and_case():
     assert canonicalize_url("https://example.com/") == "https://example.com/"
     assert canonicalize_url("https://example.com:443/a/") == "https://example.com/a"
     assert canonicalize_url("mailto:x@y") == "mailto:x@y" and canonicalize_url("") == ""
+
+
+def test_registrable_domain_maps_subdomains_to_their_site_and_keeps_look_alikes_apart():
+    assert registrable_domain("https://www.reuters.com/a") == "reuters.com"
+    assert registrable_domain("https://uk.reuters.com/a") == registrable_domain("HTTPS://REUTERS.COM:443/a") == "reuters.com"
+    assert registrable_domain("https://news.bbc.co.uk/a") == "bbc.co.uk"
+    assert registrable_domain("https://reuters.com.evil.example/a") == "evil.example"
+    assert registrable_domain("https://www.reuters.com@evil.example/a") == "evil.example"
+    for nothing in ("", "not a url", "https://[::1/a"):  # the last one makes urlsplit raise
+        assert registrable_domain(nothing) == ""
 
 
 # -- sanitization -------------------------------------------------------------
@@ -155,6 +175,112 @@ def test_source_registry_is_https_only_and_consistent():
     assert newsapi_request(src(kind="newsapi_ai", url="https://eventregistry.org/x"), env={}) is None
     url, body = newsapi_request(src(kind="newsapi_ai", url="https://eventregistry.org/x"), env={"NEWSAPI_AI_KEY": "k"})
     assert body["apiKey"] == "k" and body["lang"] == "eng"
+
+
+# -- article tiers (the owner's HIGH outlets, decision of 2026-10-21) -------------
+
+GDELT_SOURCE = next(s for s in DEFAULT_SOURCES if s.source_id == "gdelt_doc")
+NEWSAPI_SOURCE = next(s for s in DEFAULT_SOURCES if s.source_id == "newsapi_ai")
+
+
+def test_the_high_outlets_are_the_owners_list():
+    assert set(HIGH_TIER_DOMAINS) == {"reuters.com", "apnews.com", "bloomberg.com", "wsj.com", "dowjones.com", "ft.com"}
+    assert GDELT_SOURCE.tier == NEWSAPI_SOURCE.tier == "MEDIUM"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.reuters.com/markets/x",
+        "https://uk.reuters.com/x",
+        "HTTPS://WWW.REUTERS.COM/x",
+        "https://apnews.com/article/x",
+        "https://www.bloomberg.com/news/articles/x",
+        "https://www.wsj.com/finance/x",
+        "https://newswires.dowjones.com/x",
+        "https://www.ft.com/content/x",
+        "https://markets.ft.com/data/x",
+        "https://www.reuters.com./x",  # the same host written with its final dot
+        "https://reuters.com:443/x",
+    ],
+)
+def test_an_aggregator_hit_on_a_high_outlets_site_is_high(url):
+    assert article_tier(GDELT_SOURCE, url) == "HIGH"
+    assert article_tier(NEWSAPI_SOURCE, url) == "HIGH"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.coindesk.com/x",
+        "https://www.barrons.com/articles/x",  # Dow Jones, but not one of the HIGH outlets
+        "https://www.marketwatch.com/story/x",
+        "https://www.afp.com/en/news/x",  # a wire, but not one of the HIGH outlets
+        "https://finance.yahoo.com/news/reuters-copy",  # a syndicated copy on another site
+        "https://reuters.com.evil.example/x",  # look-alikes keep their own site
+        "https://evilreuters.com/x",
+        "https://reuters.co.uk/x",
+        "https://ft.com.cn/x",
+        "https://aft.com/x",
+        "https://reut\u0435rs.com/x",  # a Cyrillic "e"
+        "https://www.reuters.com@evil.example/x",  # the host is evil.example
+        "https://evil.example/www.reuters.com/x",
+        "https://evil.example\\.reuters.com/x",  # a backslash: parsers disagree on the host
+        "https://evil.example\\@reuters.com/x",
+        "https://evil.example@www.reuters.com/x",  # user-info
+        "ftp://www.reuters.com/x",
+        "//www.reuters.com/x",
+        "https://reuters.com:99999/x",  # not a port
+        # Third-party pages on the outlets' sites: paid press releases, sponsored and partner content.
+        "https://apnews.com/press-release/ein-presswire-newsmatics/x",
+        "https://www.bloomberg.com/press-releases/2026-10-21/x",
+        "https://sponsored.bloomberg.com/x",
+        "https://partners.wsj.com/x",
+        "https://www.ft.com/partnercontent/x/y.html",
+        "https://markets.ft.com/data/announce/detail?dockey=1",
+        "https://apnews.com/press%2Drelease/x",  # percent-encoded hyphen
+        "https://www.bloomberg.com/company/press/x",
+        "https://www.dowjones.com/press-room/x",
+        "https://www.reuters.com/plus/x",
+        "https://www.wsj.com/sponsored-content/x",
+        "https://www.ft.com/announcements/x",
+        "https://[::1/x",  # malformed: no site, no upgrade, no crash
+        "",
+    ],
+)
+def test_every_other_aggregator_hit_stays_medium(url):
+    assert article_tier(GDELT_SOURCE, url) == "MEDIUM"
+    assert article_tier(NEWSAPI_SOURCE, url) == "MEDIUM"
+
+
+def test_feeds_keep_their_own_tier_and_a_switched_off_aggregator_stays_off():
+    sec = next(s for s in DEFAULT_SOURCES if s.source_id == "sec_press")
+    assert article_tier(sec, "https://www.sec.gov/news/press-release/1") == "OFFICIAL"
+    assert article_tier(sec, "https://www.reuters.com/x") == "OFFICIAL"  # never lowered
+    assert article_tier(src(tier="MEDIUM"), "https://www.reuters.com/x") == "MEDIUM"  # a feed is rated as a whole
+    for tier in ("LOW", "UNKNOWN"):  # zero weight in v1: the operator switched the aggregator off
+        assert article_tier(src(kind="gdelt", tier=tier), "https://www.reuters.com/x") == tier
+
+
+def test_the_parsers_tier_each_aggregator_article_by_its_own_url():
+    payload = json.dumps({"articles": [
+        {"url": "https://www.reuters.com/markets/a", "title": "Exchange halts withdrawals", "seendate": "20261020T113000Z", "domain": "reuters.com"},
+        {"url": "https://www.coindesk.com/b", "title": "Exchange confirms hack", "seendate": "20261020T113500Z", "domain": "coindesk.com"},
+        # The tier comes from where the article is, not from the domain the result claims.
+        {"url": "https://reuters.com.evil.example/c", "title": "Wallet drained", "seendate": "20261020T114000Z", "domain": "reuters.com"},
+        {"url": "https://[::1/d", "title": "Malformed link", "seendate": "20261020T114500Z", "domain": "unknown"},
+    ]})
+    items = parse_gdelt(payload, GDELT_SOURCE, NOW)
+    assert [i.source_tier for i in items] == ["HIGH", "MEDIUM", "MEDIUM", "MEDIUM"]
+    # The tier travels in the stored record to what the classifier and the rules read
+    # (the malformed fourth URL is left out: canonicalize_url cannot parse it).
+    refs = [SourceItemRef.from_record(sanitize.sanitize_item(i)) for i in items[:3]]
+    assert [r.tier for r in refs] == [SourceTier.HIGH, SourceTier.MEDIUM, SourceTier.MEDIUM]
+    news = json.dumps({"articles": {"results": [
+        {"uri": "1", "url": "https://www.ft.com/content/x", "title": "Exchange halts withdrawals", "source": {"uri": "ft.com", "title": "Financial Times"}},
+        {"uri": "2", "url": "https://www.marketwatch.com/story/y", "title": "Exchange hacked", "source": {"uri": "marketwatch.com", "title": "MarketWatch"}},
+    ]}})
+    assert [i.source_tier for i in parse_newsapi_ai(news, NEWSAPI_SOURCE, NOW)] == ["HIGH", "MEDIUM"]
 
 
 # -- fetcher -------------------------------------------------------------------

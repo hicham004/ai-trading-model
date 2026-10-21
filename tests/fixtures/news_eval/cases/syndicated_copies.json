@@ -37,7 +37,7 @@
         {"key": "c", "publisher": "dailycoinbrief.com", "published": "-11m", "observed": "-8m", "title": "Velmont hack: withdrawals frozen, according to the Associated Press"}
       ],
       "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "single_source": true, "independent": ["a"], "signs": ["COPIED_WIRE_STORY"]},
-      "why": "One AP report and two attributed relays. Known gap: the deterministic rules match 'associated press' only in lower case, so they count three families here; the classifier must narrow to one."
+      "why": "One AP report and two attributed relays. The deterministic rules recognise the credit 'the Associated Press' in any capitalisation, so the three articles are one family whatever the classifier lists (before R4d they matched it only in lower case and counted three)."
     },
     {
       "id": "syn-social-post-explicit",

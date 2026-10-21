@@ -108,7 +108,7 @@ from app.news.schema import (
     SourceQuality,
     SourceTier,
 )
-from app.news.sources import DEFAULT_SOURCES, Source
+from app.news.sources import DEFAULT_SOURCES, Source, article_tier
 from app.news.store import redact
 
 EVAL_VERSION = "phase6b-news-eval-v1"
@@ -524,18 +524,20 @@ def build_case(spec: CaseSpec, kind: str, market: MarketFile, sources: Mapping[s
         published = resolve_time(item.published, now) if item.published else None
         if observed > now:
             raise ValueError(f"case {spec.id} item {item.key}: observed after the case's now")
+        url = _default_url(spec.id, item.key, item, source)
         raw = RawItem(
             source_id=source.source_id,
             publisher=publisher,
             publisher_owner=owner,
-            url=_default_url(spec.id, item.key, item, source),
+            url=url,
             title=item.title,
             excerpt=item.excerpt,
             observed_at=observed,
             published_at=published,
             category_hints=source.category_hints,
             language=source.language,
-            source_tier=(item.tier.value if item.tier else source.tier),
+            # The tier the fetcher would give this article (an aggregator hit on a HIGH site is HIGH).
+            source_tier=(item.tier.value if item.tier else article_tier(source, url)),
         )
         record = sanitize_item(raw)
         record["content_key"] = content_key(record["canonical_url"], record["publisher"], record["title"])

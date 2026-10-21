@@ -1,8 +1,8 @@
 # The news agent, in plain words
 
 Status (October 21, 2026): built and tested offline, including the 30-day test runner
-("news shadow", below); **not yet run against the real AI model** and not yet running
-anywhere. Phase 6b is authorized for **log-only**
+("news shadow", below) and your two news-rule fixes of October 21 (plan row R4d);
+**not yet run against the real AI model** and not yet running anywhere. Phase 6b is authorized for **log-only**
 operation (owner, June 30, 2026, GitHub issue #12; reconfirmed October 20, 2026).
 Using news to change what the demo or a live system trades is **not** authorized.
 
@@ -48,6 +48,16 @@ switch or reconciliation, and in log-only mode even a "block" is only written do
      that moment); one source alone never has an effect;
    - copies of one wire story, articles quoting one social-media post, satire,
      contradicted claims and old news have no effect;
+   - **source quality** counts (your decision of October 21, 2026): official feeds
+     (SEC, Fed, Coinbase status) weigh most; articles on the websites of Reuters,
+     AP, Bloomberg, the Wall Street Journal/Dow Jones and the Financial Times are
+     high quality, also when GDELT found them, but not the paid press releases and
+     sponsored or partner pages those sites also host; every other outlet GDELT
+     finds is medium quality. The Wall Street Journal, Dow Jones Newswires,
+     Barron's and MarketWatch have one owner and always count as one source. A
+     site that only repeats what Reuters, the Associated Press, AFP, Bloomberg or
+     one of those four brands reported counts as that one source, whatever
+     capitalisation it uses for the name;
    - every effect fades over a few hours and then stops completely;
    - the AI's proposal is only a ceiling: the rules can lower it, never raise it.
 6. **Log** the result. Any failure — no key, AI unavailable, a malformed reply —
@@ -178,28 +188,53 @@ separate decision.
 
 ## Known gaps found while building the eval
 
-- **A wire credit the rules miss.** The rules recognize copies credited to
-  "Reuters", "Bloomberg" or "(AP)", but not "the Associated Press" written with
-  capitals (nor "Agence France-Presse"). Such copies look like independent sources,
-  and only the AI's judgment collapses them (test story
-  `syn-ap-attribution-capitalized`). It is a two-line fix in
-  `app/news/corroborate.py`. It was not part of the eval step or the news shadow
-  step, and is still waiting for your go, see "What you need to decide".
+- **A wire credit the rules missed — fixed on October 21 (plan row R4d).** The rules
+  recognized copies credited to "Reuters", "Bloomberg" or "(AP)", but not "the
+  Associated Press" written with capitals (nor "Agence France-Presse"), so such
+  copies looked like independent sources and only the AI's judgment collapsed them
+  (test story `syn-ap-attribution-capitalized`). Both names now count however they
+  are capitalised, and so do credits to the Wall Street Journal, Barron's,
+  MarketWatch and Dow Jones Newswires. These newer recognitions never add a source:
+  an article that matches several rules (say, an AP story on MarketWatch's site) may
+  stand for any of those sources, and the rules count the fewest sources that
+  explain all the articles. Two outlets that each published the story stay two,
+  even when a third article names both, and a wire's own report always counts as
+  that wire, whatever other outlet it mentions.
+- **Credits to other outlets.** The rules recognise credits only to the wires
+  (Reuters, AP, AFP, Bloomberg) and to Dow Jones's four brands, and not in every
+  short form ("AP reported" without brackets, "Wall St. Journal"). A small site that
+  writes "the Financial Times reported" (or credits CNBC, CoinDesk, ...) still looks
+  like a second, independent source next to the original article; only the AI's
+  judgment collapses it. Since the Financial Times now counts as high quality, such a
+  pair weighs more than before. The other way round, a passing mention counts as a
+  credit: an article that merely mentions "Barron's" may be counted together with a
+  Wall Street Journal article (fewer sources, never more). See "What you need to
+  decide".
+- **One malformed link can cost a whole collection round** (found while reviewing
+  R4d; older than it, not yet fixed). If a news feed delivers a link the URL
+  cleaner cannot read (a broken address or an impossible port number), the
+  5-minute round of collecting fails, and so does every round while the feed still
+  lists that link (up to an hour for GDELT). The shadow keeps running and reports
+  itself unhealthy, but articles from feeds read earlier in a failed round are
+  marked as seen without being processed, so they are lost until a restart. A
+  small fix in `app/news/items.py`; see "What you need to decide".
 - **A weak repeat could switch off a live event — closed in the news shadow.** The
   rules for a repeated story used to judge the evidence on the new articles alone, so
   one outlet repeating a confirmed story made it "single source" again. The news
   shadow (R4c) collects every article of a story and judges the evidence over all of
   them, as the design asks (one story is one event, counted by its independent
   sources), so a repeat can add evidence but never erase it. The rule module itself
-  is unchanged; the test `test_a_weak_repeat_cannot_switch_off_a_live_event` covers
+  was not changed for this; the test `test_a_weak_repeat_cannot_switch_off_a_live_event` covers
   it. A repeat can still weaken an event when the AI, seeing the repeat, proposes a
   milder answer: the rules let later information only soften an effect, never sharpen
   it without new evidence. The eval's story-linking cases measure that part.
 - **Where only the AI's judgment protects.** The same rumor rewritten by several
   small sites, satire rewritten as news, and old news with a fresh date all look
-  like separate sources to the rules, because GDELT rates every outlet the same
-  (MEDIUM). In 17 of the 72 single-source stories only the AI's skepticism stands
-  between the rumor and an effect. The single-source gate measures exactly this.
+  like separate sources to the rules, because the rules cannot tell those sites
+  apart: every outlet outside the high-quality list is medium quality to them. In 16
+  of the 72 single-source stories only the AI's skepticism stands between the rumor
+  and an effect (17 before the October 21 fix). The single-source gate measures
+  exactly this.
 - **"Volatility only".** If the AI says a story should cause volatility in either
   direction, any large market move confirms it, even a rally after a hack report.
   Test story `mkt-hack-but-rally` watches this. Such an answer is defensible, so the
@@ -233,13 +268,19 @@ separate decision.
   Anthropic API key from step G5 and costs about $4–10 per run.
   Recommendation: yes. Run it once before starting the shadow and after every
   prompt or model change, and treat a FAIL as a reason not to start.
-- **Fix the wire-credit gap** (the weak-repeat gap is closed in the news shadow).
-  Recommendation: yes, before the 30 days start; it only makes the news log more
-  faithful, and it stays log-only either way.
+- **Add the Financial Times to the credit list** (gap "Credits to other outlets"
+  above). Recommendation: yes, as a small log-only follow-up before the 30 days
+  start; like every newer recognition it can never add a source, so it can only make
+  the rules more careful.
+- **Fix the malformed-link gap** (gap "One malformed link can cost a whole
+  collection round" above). Recommendation: yes, in the same small follow-up before
+  the 30 days start.
 - **The news shadow's monthly AI budget** (default $40, with a $50 limit on the key's
   workspace in the Anthropic console). Recommendation: keep $40 for the first month
   and look at the report's spend line after a week.
 - **Start the 30-day news shadow on the VPS** (step G5, `docs/runbooks/NEWS_SHADOW.md`).
-  Recommendation: yes, after the wire-credit fix and one eval run.
-- Still open from Sprint 4a: which news outlets count as HIGH quality
-  (see `docs/PLAN_STATUS.md` section 2).
+  Recommendation: yes, after this change (R4d) is merged and one eval run passes.
+
+Decided on October 21, 2026 and built in R4d: the wire-credit fix, and the
+high-quality outlets (Reuters, AP, Bloomberg, Dow Jones/WSJ as one owner family,
+the Financial Times).
