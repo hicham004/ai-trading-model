@@ -34,6 +34,7 @@ go to artifacts\plan-runner\ (git-ignored).
 .\scripts\plan-runner.ps1 -SelfTest                # one tiny chat per model outside the repo: model, effort, deny rules
 .\scripts\plan-runner.ps1 -WaitForIdle -Push       # wait until other chats are finished, then run every Open row
 .\scripts\plan-runner.ps1 -WaitForIdle -Push -NoNewStepAfter 08:00   # a night run that leaves the morning free
+.\scripts\plan-runner.ps1 -WaitForIdle -Push -ContinueRow R4b       # a fresh chat finishes a row left uncommitted
 #>
 [CmdletBinding()]
 param(
@@ -59,7 +60,10 @@ param(
     [switch]$WaitForIdle,
     [switch]$DryRun,
     [switch]$SelfTest,
-    [switch]$Force
+    [switch]$Force,
+    # A row whose earlier chat stopped with its work uncommitted: the first step lets a fresh
+    # chat finish that work instead of refusing to start because tracked files are changed.
+    [string]$ContinueRow = ''
 )
 
 Set-StrictMode -Version Latest
@@ -81,6 +85,8 @@ $chatPrefix = 'AI trading runner '
 $script:exhaustedUntil = @{}
 # Set once a new commit looks like it holds a credential; from then on nothing is pushed.
 $script:pushBlocked = ''
+# True until the -ContinueRow step has started.
+$script:continuePending = [bool]$ContinueRow
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $gateSign = [char]::ConvertFromUtf32(0x1F6A6)
 [IO.Directory]::CreateDirectory($logDir) | Out-Null
@@ -104,7 +110,9 @@ $deniedTools = @(
 
 # Text that looks like a credential. The repository is public, so a match stops all pushing.
 $secretPatterns = @(
-    'sk-ant-[A-Za-z0-9_-]{20,}',
+    # Real Anthropic keys look like sk-ant-api03-..., sk-ant-admin01-..., sk-ant-oat01-...;
+    # a made-up sk-ant-abcdef... in a redaction test does not match.
+    'sk-ant-[a-z]+[0-9]{2}-[A-Za-z0-9_-]{20,}',
     '-----BEGIN [A-Z ]*PRIVATE KEY-----',
     'AKIA[0-9A-Z]{16}',
     'gh[pousr]_[A-Za-z0-9]{36}',
@@ -171,6 +179,8 @@ How an unattended run works:
 - Background commands are stopped after 10 minutes here unless you pass a timeout. Start long
   ones (the full test suite, research runs, a live smoke run) with run_in_background and
   timeout 7200000. While one runs you may end your turn; you get another turn when it exits.
+- Wait for every subagent and background job you start before you write your final message;
+  this runner lets a chat wait for them for as long as the step takes.
 - Before your final message, stop the processes and background commands you started, and only
   those. Never kill processes by name.
 - Leave scripts/plan-runner.ps1 and artifacts/plan-runner/ alone; they belong to the runner.
@@ -184,6 +194,16 @@ How an unattended run works:
 $stepPrompt = $stepIntro + "`n" + $sharedRules
 
 $resumePrompt = 'The run stopped ({0}). Carry on with step {1} from where you stopped. The unattended-run rules in the first message still apply.'
+
+# Added to the -ContinueRow step's prompt.
+$continueNote = @'
+
+This row was started before: an earlier chat built most of it and stopped before it could
+commit (a background helper outlived the old 10-minute wait limit of unattended chats). Its
+work is in the working tree, uncommitted; git status and git diff show it. Do not start the
+row over. Review that work as the row's independent check, finish what is missing, then run
+the checks and commit as the rules above say.
+'@
 
 function Write-Note([string]$Message) {
     $line = '{0:yyyy-MM-dd HH:mm}  {1}' -f (Get-Date), $Message
@@ -332,9 +352,9 @@ function Get-BranchProblem {
     if ($current -ne $Branch) { return ('the checked-out branch is {0}, not {1}' -f $current, $Branch) }
 }
 
-function Get-StartBlocker([bool]$CheckChats) {
+function Get-StartBlocker([bool]$CheckChats, [bool]$AllowChanges = $false) {
     $changes = @(Get-TrackedChanges)
-    if ($changes.Count -gt 0) {
+    if ($changes.Count -gt 0 -and -not $AllowChanges) {
         return ('{0} tracked files are changed and not committed (first: {1})' -f $changes.Count, $changes[0].Substring(3))
     }
     if ($CheckChats) {
@@ -448,6 +468,9 @@ function Invoke-Chat {
     $startInfo.StandardOutputEncoding = $utf8
     $startInfo.StandardErrorEncoding = $utf8
     $startInfo.EnvironmentVariables['CLAUDE_CODE_EFFORT_LEVEL'] = $effort
+    # Print mode stops background tasks and subagents 10 minutes after the last turn unless
+    # this is 0; the step deadline (-StepHours) bounds the wait instead.
+    $startInfo.EnvironmentVariables['CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS'] = '0'
     $startInfo.EnvironmentVariables['CLAUDE_CODE_SUBAGENT_MODEL'] = $ChatModel
 
     $run = [pscustomobject]@{ SessionId = $ResumeId; Expected = $ChatModel; Fallback = $fallback; Model = $null; Init = $null; Result = $null; RateLimit = $null; ExitCode = $null; Stopped = $null }
@@ -593,7 +616,13 @@ function Invoke-Step($Row) {
     $stepModel = Get-RowModel $Row.Id
     Write-Note ('Starting {0} in a new chat ({1}, effort {2}). Log: {3}' -f $Row.Id, $stepModel, $effort, $log)
 
-    $run = Invoke-Chat -Prompt $stepPrompt.Replace('<<ROW>>', $Row.Id) -Name $name -WorkDir $repositoryRoot -LogPath $log -ChatModel $stepModel
+    $firstPrompt = $stepPrompt.Replace('<<ROW>>', $Row.Id)
+    if ($script:continuePending -and $Row.Id -eq $ContinueRow) {
+        $firstPrompt += $continueNote
+        Write-Note ('{0} continues the uncommitted work of an earlier chat (-ContinueRow).' -f $Row.Id)
+    }
+    $script:continuePending = $false
+    $run = Invoke-Chat -Prompt $firstPrompt -Name $name -WorkDir $repositoryRoot -LogPath $log -ChatModel $stepModel
     $fallbackNotes = New-Object System.Collections.Generic.List[string]
     $waits = 0
     while ((Test-Retryable $run) -and $waits -lt $MaxLimitWaits -and -not (Test-Path $stopFile)) {
@@ -601,7 +630,7 @@ function Invoke-Step($Row) {
         $reason = Get-ShortText (Get-ResultText $run) 200
         $delay = Get-ResumeDelay $run
         # A chat that never got a session id starts again with the whole step prompt.
-        $prompt = $stepPrompt.Replace('<<ROW>>', $Row.Id)
+        $prompt = $firstPrompt
         if ($run.SessionId) { $prompt = $resumePrompt -f $reason, $Row.Id }
         if (Test-LongLimit $run $delay) {
             $resetText = 'later this week'
@@ -738,7 +767,8 @@ function Show-DryRun {
     }
     $branchProblem = Get-BranchProblem
     if ($branchProblem) { Write-Note ('Would not start now: ' + $branchProblem) }
-    $blocker = Get-StartBlocker $true
+    if ($ContinueRow) { Write-Note ('-ContinueRow {0}: a fresh chat finishes that row''s uncommitted work; changed files do not block it.' -f $ContinueRow) }
+    $blocker = Get-StartBlocker $true ([bool]$ContinueRow)
     if ($blocker) { Write-Note ('Would not start now: ' + $blocker) }
     elseif (-not $branchProblem) { Write-Note 'Nothing blocks a start now.' }
     $row = Get-NextRow
@@ -776,7 +806,7 @@ try {
         }
         $branchProblem = Get-BranchProblem
         if ($branchProblem) { Write-Note ('Stopping: ' + $branchProblem + '. The runner never switches branches.'); break }
-        $blocker = Get-StartBlocker ($steps -eq 0 -and -not $Force)
+        $blocker = Get-StartBlocker ($steps -eq 0 -and -not $Force) $script:continuePending
         if ($blocker) {
             if (-not $WaitForIdle) { Write-Note ('Not starting: ' + $blocker); break }
             if ($blocker -ne $lastBlocker) { Write-Note ('Waiting: ' + $blocker) }
@@ -787,6 +817,7 @@ try {
         $row = Get-NextRow
         $problem = Get-RowProblem $row
         if ($problem) { Write-Note ('Stopping: ' + $problem + '.'); break }
+        if ($script:continuePending -and $row.Id -ne $ContinueRow) { Write-Note ('Stopping: the next row is {0}, not {1} (-ContinueRow).' -f $row.Id, $ContinueRow); break }
         if ($steps -ge $MaxSteps) { Write-Note ('Stopping after {0} steps (-MaxSteps). Next is {1}.' -f $steps, $row.Id); break }
         if ($stepCutoff -and (Get-Date) -gt $stepCutoff) { Write-Note ('Stopping: it is past {0:HH:mm} (-NoNewStepAfter). Next is {1}.' -f $stepCutoff, $row.Id); break }
         $steps++
