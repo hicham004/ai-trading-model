@@ -27,13 +27,14 @@ A 🚦 row that is plain **Open** stops the runner. **In progress** — another 
 | R4a | Sprint 4a: news agent core, log-only | Phase 6b design sections 4–7, 9 and 13; plan section 5.2. Load the claude-api skill first. Build on the Sprint 1 `app/news` skeleton (fetch, items, sanitize, dedup, store, pipeline): `schema.py` (Pydantic event model and enums exactly as the design); `classifier.py` (Anthropic Python SDK: Haiku 5.5 triage, then Opus 5.5 classification with structured outputs, the frozen and cached system prompt of design section 9, strict validation; any failure or a missing key gives NO_EFFECT); `corroborate.py` (independent-source rules, and price/volume confirmation from public data known before the decision only); `decay.py` (TTL, monotonic decay, source weights, thresholds); `overlay.py` (a pure function that can only block or shrink a new long and never sees exits); append-only JSONL event and decision logs. Add `anthropic` to the lockfile. Tests offline with a mocked client, plus an import-boundary test: `app/news` imports nothing from `app/execution`, `app/risk` or an authenticated exchange client. | Done 2026-10-20 (808608f) |
 | R4b | Sprint 4b: news eval set and harness | Design section 15; plan section 5.2. At least 100 labeled fixtures under `tests/fixtures/news_eval/`: corroborated events, syndicated copies, single-source rumors, satire, stale reposts, prompt-injection text, homoglyph and zero-width text, each with its expected action; realistic synthetic headlines, no article bodies. `scripts/eval_news_classifier.py` scores schema validity, prohibited actions, single-source effects and per-category accuracy, calls the model only when `ANTHROPIC_API_KEY` is set and otherwise prints "not run: no API key" and exits 0. Offline tests for the scorer with recorded outputs. `docs/NEWS_AGENT.md` in plain words for the owner. | Done 2026-10-21 (d5374b7) |
 | R4c | Sprint 4c: news shadow runner, daily report, VPS unit and runbook | Design sections 11 and 14. `scripts/run_news_shadow.py`: a log-only loop (ingest, sanitize, dedup, classify, corroborate, decay, effective signal, shadow overlay against Phase 6a journal snapshots read from files — never the demo database or any order path); daily `logs/news_shadow/report-YYYY-MM-DD.md`; a `--dry-run --fixtures` mode that runs end to end with no network and no key; a monthly spend cap; a systemd unit file; `docs/runbooks/NEWS_SHADOW.md` for installing it on the VPS with a capped key. No trading mutation, no authenticated OKX access. | Done 2026-10-21 (941c63f) |
-| G5 | 🚦 Owner: create an Anthropic API key with a monthly cap and start the news shadow on the VPS for 30+ days | `docs/runbooks/NEWS_SHADOW.md` (written by R4c). Expected cost: about $10–40 a month. | Open, not blocking |
+| R4d | News rules: the owner's two approved fixes | Owner decisions of 2026-10-21 (section 2). (1) Wire credits: `app/news/corroborate.py` also recognises "Associated Press" and "Agence France-Presse" credits in any capitalisation (eval story `syn-ap-attribution-capitalized`), so copies of one wire story count as one source. (2) HIGH tier: articles on the outlets' own domains (reuters.com, apnews.com, bloomberg.com, wsj.com, dowjones.com, ft.com) get tier HIGH even when an aggregator such as GDELT found them; every other aggregator hit stays MEDIUM. WSJ, Dow Jones Newswires, Barron's and MarketWatch share one owner (Dow Jones) and never count as two independent sources. Tests for both; the free eval self-check still passes (re-label an eval story only where the new rules change its right answer, and list those stories in the report); `docs/NEWS_AGENT.md` and the source-tier open question in `docs/PHASE6B_DESIGN.md` updated. Log-only: changes stay in `app/news`, its tests, the eval fixtures and docs. | Open |
+| G5 | 🚦 Owner: create an Anthropic API key with a monthly cap and start the news shadow on the VPS for 30+ days | `docs/runbooks/NEWS_SHADOW.md` (written by R4c). Expected cost: about $10–40 a month. Owner decisions 2026-10-21: merge R4d first; run the news eval with the capped key and start only if all three of its safety gates pass; $40 a month cap in the service plus a $50 limit on the key for the first month. | Open, not blocking |
 | R5a | Sprint 5a: paper fleet | Plan Sprint 5, item 3. Run `docs/research/paper_fleet_shortlist_v1c.json` forward on live PUBLIC OKX data, each configuration as its own local paper account: the confirmed sleeve (S1+S5 on BTC-USDT 6H), the jointly sized BTC+ETH × S1/S2/S4 portfolio (15 % vol target, 7.5/15 % ladder) as one configuration, the other shortlisted rows, and the controls (hold with policy sizing on BTC and ETH, plain buy-and-hold). Use the reviewed local paper engine where it fits, or a forward runner in `research/` that reuses the research strategies through the Strategy-contract adapter; prefer additive changes over edits to `app/paper`. One journal per configuration; `scripts/run_paper_fleet.py`; a weekly ranking report that compares forward results with walk-forward and holdout expectations (tolerance bands, controls first); a systemd unit and `docs/runbooks/PAPER_FLEET.md`. Smoke-run it live for about 30 minutes on public data. No demo account, no authenticated access. | Done 2026-10-21 (004522d) |
 | R5b | Sprint 5b: portfolio allocator v2 for the paper fleet | Plan Sprint 5, item 2. Portfolio vol target, correlation cap, portfolio drawdown ladder, weekly loss limit and cooldowns as an optional allocator configuration in the paper fleet and `research/`, with tests and a section in the fleet report. Not in `app/risk`: the demo and live risk manager stays the reviewed core until a separately approved review. | Open |
 | G6 | 🚦 Owner: start the paper fleet 24/7 (the VPS, or this laptop left on) | `docs/runbooks/PAPER_FLEET.md` (written by R5a). Free: public data only. | Open, not blocking |
 | R6 | Ops digest and OKX change watcher | Plan section 5.4. `scripts/ops_digest.py`: a plain-English daily digest from the shadow heartbeat, journal and reconciliation files and the news-shadow and paper-fleet reports — a deterministic template, with an optional Claude summary only when `ANTHROPIC_API_KEY` is set — sent through the existing Telegram notifier with `TELEGRAM_DRY_RUN` honored. `scripts/watch_okx_changelog.py`: fetches the public OKX API changelog daily, remembers what it has seen, and flags new entries that mention the hosts, ports, paths, channels or auth this repository uses (the port-8443 kind of change). Cron and systemd lines; `docs/runbooks/OPS_DIGEST.md`. | Open |
-| R7 | Event-calendar check | Verify the FOMC decision dates in `research/events.py` (2020–2026, written from memory in Sprint 2c) against the Federal Reserve's published meeting calendar; correct wrong dates with a test; add one paragraph to the owner-decisions section of `docs/research/ENSEMBLE_V1C_REPORT.md` on whether a correction could change any 2c verdict. Do not re-run the research and do not touch the holdout. If the official calendar cannot be reached, leave the dates, say so in that paragraph and in the report, and still commit. | Open |
-| R9 | Phase 9 design study: long and short through perpetual swaps with collateral at least equal to the position (no leverage) | Plan, strategic note after Sprint 2b; v1c report acceptance clause. Paper only: long/short trend numbers 2020–2025 with funding costs, the extra safety rules, the review path. No code near execution, no derivatives access. | Optional — needs the owner's go |
+| R7 | Event-calendar check | Verify the FOMC decision dates in `research/events.py` (2020–2026, written from memory in Sprint 2c) against the Federal Reserve's published meeting calendar; correct wrong dates with a test; add one paragraph to the owner-decisions section of `docs/research/ENSEMBLE_V1C_REPORT.md` on whether a correction could change any 2c verdict. Do not re-run the research and do not touch the holdout. If the official calendar cannot be reached, leave the dates, say so in that paragraph and in the report, and still commit. Also add the 2027 FOMC decision dates from the same official calendar (owner decision 2026-10-21; the built-in calendar ends 2026-12-09), with a test, and keep the paper fleet's journals resumable: check how its account fingerprints treat the calendar and say in the report what a fleet that is already running needs. | Open |
+| R9 | Phase 9 design study: long and short through perpetual swaps with collateral at least equal to the position (no leverage) | Plan, strategic note after Sprint 2b; v1c report acceptance clause. Paper only: long/short trend numbers 2020–2025 with funding costs, the extra safety rules, the review path. No code near execution, no derivatives access. | Open — the owner's go for this paper-only study, 2026-10-21; Phase 9 itself is not authorized |
 | R10 | Governance slim-down | Plan section 7: one CHANGELOG, short per-phase records, a `research/` sandbox with lighter rules, travel-mode rules that stop blocking routine research pull requests while the safety-path guard stays. | Optional — needs the owner's go |
 | R11 | Evidence summary of the July–October shadow run | One page from the files of G4: entries, fills, PnL, restarts, alerts. | Optional — needs G4's files first |
 | G7 | 🚦 Phase 7 validation: at least 60 days of forward evidence from the paper fleet, the news shadow and demo with exchange-side stops, then the owner's go or no-go | Plan section 8. | Open |
@@ -55,47 +56,29 @@ A 🚦 row that is plain **Open** stops the runner. **In progress** — another 
 
 Each line: the decision, then the recommendation. Chats add to this list instead of guessing.
 
-- R9 — Allow a paper-only design study of long/short trading? Long-only timing turned out
-  real but thin (Sprint 2c: 1 of 108 configurations survived both the walk-forward and the
-  untouched holdout, about 5 %/yr at under 10 % drawdown); a short side is the only way to
-  earn in bear years. Recommendation: yes. It changes nothing in the running system.
-- Sprint 2c acceptance — make "risk-managed exposure plus a news brake" the Phase 7/8
-  product, and let the paper fleet (R5a) decide between the confirmed sleeve, the jointly
-  sized portfolio and the controls. Recommendation: yes.
-- Sprint 3 design — the protective stop is a stand-alone exchange order placed right after
-  each fill, not one attached to the entry order (OKX does not document attached stops for
-  spot). Recommendation: accept; the drills (G3) measure the seconds between fill and stop.
-- R4a — News source tiers (Phase 6b design §17, open question): which news outlets count as
-  HIGH quality? Today every outlet found through GDELT is MEDIUM (weight 0.65), so two
-  agreeing outlets can at most halve a hypothetical new entry in the news log, and only an
-  official feed (SEC, Fed, an exchange status page) can produce a hypothetical block.
-  Recommendation: approve a short HIGH list (Reuters, AP, Bloomberg, Dow Jones/WSJ,
-  Financial Times) before the 30-day news shadow (G5). It is log-only either way.
-- R4b — Run the news eval (`scripts/eval_news_classifier.py`: 134 synthetic stories, about
-  340 model calls, an estimated $4–10 a run at list prices) with the capped key from G5
-  before starting the news shadow, and again after any prompt or model change?
-  Recommendation: yes, and treat a FAIL on any of its three safety gates as a reason not
-  to start the shadow. It changes nothing in trading.
-- R4b — Add two small news-rule fixes found by the eval to R4c's scope? (1) The rules
-  spot copies credited to "Reuters" or "(AP)" but not "Associated Press" or "Agence
-  France-Presse" in capitals, so such copies count as independent sources (eval story
-  `syn-ap-attribution-capitalized`). (2) A repeat of a live story replaces its evidence
-  with the repeat's alone (`merge_event` in `app/news/decay.py`), so one weak repeat
-  switches a real warning off; R4c should judge evidence over all of a story's articles.
-  Recommendation: yes; both make the news log more faithful, and it stays log-only.
-  *Update from R4c:* (2) is done inside the news shadow runner, because the design
-  requires it there (one story is one event, judged on all its independent sources);
-  `merge_event` itself is unchanged. (1) was left out: it changes `corroborate.py`,
-  outside R4c's scope. Recommendation for (1): approve it as a small step before G5.
-- R4c — The news shadow's AI budget: the runner stops calling the AI at $40 a month
-  (the top of the plan's $10–40 estimate) and no day may use more than twice its even
-  share of what is left; the runbook sets a $50 limit on the key's own workspace in the
-  Anthropic console as the backstop (`docs/runbooks/NEWS_SHADOW.md`). Both are one line
-  in the service's environment file. Recommendation: keep $40 for the first month, read
-  the report's spend line after a week, then adjust.
-- R5a — The paper fleet's no-trade filter blocks new entries from 6 hours before to 6 hours
-  after each US rate decision, using the built-in calendar in `research/events.py`, whose last
-  date is 2026-12-09; after it the filter stops blocking those hours, and the fleet's weekly
-  report already warns about this. Extend plan row R7 (which checks the 2020–2026 dates against the
-  Federal Reserve's published calendar) to also add the 2027 dates from that calendar?
-  Recommendation: yes; it changes only research and paper files, nothing in trading.
+- None open right now.
+
+### Decided — the owner, 2026-10-21 ("yes to all of your recommendations")
+
+- R9, the paper-only long/short design study: **yes**. R9 is Open. Trading shorts,
+  derivatives access and Phase 9 itself stay unauthorized.
+- Sprint 2c acceptance: **yes**. The Phase 7/8 product is risk-managed exposure plus a news
+  brake. The paper fleet (R5a) decides between the confirmed sleeve, the jointly sized
+  portfolio and the controls.
+- Sprint 3 design: **accepted**. The protective stop is a stand-alone exchange order placed
+  right after each fill, not attached to the entry order. The drills (G3) measure the
+  seconds between fill and stop. Independent review and the drills are still required
+  before any live use.
+- R4a news source tiers: **yes**. HIGH = Reuters, AP, Bloomberg, Dow Jones/WSJ (one owner
+  family) and the Financial Times. Built in R4d. Log-only either way.
+- R4b news eval: **yes**. Run it with the capped key before the news shadow starts and after
+  any prompt or model change. A FAIL on any of its three safety gates means the shadow
+  does not start.
+- R4b/R4c news-rule fix (1), the "Associated Press" / "Agence France-Presse" credit gap:
+  **yes**, built in R4d before G5. Fix (2) was done in R4c.
+- R4c AI budget: **yes**. The service stops at $40 a month and the key has a $50 limit for
+  the first month. Read the spend line after a week, then adjust.
+- R5a FOMC calendar: **yes**. R7 also adds the 2027 dates.
+
+The last three came in after the owner's answer. They were taken under the same "yes" and
+the owner was told; each is easy to reverse.

@@ -53,6 +53,16 @@ Status log:
   the June 30 Phase 6b log-only authorization in the rule files. **From here the
   live status is `docs/PLAN_STATUS.md`**; decisions the runner may not make
   collect in its section 2.
+- 2026-10-21: R4a, R4b, R4c (news agent, eval, news shadow) and R5a (paper fleet)
+  are done on `plan/auto`. The owner said yes to every pending recommendation:
+  - the R9 long/short paper study is opened;
+  - the Sprint 2c product framing and the Sprint 3 stop design are accepted;
+  - the HIGH news tier and the "Associated Press" fix become row R4d;
+  - the news eval must pass before the news shadow starts;
+  - the AI budget is $40 a month;
+  - R7 also adds the 2027 FOMC dates.
+
+  Details: `docs/PLAN_STATUS.md`, section 2.
 
 ---
 
