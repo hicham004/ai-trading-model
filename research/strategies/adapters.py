@@ -1,10 +1,19 @@
 """Wrap a research candidate into the reviewed ``app.strategy.base.Strategy`` contract.
 
-The adapter lets the event-driven simulator (and, after a reviewed PR, the
-paper/demo runtimes) consume a candidate unchanged: one ``Signal`` per candle,
-``LONG`` with a stop-loss price while the candidate wants to be long, ``FLAT``
-otherwise. Confidence comes from a :class:`StrengthCalibrator` (historical
-hit-rate buckets) or a fixed fallback — never from a made-up formula.
+The adapter lets the event-driven simulator, the paper fleet (Sprint 5a) and,
+after a reviewed PR, the paper/demo runtimes consume a candidate unchanged:
+one ``Signal`` per candle, ``LONG`` with a stop-loss price while the candidate
+wants to be long, ``FLAT`` otherwise. Confidence comes from a
+:class:`StrengthCalibrator` (historical hit-rate buckets) or a fixed fallback —
+never from a made-up formula.
+
+Where the candidate gives no stop distance (indicator warm-up, or the
+always-long ``hold`` reference, which has none by design) the adapter
+substitutes a ``fallback_stop_pct`` stop, as the risk manager requires one.
+``fallback_stop_pct=None`` keeps the research engine's convention instead: the
+``LONG`` signal then carries no stop (``stop_loss=None``) — used by the paper
+fleet, which reproduces the research rules exactly and never reaches the risk
+manager or an order.
 """
 
 from __future__ import annotations
@@ -30,7 +39,7 @@ class ResearchStrategyAdapter(Strategy):
         calibrator: Optional[StrengthCalibrator] = None,
         fallback_confidence: float = 0.60,
         no_trade: Optional[NoTradeConfig] = NoTradeConfig(),
-        fallback_stop_pct: float = 0.03,
+        fallback_stop_pct: Optional[float] = 0.03,
     ) -> None:
         self.candidate = candidate
         self.params = candidate.params_with_defaults(params)
@@ -38,7 +47,7 @@ class ResearchStrategyAdapter(Strategy):
         self.calibrator = calibrator
         self.fallback_confidence = float(fallback_confidence)
         self.no_trade = no_trade
-        self.fallback_stop_pct = float(fallback_stop_pct)
+        self.fallback_stop_pct = None if fallback_stop_pct is None else float(fallback_stop_pct)
         self.name = f"research_{candidate.key.replace('+', '_')}"
 
     def confidence_for(self, strength: float) -> float:
@@ -62,9 +71,13 @@ class ResearchStrategyAdapter(Strategy):
         for i, candle in enumerate(candles):
             if desired[i]:
                 dist = stop_dist[i]
-                if not (np.isfinite(dist) and dist > 0):
-                    dist = candle.close * self.fallback_stop_pct
-                stop = max(candle.close - dist, candle.close * 0.01)
+                stop: Optional[float]
+                if np.isfinite(dist) and dist > 0:
+                    stop = max(candle.close - dist, candle.close * 0.01)
+                elif self.fallback_stop_pct is None:
+                    stop = None  # research convention: no stop distance -> no stop
+                else:
+                    stop = max(candle.close - candle.close * self.fallback_stop_pct, candle.close * 0.01)
                 signals.append(
                     Signal(
                         timestamp=candle.timestamp,

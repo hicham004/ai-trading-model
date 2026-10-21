@@ -1,0 +1,68 @@
+# Paper fleet - SIMULATION ONLY (docs/runbooks/PAPER_FLEET.md).
+#
+# Runs the Sprint 2c shortlist, the jointly sized BTC+ETH portfolio and the
+# controls forward on PUBLIC OKX market data as local paper accounts with
+# virtual fills, and writes one journal per account plus a weekly report into
+# logs/paper_fleet/. It needs no keys, holds no keys, places no orders, never
+# touches shadow.service, the news shadow or the demo database, and stopping it
+# changes nothing in trading.
+#
+# Install (runbook, option A): replace /path/to/ai-trading-model and
+# CHANGE_ME_USER below, copy this file to /etc/systemd/system/paper-fleet.service,
+#   sudo systemctl daemon-reload && sudo systemctl enable --now paper-fleet.service
+
+[Unit]
+Description=Paper fleet (simulation only; public data; no orders, no keys)
+Documentation=file:///path/to/ai-trading-model/docs/runbooks/PAPER_FLEET.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=CHANGE_ME_USER
+Group=CHANGE_ME_USER
+WorkingDirectory=/path/to/ai-trading-model
+# Optional and secret-free (see paper-fleet.env.example); the service runs without it.
+EnvironmentFile=-/etc/ai-trading/paper-fleet.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/path/to/ai-trading-model/.venv/bin/python scripts/run_paper_fleet.py --loop
+Restart=on-failure
+RestartSec=60
+# Exit code 2 is a setup problem a restart cannot fix (the fleet's rules changed, a bad option): never retried.
+# Exit code 3 (another instance holds the fleet folder, or the public data is not ready yet) is retried after RestartSec.
+RestartPreventExitStatus=2
+KillSignal=SIGTERM
+TimeoutStopSec=120
+
+# Hardening: the whole system read-only except the fleet's own directory.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/path/to/ai-trading-model/logs/paper_fleet
+# It never needs the OKX demo keys or the demo database: make both unreachable.
+InaccessiblePaths=-/path/to/ai-trading-model/.env -/run/postgresql
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+UMask=0027
+# A simulation must never starve the Phase 6a shadow run on the same host.
+Nice=10
+CPUQuota=50%
+MemoryMax=2G
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

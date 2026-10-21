@@ -4,6 +4,121 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — Sprint 5a: paper fleet (plan row R5a; master plan Sprint 5 item 3)
+
+Simulation only: every fill is virtual arithmetic on public OKX prices; no keys,
+no demo account, no database, no order path. Nothing in the trading runtime
+imports it. A good forward record approves nothing (plan row G7 decides).
+
+### Added
+- `research/paper_fleet/`: the Sprint 2c shortlist run forward on live PUBLIC OKX
+  data as 19 local paper accounts — the 10 shortlisted configurations, the jointly
+  sized BTC+ETH × S1/S2/S4 portfolio (15 % vol target, 7.5/15 % ladder) as one
+  account, and 8 controls (always long with the policy sizing; plain buy-and-hold;
+  BTC and ETH, 4H and 6H) — each with its own append-only journal.
+  - `config.py`: the manifest from the shortlist and `ensemble_v1c_results.json`
+    (rules, expectations, the portfolio's six full-size sleeves), checked against
+    each other; a rules fingerprint makes a changed fleet refuse to resume.
+  - `signals.py`: one decision per closed bar through the reviewed `Strategy`
+    contract (`ResearchStrategyAdapter`: candidate, S5 filter, S0 filter with the
+    FOMC calendar) plus the regime-v2 entries-only gate, the policy sizing
+    fraction and the exit bracket; every decision is journaled with its signal
+    and why each filter allowed or blocked it.
+  - `engine.py`: a bar-by-bar transcription of `research.engine.run_vectorized`
+    with JSON state and the walk-forward's 180-day test windows (every sleeve
+    restarts flat, closing at the window's last close with costs; plain
+    buy-and-hold never does); a missing decision keeps stops working and makes
+    no entry.
+  - `regime.py`: the regime model forward with the walk-forward geometry (540
+    days ending 7 days before each 180-day period), stored so restarts reuse it;
+    a failed fit blocks entries.
+  - `portfolio.py`: UTC-day sleeve returns, trailing inverse-vol weights and the
+    vol target over 120 days of warm-up plus the forward days, the ladder from
+    the forward start (`combine_sized` semantics).
+  - `data.py`: OKX public candles, funding rate and open interest through the
+    GET-only allowlisted `OKXPublicRest`; the fleet's own lake (the research lake
+    is only read, once, to seed it); 4H/6H bars rebuilt from confirmed 1H candles.
+  - `runner.py`, `store.py`: the cycle (every new bar of every series in one time
+    order, catch-up after downtime identical to live running, a missing candle
+    waited for until 90 minutes after the next bar closed, then that bar is
+    skipped with a note), sequence-numbered journals written before the atomic
+    state (a crash never duplicates a record), one instance per directory, a
+    shortlist that later adds an account (it starts then) or drops one (retired,
+    journal kept) without restarting the record.
+  - `report.py`: `reports/weekly-YYYY-Www.md`, controls first, with bands fixed
+    before the first forward bar: return ± 2σ of the walk-forward volatility,
+    Sharpe ± 2 standard errors (from 90 days), drawdown against the walk-forward
+    worst (alarm at 1.5×), a Poisson band on trades, the holdout pace; verdicts
+    from 30 days; a warning before the built-in FOMC calendar runs out.
+  - `replay.py`: the offline dry run (recorded lake data or a synthetic market,
+    simulated clock, invariants checked).
+- `scripts/run_paper_fleet.py`: `--loop` (service), `--once`, `--dry-run [--days]
+  [--out] [--synthetic]`, `--report [YYYY-Www]`, `--status`; exit 2 for setup
+  problems (another instance, changed rules, bad option).
+- `deploy/systemd/paper-fleet.service` (+ optional, secret-free
+  `paper-fleet.env.example`): writes only `logs/paper_fleet`, cannot read `.env`
+  or reach the PostgreSQL socket, `Nice=10`, 50 % CPU, 2 GB memory.
+- `docs/runbooks/PAPER_FLEET.md` (VPS service or this laptop, reading the report,
+  troubleshooting); a Sprint 5a section in `docs/RESEARCH_LAB.md`.
+- Tests (offline): engine parity with the vectorized engine on every exit path;
+  contract decisions equal to the research frames (S0, S5, brackets, regime gate,
+  sizing); a gated policy-sized sleeve end to end against `simulate_sizing`;
+  portfolio booking against `combine_sized`; regime fit geometry and exact JSON
+  round trip; public-data parsing, GET-only public paths, seeding without
+  touching the research lake, gaps; the runner on a replayed market (anchors,
+  restart and crash equivalence, changed rules, the lock, gaps, failed decisions,
+  stale data); the report's bands and verdicts; the CLI; import boundaries.
+
+### Changed
+- `research/strategies/adapters.py`: `fallback_stop_pct=None` keeps the research
+  convention (no stop distance → a `LONG` signal without a stop, as for the
+  always-long control). The default (3 % fallback stop) is unchanged.
+- `tests/test_research_boundaries.py` also scans `scripts/run_paper_fleet.py`.
+
+### Fixed (found by the independent review of this step)
+- The always-long controls (and any long-held position) could only shrink: the
+  research restarted every account flat at each 180-day test window, which is
+  where reduce-only sizing was set again. The fleet now restarts the same way
+  (parity-tested window by window against the research engine).
+- A cycle whose save failed kept its advanced state in memory, so the next
+  save could skip journal records; it now reloads the last saved state and
+  redoes the cycle.
+- Weekly reports of a past week were never rewritten as "final".
+- A fleet could be created from failed or stale public data (the portfolio's
+  warm-up is built once, at creation); it now refuses and the service retries.
+- A resume with another `--positioning-source` silently changed the S5
+  accounts' input; it is refused.
+- The missing-candle grace never waited; it now waits until 90 minutes after
+  the next bar closed.
+- The Sharpe band used the per-period formula on an annual Sharpe; it is now
+  `sqrt((1 + SR^2 / (2q)) / years)`.
+- A journal line torn by a crash could swallow the next record; it is closed
+  first.
+- Run as a script the fleet keeps `python-dotenv` from loading the repository
+  `.env` into its process; another instance holding the fleet, or data not
+  ready, exits 3 so systemd retries (exit 2 stays for changed rules).
+- Candidates with their own exits (S3's time stop) are refused instead of
+  silently losing that exit.
+
+### Verified live (public data only)
+- Two live sessions on this laptop against OKX's public REST (no keys): 11:35–12:11
+  and, with the final code, 11:38–12:13 UTC on 2026-10-21. Each created the
+  19-account fleet in seconds (the research lake's history copied, then topped up
+  from OKX in 6 requests), processed the 12:00 UTC bars of BTC/ETH 4H and 6H about
+  45 seconds after the hour (regime models fitted for BTC 4H, ETH 4H and ETH 6H,
+  S5 decisions on OKX funding and open interest at most 6 hours old, every
+  decision journaled), wrote the weekly report, about 130 MB of memory, zero
+  errors; a further `--once` resumed the live fleet and a resume with another
+  `--positioning-source` was refused (exit 2). No fill happens before the bar
+  after a fleet's first bar (16:00/18:00 UTC here), so fills were verified offline:
+  the default `--dry-run` replays the last 3 recorded days of the research lake
+  through all 19 accounts with every invariant check passing.
+
+### Not done here
+- The fleet is not started 24/7 (plan row G6 is the owner's: VPS or this laptop).
+- No live fill was observed (see above); the 30–60+ days of forward evidence are
+  the point of the fleet and are still to come.
+
 ## Unreleased — Sprint 4c: news shadow runner, daily report, VPS unit and runbook (plan row R4c; Phase 6b design §11, §13, §14)
 
 Log-only: the runner places, sizes, approves, modifies and cancels nothing,

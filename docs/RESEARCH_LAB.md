@@ -243,3 +243,51 @@ the Sprint 2c walk-forward gates at the fixed policy sizing; the untouched
   modes and clocks multiply the number of things tried and are the reason the
   DSRs stay low.
 - The FOMC calendar is unverified data (mechanism tested, dates not).
+
+## Sprint 5a — the paper fleet (plan row R5a)
+
+The shortlist (`docs/research/paper_fleet_shortlist_v1c.json`) runs forward on
+live PUBLIC OKX data as 19 local paper accounts: the 10 shortlisted
+configurations, the jointly sized BTC+ETH × S1/S2/S4 portfolio (15 % vol
+target, 7.5/15 % ladder) as one account, and the 8 controls (always long with
+the policy sizing, plain buy-and-hold; BTC and ETH, 4H and 6H). Simulation
+only: virtual fills, no keys, no demo account, no database, no order path.
+Operator steps: `docs/runbooks/PAPER_FLEET.md` (plan row G6).
+
+| Module | Purpose |
+|---|---|
+| `research/paper_fleet/config.py` | The manifest: one account per shortlist row and control, the portfolio's six full-size sleeves from `ensemble_v1c_results.json`, the walk-forward and holdout expectations of each account; fails loudly when the two files disagree. Fingerprints of the shared rules and of every account's rules are stored with the fleet: a changed rule refuses to resume, an account added to the shortlist joins from that moment, a removed one is retired (journal kept). |
+| `research/paper_fleet/data.py` | Public data: OKX 1H candles (`market/candles`, `market/history-candles`) and the swaps' funding rate and open interest, through the GET-only allowlisted `OKXPublicRest`; the fleet's own small lake (seeded once by copying the research lake, read only); 4H/6H bars rebuilt from confirmed 1H candles on the UTC clock, complete bars only. |
+| `research/paper_fleet/signals.py` | One decision per closed bar through the reviewed `Strategy` contract (`ResearchStrategyAdapter`: the candidate, its S5 filter, the S0 filter with the FOMC calendar), plus the research overlays: the regime-v2 entries-only gate, the policy sizing fraction, the exit bracket. `frame_decisions` is the same in one vectorized pass (portfolio warm-up). |
+| `research/paper_fleet/engine.py` | The bar-by-bar engine: a transcription of `research.engine.run_vectorized` for one column with JSON state between bars (stops on the bar's low with gap fills, targets, time and trailing stops, sizing × ladder, reduce-only rebalancing), plus the walk-forward's 180-day test windows: every sleeve restarts flat at each window, closing at the last close with costs (the research's `end_of_data` exit). Plain buy-and-hold never restarts, as in the research. A missing decision keeps the stops working and makes no entry. |
+| `research/paper_fleet/regime.py` | The regime model forward with the walk-forward geometry: fitted on the 540 days ending 7 days before each 180-day period (when the sleeves restart), filtered forward from its train start, stored so a restart reuses it; a failed fit blocks entries. |
+| `research/paper_fleet/portfolio.py` | The portfolio account: six full-size sleeves compounded into UTC-day returns, trailing inverse-vol weights and the 15 % vol target over 120 days of warm-up plus the forward days, the 7.5/15 % ladder from the forward start (`combine_sized` semantics). |
+| `research/paper_fleet/runner.py`, `store.py` | The cycle (refresh, every new bar of every series in one time order, portfolio days, journals, atomic state), the file lock, the journals (append-only JSONL per account, sequence-numbered so a crash never duplicates a record). |
+| `research/paper_fleet/report.py` | The weekly ranking report: controls first, forward metrics per account, and the bands fixed before the first forward bar (return ± 2σ of the walk-forward volatility, Sharpe ± 2 standard errors from 90 days, drawdown against the walk-forward worst with an alarm at 1.5×, a Poisson band on trades, the holdout pace); verdicts from 30 days. |
+| `research/paper_fleet/replay.py`, `scripts/run_paper_fleet.py` | The offline dry run (recorded lake data or a synthetic market replayed with a simulated clock, invariants checked) and the CLI: `--loop`, `--once`, `--dry-run`, `--report`, `--status`. |
+
+Why not `app/paper`: the reviewed Phase 4 engine trades 1-minute candles only,
+sizes by risk per trade, prices fills from a live order book and keeps its
+ledger in the database. None of the research sizing (vol target, crash
+filter, ladder, reduce-only rebalancing), the regime gate or the brackets
+exists there, so its forward numbers could not be compared with the research's
+expectations. `app/paper` is unchanged; the fleet reuses the research code and
+the `Strategy` contract instead.
+
+Parity is tested, not assumed: the engine against `run_vectorized` on long
+random paths (every exit path, sizing, ladder, rebalancing, brackets), and with
+the 180-day restarts against the research run separately on every window; the
+contract decisions against `build_frames` + the gated walk-forward's gate +
+`fraction_series`; a gated, policy-sized sleeve end to end against
+`simulate_sizing`; the portfolio booking against `combine_sized`; restarts and
+crashes against an uninterrupted run (byte-identical journals).
+
+Known differences from the research (stated in every report): the S5 filter
+reads OKX's own swap funding and open interest (timely) instead of Binance's
+files (a day late); an account added to the fleet later has its own 180-day
+windows, so a regime refit can recompute the gate while it holds a position and
+close it (the research started every window flat at a refit); 4H bars are
+rebuilt from 1H candles (identical to OKX's stored 4H bars on 99.97 % of the
+history); the portfolio's
+estimates start from 120 days of simulated sleeve history and moving money
+between its sleeves is free, as in the research.

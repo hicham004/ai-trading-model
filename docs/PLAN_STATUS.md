@@ -93,3 +93,9 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   Anthropic console as the backstop (`docs/runbooks/NEWS_SHADOW.md`). Both are one line
   in the service's environment file. Recommendation: keep $40 for the first month, read
   the report's spend line after a week, then adjust.
+- R5a — The paper fleet's no-trade filter blocks new entries from 6 hours before to 6 hours
+  after each US rate decision, using the built-in calendar in `research/events.py`, whose last
+  date is 2026-12-09; after it the filter stops blocking those hours, and the fleet's weekly
+  report already warns about this. Extend plan row R7 (which checks the 2020–2026 dates against the
+  Federal Reserve's published calendar) to also add the 2027 dates from that calendar?
+  Recommendation: yes; it changes only research and paper files, nothing in trading.
