@@ -10,11 +10,14 @@ or live entries is **not** authorized and needs a separate owner decision.
 - **Agent core** (Sprint 4a, design §4–7, §9, §13, section
   [Agent core](#agent-core-sprint-4a) below): event schema, Haiku/Opus
   classifier, corroboration, TTL/decay, the shadow overlay and the
-  append-only shadow logs. It is a library; the log-only shadow runner, its
-  daily report and the VPS unit come in Sprint 4c.
+  append-only shadow logs.
 - **Eval** (Sprint 4b, section [Eval](#eval-sprint-4b) below): 134 labeled
   synthetic stories and a harness that scores the classifier on them. The
   owner-facing explanation is [`NEWS_AGENT.md`](NEWS_AGENT.md).
+- **Shadow runner** (Sprint 4c, design §11 and §14, section
+  [Shadow runner](#shadow-runner-sprint-4c) below): the log-only service, its
+  monthly spend cap, the daily report, the offline dry run, the systemd unit
+  and the VPS runbook [`runbooks/NEWS_SHADOW.md`](runbooks/NEWS_SHADOW.md).
 
 Nothing in `app/news` reads exchange or demo-account state, and no trading
 module imports it (`tests/test_news_boundaries.py` enforces both directions).
@@ -133,10 +136,39 @@ with `--replay`, payload hashes checked), and four scripted offline models for
 repetitions, models and efforts, redoing only unscored cases; the cost counts
 every attempt. Outputs go to `artifacts/news_eval/` (git-ignored).
 
+## Shadow runner (Sprint 4c)
+
+`scripts/run_news_shadow.py` (design §11, §13, §14) — `--loop` (the service),
+`--once`, `--dry-run [--fixtures DIR]`, `--report [DAY]`, `--status`,
+`--no-model`. A live mode refuses without `ANTHROPIC_API_KEY` (exit 2); the
+script never loads `.env` or `app.config`, so no OKX secret is ever in its
+memory. One instance per state directory (OS file lock).
+
+| Module | What it does |
+|---|---|
+| `app/news/shadow.py` | `NewsShadowRunner.run_cycle`: public candles and the exchange clock → ingestion of the due sources (`pipeline.run_once`) → per-item observation and triage (one Haiku call per headline; copies reuse it; quarantined items and items published > 24 h before observation are never sent; a later copy of a headline an event already has is attached without a call; a headline classified off-watchlist is not sent again) → stories (category + headline-word Jaccard ≥ 0.5, ≤ 12 items, one per publisher first) → Opus classification with the unexpired events as link candidates; a link is followed only if category, assets and a distinctive headline word agree (`link_problem`), otherwise the story stands alone → `story_event`: price/volume on candles closed before the call, `assess` and `build_event` over **all of the story's articles** (a linked event's earlier articles, counted sources and earlier price/volume confirmations plus the new ones — evidence is never erased; counted sources are kept beyond the 50-article cap; same deterministic id = same story, merged) → the `EventBook` (every event version with the time it became known) → effective signals (logged on change) → the overlay on each settled Phase 6a candidate as of its decision time, with `news_healthy` = a healthy cycle in the 15 minutes before → health (unhealthy: clock skew > 30 s, no successful clock check for 30 minutes, all sources failed, a stage failure), atomic state, `cycle_summary`, reports. Every stage and every model call is isolated: a failure is NO_EFFECT and is logged. |
+| `app/news/phase6a.py` | Read-only, incremental reader of `logs/shadow/journal-*.jsonl`: LONG `signal` lines and runtime entry decisions (`risk_decision` / `equity_unavailable` ledger events, payload as JSON string or dict, message fallback) become candidates; each decision belongs to exactly one candle; no decision after a 15-minute settle window = "not observed" (never allowed); `ledger_intent` gives the baseline notional. FLAT/HOLD signals, stops and exits never become candidates. |
+| `app/news/market.py` | `GET https://www.okx.com/api/v5/market/candles` (5m) and `/api/v5/public/time` only (host and paths pinned, no credentials); confirmed candles only; rolling cache. |
+| `app/news/budget.py` | `SpendGuard`: monthly cap (`NEWS_SHADOW_MONTHLY_CAP_USD`, default 40) and daily pace (`NEWS_SHADOW_DAILY_PACE`, default 2 × the even share of what is left), worst-case reservation before every attempt, actual usage after (list prices from `evaluation.PRICES_PER_MTOK`), per-month JSON state; an unreadable record counts as a spent month. `BudgetedClient` enforces it around the SDK client, which runs with `max_retries=0`: retries (connection errors, rate limits, server errors) happen in `BudgetedClient`, each with a fresh reservation; a timed-out request is charged its full worst case and is not retried. |
+| `app/news/report.py` | `report-YYYY-MM-DD.md` from the day's logs (and the day before) plus the Phase 6a journal only: the §14 sections, the 6-hour price path after each would-block/reduce, review lists, de-duplication and latency metrics, and eight safety invariants recomputed from the logs (single-source/expired effects, a decision that is not a journaled new-long candidate, size > 1, double counting or compounding, effect while unhealthy, baseline-blocked counted as prevented, an allowed baseline the journal does not confirm). Refuses to write into a directory holding Phase 6a journal files. |
+| `app/news/dryrun.py` | Offline end-to-end run (`--dry-run`): simulated clock, a fixture network that renders RSS/GDELT/OKX wire formats and refuses every other URL, a scripted model behind the same spend guard, the Phase 6a journal replayed line by line; checks the fixture's expectations. Fixture: `tests/fixtures/news_shadow/`. |
+
+Logs (append-only, `logs/news_shadow/`): `events-*.jsonl` (the design's record
+kinds plus `source_fetch`, `cycle_summary` and `runner_event`),
+`decisions-*.jsonl` (one `shadow_entry_overlay` per candidate: baseline,
+action, multiplier, would-block/reduce, events at the decision, why nothing
+happened), `report-*.md`, and `_state/` (`shadow_state.json`,
+`spend-YYYY-MM.json`, `runner.lock`). Deployment: `deploy/systemd/news-shadow.service`
+(own environment file, `ProtectSystem=strict`, writes only `logs/news_shadow`
+and `data/news`, the repository `.env` and the PostgreSQL socket inaccessible, no
+capabilities, CPU/memory caps, exit code 2 not retried). The RSS parser always
+hands `feedparser` a byte stream: given a bare string that looks like a URL or a
+path, `feedparser` would fetch or open it.
+
 ## Not in scope here
 
-The shadow runner, daily report, spend cap and VPS unit (Sprint 4c);
-corroboration through the API's web-search/web-fetch tools (master plan §5.2,
-not built); Batch-API re-scoring; and any connection to the risk manager or the
-demo runtime, which needs a separate owner decision. See
+Corroboration through the API's web-search/web-fetch tools (master plan §5.2,
+not built); Batch-API re-scoring; the capitalized wire-credit fix in
+`corroborate.py` (an open owner decision); and any connection to the risk
+manager or the demo runtime, which needs a separate owner decision. See
 `docs/PHASE6B_DESIGN.md` and the master plan Sprint 4.

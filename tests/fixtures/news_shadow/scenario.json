@@ -1,0 +1,40 @@
+{
+  "description": "Four hours of a fictional Monday (2026-10-19, 09:00-13:20 UTC), one cycle every 5 minutes. Stale feed backlog, a single-source rumor (Kryvex), a prompt-injection and a homoglyph headline, a Reuters story copied by two sites (Meridex hot wallet), independent confirmation 20 minutes later while BTC and ETH fall on volume, a later same-headline copy, an official SEC action corroborated in the next cycle, and four Phase 6a candidate entries: one before the shadow started, one allowed while a REDUCE event is live, one already blocked by the confidence floor, one allowed while a BLOCK event is live. All names are invented; nothing here reports a real event.",
+  "start": "2026-10-19T09:00:00Z",
+  "end": "2026-10-19T13:20:00Z",
+  "cycle_minutes": 5,
+  "sources": ["sec_press", "fed_press_monetary", "coinbase_status", "gdelt_doc"],
+  "feeds": {
+    "sec_press": "feeds/sec_press.json",
+    "fed_press_monetary": "feeds/fed_press_monetary.json",
+    "coinbase_status": "feeds/coinbase_status.json",
+    "gdelt_doc": "feeds/gdelt_doc.json"
+  },
+  "market": {
+    "start": "2026-10-19T06:00:00Z",
+    "wiggle_pct": 0.03,
+    "instruments": {
+      "BTC-USDT": {"price": 105000.0, "volume": 100.0, "range_pct": 0.16},
+      "ETH-USDT": {"price": 3900.0, "volume": 1500.0, "range_pct": 0.2}
+    },
+    "moves": [
+      {"instrument": "BTC-USDT", "from": "2026-10-19T10:10:00Z", "bars": 4, "pct_per_bar": -0.6, "volume_x": 3.0},
+      {"instrument": "ETH-USDT", "from": "2026-10-19T10:10:00Z", "bars": 4, "pct_per_bar": -0.8, "volume_x": 3.0}
+    ]
+  },
+  "clock_skew_seconds": 0.0,
+  "phase6a_journal": "phase6a/journal-2026-10-19.jsonl",
+  "model": "model.json",
+  "monthly_cap_usd": 40.0,
+  "expect": {
+    "decisions": 3,
+    "would_reduce": 1,
+    "would_block": 1,
+    "quarantined": 2,
+    "events": 3,
+    "corroborated_events": 2,
+    "events_with_effect": 2,
+    "classify_calls": 5,
+    "invariants_ok": true
+  }
+}

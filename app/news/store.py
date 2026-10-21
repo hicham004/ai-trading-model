@@ -35,8 +35,11 @@ SHADOW_LOG_DIR_ENV = "NEWS_SHADOW_LOG_DIR"
 SHADOW_LOG_VERSION = "news-shadow-log-v1"
 
 # PHASE6B_DESIGN section 11 record kinds (+ classifier_unavailable for the
-# section 13 "LLM unavailable" case). ``shadow_entry_overlay`` records go to the
-# decisions file; every other kind goes to the events file.
+# section 13 "LLM unavailable" case, and three operational kinds the shadow
+# runner writes: source_fetch for source health and outage minutes,
+# cycle_summary once per cycle, runner_event for start/stop, state, spend-cap and
+# health changes). ``shadow_entry_overlay`` records go to the decisions file;
+# every other kind goes to the events file.
 EVENT_RECORD_KINDS = frozenset(
     {
         "source_item_observed",
@@ -49,6 +52,9 @@ EVENT_RECORD_KINDS = frozenset(
         "corroboration_update",
         "effective_signal",
         "daily_summary",
+        "source_fetch",
+        "cycle_summary",
+        "runner_event",
     }
 )
 DECISION_RECORD_KINDS = frozenset({"shadow_entry_overlay"})

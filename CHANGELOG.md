@@ -4,6 +4,86 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — Sprint 4c: news shadow runner, daily report, VPS unit and runbook (plan row R4c; Phase 6b design §11, §13, §14)
+
+Log-only: the runner places, sizes, approves, modifies and cancels nothing,
+holds no OKX keys, never loads `.env`, never calls an authenticated endpoint,
+never opens the demo database, and reads the Phase 6a journal read-only.
+Nothing in the trading runtime imports it.
+
+### Added
+- `scripts/run_news_shadow.py`: `--loop` (service), `--once`, `--dry-run
+  [--fixtures]`, `--report [DAY]`, `--status`, `--no-model`; refuses a live mode
+  without `ANTHROPIC_API_KEY` (exit 2); one instance per state directory;
+  graceful SIGTERM.
+- `app/news/shadow.py`: the cycle — public candles and exchange clock, ingestion,
+  one triage call per headline (copies reuse it; stale and quarantined items never
+  sent; later same-headline copies attached to their event without a call),
+  stories, Opus classification with link candidates, corroboration and event
+  building over **all of a story's articles** (`story_event`; identical to the
+  R4b eval path for a story without earlier articles — tested on every eval case),
+  a versioned event book so each Phase 6a decision is judged only on what was known
+  then, effective signals, the shadow overlay, health (clock skew, source outage,
+  stage failure → NO_EFFECT), atomic state that survives restarts.
+- `app/news/phase6a.py`: incremental read-only journal reader; LONG signals and
+  runtime entry decisions become candidates with their baseline (allowed, blocked
+  with the runtime's reason, or "not observed" after a settle window — never
+  allowed); exits, FLAT/HOLD and stops never become candidates.
+- `app/news/market.py`: public OKX candles and server time, host and paths pinned,
+  no credentials, confirmed candles only.
+- `app/news/budget.py`: monthly spend cap (default $40) with daily pacing,
+  worst-case reservation before each call, list-price cost after; `BudgetedClient`
+  enforces it around the SDK client.
+- `app/news/report.py`: `report-YYYY-MM-DD.md` from the logs and the journal alone
+  (reproducible), with the price path after each would-block/reduce, manual-review
+  lists and eight safety invariants recomputed from the logs and checked against
+  the Phase 6a journal itself.
+- `app/news/dryrun.py` and `tests/fixtures/news_shadow/`: four invented hours run
+  offline end to end (fixture network that refuses every other URL, scripted
+  model, journal replay) with checked expectations.
+- `deploy/systemd/news-shadow.service` and `news-shadow.env.example`; runbook
+  `docs/runbooks/NEWS_SHADOW.md` (capped key in its own workspace, own
+  environment file, install, checks, report, cap, stop/remove, troubleshooting).
+- `app/news/store.py`: record kinds `source_fetch`, `cycle_summary`,
+  `runner_event`. `app/news/pipeline.py`: `IngestSummary` also returns the cycle's
+  records and fetch entries (additive).
+- Tests (offline): the dry run with the network and the real client blocked, each
+  counterfactual, no hindsight, unhealthy states, spend cap and pacing (including
+  concurrency), restart equivalence, corrupt state, the journal reader's edge
+  cases, the report's invariant checks, the CLI in every mode, the unit file and
+  the import boundaries.
+
+### Fixed (found by the independent review of this step)
+- `app/news/fetch.py`: `parse_rss` handed the response text to `feedparser.parse`,
+  which fetches a body that looks like a URL and opens a body that looks like a
+  local path; a tampered feed could have made the host read local files or call
+  internal addresses (e.g. a cloud metadata service). It now always passes a byte
+  stream.
+- Evidence a story already had (an earlier price/volume confirmation, a counted
+  source beyond the article cap) can no longer be erased by a later repeat, and a
+  classifier link pools evidence only when category, assets and a distinctive
+  headline word agree.
+- The spend cap now covers every HTTP attempt (SDK retries off, retries made by
+  `BudgetedClient` with a fresh reservation; a timeout is charged its worst case).
+- The report: tolerant of a line cut inside a multi-byte character; an event live
+  at midnight keeps its effect in the next day's report; the exits, double-counting
+  and baseline checks verify against the journal and the deciding event; a spend
+  cap that held back triage is reported; reports refuse the Phase 6a directory.
+- The unit makes the repository `.env` and the PostgreSQL socket inaccessible; a
+  clock that could not be verified for 30 minutes makes the news state unhealthy.
+- `tests/test_paper_api.py`: its "fresh" heartbeat was stamped when pytest imported
+  the module, so it went stale (> 60 s) once the suite before it grew; it is now
+  stamped when the test runs.
+
+### Verified live (public data only)
+- One `--once --no-model` cycle on this laptop against the SEC, Federal Reserve and
+  Coinbase status RSS feeds and OKX public candles and server time: all sources
+  HTTP 200, 299 confirmed 5-minute candles per instrument, clock skew −0.15 s.
+
+### Not done here
+- The capitalized wire-credit fix in `app/news/corroborate.py` (owner decision).
+- No run against the real AI model (no key on this machine).
+
 ## Unreleased — Sprint 4b: news eval set and harness (plan row R4b; Phase 6b design §15, master plan §5.2)
 
 Log-only tooling: nothing here gates an entry, reaches an order path, or is read

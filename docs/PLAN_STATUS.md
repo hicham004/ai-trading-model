@@ -83,3 +83,13 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   with the repeat's alone (`merge_event` in `app/news/decay.py`), so one weak repeat
   switches a real warning off; R4c should judge evidence over all of a story's articles.
   Recommendation: yes; both make the news log more faithful, and it stays log-only.
+  *Update from R4c:* (2) is done inside the news shadow runner, because the design
+  requires it there (one story is one event, judged on all its independent sources);
+  `merge_event` itself is unchanged. (1) was left out: it changes `corroborate.py`,
+  outside R4c's scope. Recommendation for (1): approve it as a small step before G5.
+- R4c — The news shadow's AI budget: the runner stops calling the AI at $40 a month
+  (the top of the plan's $10–40 estimate) and no day may use more than twice its even
+  share of what is left; the runbook sets a $50 limit on the key's own workspace in the
+  Anthropic console as the backstop (`docs/runbooks/NEWS_SHADOW.md`). Both are one line
+  in the service's environment file. Recommendation: keep $40 for the first month, read
+  the report's spend line after a week, then adjust.

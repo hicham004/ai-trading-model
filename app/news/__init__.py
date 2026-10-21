@@ -22,6 +22,18 @@ Eval (Sprint 4b, design 15): ``evaluation`` runs the labeled synthetic stories i
 prohibited actions, single-source effects and accuracy
 (``scripts/eval_news_classifier.py``; the model is called only with a key).
 
+Shadow runner (Sprint 4c, design 11, 13, 14; ``scripts/run_news_shadow.py``):
+
+- ``shadow``      the log-only loop (ingest, triage, stories, classification,
+                  corroboration over all of a story's articles, the event book,
+                  effective signals, the overlay on Phase 6a candidates as of
+                  their decision time), health and state;
+- ``phase6a``     a read-only reader of the Phase 6a journal files;
+- ``market``      public OKX candles and server time (pinned host, no keys);
+- ``budget``      the monthly spend cap with daily pacing around the SDK client;
+- ``report``      the daily report, rebuilt from the logs alone;
+- ``dryrun``      the whole shadow offline from fixtures (no network, no key).
+
 The action vocabulary is BLOCK_NEW_LONGS, REDUCE_SIZE and NO_EFFECT only. No
 module here imports execution, risk, strategy, broker or exchange code, reads
 exchange or demo-account state, or reaches an order path; nothing in the

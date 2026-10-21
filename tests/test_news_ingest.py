@@ -261,3 +261,26 @@ def test_news_package_never_imports_trading_modules():
             if name == "anthropic" and module.name == "classifier":
                 continue  # Sprint 4a: the classifier is the one module allowed the SDK (tests/test_news_boundaries.py)
             assert f"import {name}" not in text and f"from {name}" not in text, (module.name, name)
+
+
+def test_parse_rss_never_opens_or_fetches_a_body_that_looks_like_a_path_or_url(tmp_path: Path, monkeypatch):
+    planted = tmp_path / "planted.xml"
+    planted.write_text(RSS, encoding="utf-8")  # a valid feed: opening it would yield items
+    assert len(parse_rss(planted.read_text(encoding="utf-8"), src(), NOW)) == 2
+    assert parse_rss(str(planted), src(), NOW) == []  # the path is data, the file is not read
+    import urllib.request
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("feedparser tried to fetch a URL given as the feed body")
+
+    monkeypatch.setattr(urllib.request, "urlopen", refuse)
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", refuse)
+    assert parse_rss("http://169.254.169.254/latest/meta-data/", src(), NOW) == []
+
+
+def test_parse_rss_keeps_non_ascii_text_whatever_the_declared_encoding():
+    latin = (
+        '<?xml version="1.0" encoding="ISO-8859-1"?><rss version="2.0"><channel><title>t</title>'
+        "<item><title>Caf\u00e9 \u20ac \u201cq\u201d</title><link>https://a.example/x</link></item></channel></rss>"
+    )
+    assert parse_rss(latin, src(), NOW)[0].title == "Caf\u00e9 \u20ac \u201cq\u201d"

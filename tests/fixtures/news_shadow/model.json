@@ -1,0 +1,124 @@
+{
+  "_comment": "Scripted offline answers for the dry run. A rule matches when its 'match' text appears in an item's sanitized title; the first matching rule wins. 'independent' is 'all', 'first' (the earliest item) or a list of title fragments; 'link_to' names the summary of an existing event candidate to link to. Usage numbers are typical token counts so the spend guard is exercised.",
+  "usage": {
+    "triage": {"input_tokens": 420, "output_tokens": 160, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0},
+    "classify": {"input_tokens": 2600, "output_tokens": 1400, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 2100}
+  },
+  "triage": [
+    {"match": "SEC Charges Meridex", "relevant": true, "category": "MAJOR_REGULATORY_ACTION", "reason": "An SEC enforcement action against a crypto exchange operator."},
+    {"match": "SEC sues Meridex", "relevant": true, "category": "MAJOR_REGULATORY_ACTION", "reason": "Reported SEC lawsuit against a crypto exchange operator."},
+    {"match": "Meridex", "relevant": true, "category": "EXCHANGE_HACK_EXPLOIT", "reason": "Reported exchange wallet breach."},
+    {"match": "Kryvex", "relevant": true, "category": "EXCHANGE_HACK_EXPLOIT", "reason": "Claimed exchange withdrawal freeze."}
+  ],
+  "triage_default": {"relevant": false, "category": "NONE", "reason": "Not about a watchlist category."},
+  "classify": [
+    {
+      "match": "SEC Charges Meridex",
+      "independent": "all",
+      "link_to": "Reuters reports that the Meridex exchange's hot wallet was breached and about $310 million drained.",
+      "verdict": {
+        "category": "MAJOR_REGULATORY_ACTION",
+        "assets": ["BTC", "ETH"],
+        "claim_summary": "The SEC charged the operator of the Meridex exchange with misusing customer assets.",
+        "manipulation_signs": [],
+        "corroboration_assessment": "SINGLE_SOURCE",
+        "hedging_uncertainty": 0.05,
+        "direction": "RISK_OFF",
+        "expected_market_reaction": "DOWN_OR_VOLATILE",
+        "impact_strength": 0.9,
+        "volatility_risk": 0.85,
+        "time_horizon_minutes": 1440,
+        "confidence": 0.95,
+        "new_development": true,
+        "why_not_more_aggressive": "One official source so far; the single-source rule keeps it at no effect until another source confirms.",
+        "proposed_action": "NO_EFFECT"
+      }
+    },
+    {
+      "match": "SEC sues Meridex",
+      "independent": "all",
+      "link_to": "The SEC charged the operator of the Meridex exchange with misusing customer assets.",
+      "verdict": {
+        "category": "MAJOR_REGULATORY_ACTION",
+        "assets": ["BTC", "ETH"],
+        "claim_summary": "A second outlet independently reports the SEC action against the Meridex exchange operator.",
+        "manipulation_signs": [],
+        "corroboration_assessment": "INDEPENDENT_SOURCE_CONFIRMED",
+        "hedging_uncertainty": 0.05,
+        "direction": "RISK_OFF",
+        "expected_market_reaction": "DOWN_OR_VOLATILE",
+        "impact_strength": 0.9,
+        "volatility_risk": 0.85,
+        "time_horizon_minutes": 1440,
+        "confidence": 0.95,
+        "new_development": false,
+        "why_not_more_aggressive": "Blocking new longs is already the most restrictive action available.",
+        "proposed_action": "BLOCK_NEW_LONGS"
+      }
+    },
+    {
+      "match": "Meridex pauses withdrawals",
+      "independent": "all",
+      "link_to": "Reuters reports that the Meridex exchange's hot wallet was breached and about $310 million drained.",
+      "verdict": {
+        "category": "EXCHANGE_HACK_EXPLOIT",
+        "assets": ["BTC", "ETH"],
+        "claim_summary": "The Meridex exchange confirmed a security incident and paused withdrawals.",
+        "manipulation_signs": [],
+        "corroboration_assessment": "INDEPENDENT_SOURCE_CONFIRMED",
+        "hedging_uncertainty": 0.1,
+        "direction": "RISK_OFF",
+        "expected_market_reaction": "DOWN_OR_VOLATILE",
+        "impact_strength": 0.9,
+        "volatility_risk": 0.9,
+        "time_horizon_minutes": 360,
+        "confidence": 0.9,
+        "new_development": false,
+        "why_not_more_aggressive": "Blocking new longs is already the most restrictive action available.",
+        "proposed_action": "BLOCK_NEW_LONGS"
+      }
+    },
+    {
+      "match": "Meridex exchange says hot wallet",
+      "independent": "first",
+      "verdict": {
+        "category": "EXCHANGE_HACK_EXPLOIT",
+        "assets": ["BTC", "ETH"],
+        "claim_summary": "Reuters reports that the Meridex exchange's hot wallet was breached and about $310 million drained.",
+        "manipulation_signs": ["COPIED_WIRE_STORY"],
+        "corroboration_assessment": "SINGLE_SOURCE",
+        "hedging_uncertainty": 0.2,
+        "direction": "RISK_OFF",
+        "expected_market_reaction": "DOWN_OR_VOLATILE",
+        "impact_strength": 0.9,
+        "volatility_risk": 0.9,
+        "time_horizon_minutes": 360,
+        "confidence": 0.85,
+        "new_development": false,
+        "why_not_more_aggressive": "Three articles but one wire story: single source, so no effect yet.",
+        "proposed_action": "NO_EFFECT"
+      }
+    },
+    {
+      "match": "Kryvex",
+      "independent": "all",
+      "verdict": {
+        "category": "EXCHANGE_HACK_EXPLOIT",
+        "assets": ["BTC", "ETH"],
+        "claim_summary": "An unverified social-media post claims the Kryvex exchange froze withdrawals.",
+        "manipulation_signs": ["UNVERIFIED_RUMOR", "SINGLE_SOCIAL_POST"],
+        "corroboration_assessment": "SINGLE_SOURCE",
+        "hedging_uncertainty": 0.8,
+        "direction": "RISK_OFF",
+        "expected_market_reaction": "DOWN_OR_VOLATILE",
+        "impact_strength": 0.4,
+        "volatility_risk": 0.5,
+        "time_horizon_minutes": 120,
+        "confidence": 0.3,
+        "new_development": false,
+        "why_not_more_aggressive": "A single unverified post is no effect.",
+        "proposed_action": "NO_EFFECT"
+      }
+    }
+  ]
+}

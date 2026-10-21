@@ -7,6 +7,7 @@ is passed in the request body by ``sources.newsapi_request`` and never logged.
 
 from __future__ import annotations
 
+import io
 import json
 import time
 from calendar import timegm
@@ -69,7 +70,13 @@ def _struct_to_datetime(struct) -> Optional[datetime]:
 
 
 def parse_rss(text: str, source: Source, observed_at: datetime) -> List[RawItem]:
-    parsed = feedparser.parse(text)
+    # Always hand feedparser a stream: given a plain string that looks like a URL
+    # or a file path, it would fetch that URL or open that local file, so a
+    # tampered feed body could make the host read files or call internal addresses.
+    parsed = feedparser.parse(
+        io.BytesIO((text or "").encode("utf-8")),
+        response_headers={"content-type": "application/rss+xml; charset=utf-8"},
+    )
     items: List[RawItem] = []
     for entry in parsed.get("entries", []):
         title = str(entry.get("title") or "").strip()

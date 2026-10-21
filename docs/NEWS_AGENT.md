@@ -1,7 +1,8 @@
 # The news agent, in plain words
 
-Status (October 20, 2026): built and tested offline; **not yet run against the real
-AI model** and not yet running anywhere. Phase 6b is authorized for **log-only**
+Status (October 21, 2026): built and tested offline, including the 30-day test runner
+("news shadow", below); **not yet run against the real AI model** and not yet running
+anywhere. Phase 6b is authorized for **log-only**
 operation (owner, June 30, 2026, GitHub issue #12; reconfirmed October 20, 2026).
 Using news to change what the demo or a live system trades is **not** authorized.
 
@@ -143,6 +144,38 @@ have saved money, or that it is ready to influence trading. That evidence can on
 come from the 30-day forward shadow (design section 11), and any use of news to
 gate trades needs a separate decision from you.
 
+## The news shadow: the 30-day test run
+
+The news shadow is the agent running for real, next to the Phase 6a demo run on the
+VPS, but writing everything down instead of acting. Every 5 minutes it reads the news
+sources, cleans them, asks the AI, applies the fixed rules, and keeps a list of live
+events. Whenever the Phase 6a run decides about a new long position, the shadow writes
+down what the news layer **would** have done at that moment: nothing, reduce, or block.
+It only uses what it knew at that moment, so hindsight cannot make it look better.
+
+- **What it can do now that it could not before:** run on its own as a service for
+  weeks, survive restarts, cap its own AI spending, and write a daily report you can
+  read: what it saw, what it believed, what it would have blocked or reduced, the price
+  6 hours later, a list of cases worth a human look, and eight safety checks that must
+  all show 0.
+- **Offline rehearsal:** `python scripts/run_news_shadow.py --dry-run` replays four
+  invented hours of news (a rumor, a hack confirmed by two outlets while the market
+  falls, an SEC action, a hidden-instruction headline) against an invented Phase 6a
+  journal, with no internet and no key, and checks every result.
+- **Money:** it stops calling the AI at a monthly cap you choose (default $40), and no
+  single day may use more than twice its even share of what is left. The console limit
+  on the key is the backstop.
+- **Safety:** it has no trading keys and cannot place or change anything. When anything
+  fails, the answer is "no effect", never "block". Stopping it changes nothing in
+  trading.
+- **How to start it:** `docs/runbooks/NEWS_SHADOW.md` (plan step G5). Run the eval once
+  with the same key first.
+
+What the 30 days are for (design section 11): at least 20 confirmed events, at least 10
+moments where a real Phase 6a entry decision met a live news event, and zero
+violations of the safety checks. Even then, using news to gate trades needs your
+separate decision.
+
 ## Known gaps found while building the eval
 
 - **A wire credit the rules miss.** The rules recognize copies credited to
@@ -150,16 +183,18 @@ gate trades needs a separate decision from you.
   capitals (nor "Agence France-Presse"). Such copies look like independent sources,
   and only the AI's judgment collapses them (test story
   `syn-ap-attribution-capitalized`). It is a two-line fix in
-  `app/news/corroborate.py`, outside this step (which only adds the eval); it is
-  proposed for the next news step, see "What you need to decide".
-- **A weak repeat can switch off a live event.** When a story already in effect is
-  repeated, the rules replace its evidence with the new articles' evidence alone.
-  If only one credible outlet repeats it, the event drops to "single source" and
-  stops having an effect, so someone could switch off a real warning by
-  republishing it on one site. The fix belongs where the news shadow (R4c) collects
-  a story's articles: judge the evidence over all of them. It is proposed for R4c,
-  see "What you need to decide". The test story `link-repeat-active` uses two
-  independent outlets, so it measures the AI, not this gap.
+  `app/news/corroborate.py`. It was not part of the eval step or the news shadow
+  step, and is still waiting for your go, see "What you need to decide".
+- **A weak repeat could switch off a live event — closed in the news shadow.** The
+  rules for a repeated story used to judge the evidence on the new articles alone, so
+  one outlet repeating a confirmed story made it "single source" again. The news
+  shadow (R4c) collects every article of a story and judges the evidence over all of
+  them, as the design asks (one story is one event, counted by its independent
+  sources), so a repeat can add evidence but never erase it. The rule module itself
+  is unchanged; the test `test_a_weak_repeat_cannot_switch_off_a_live_event` covers
+  it. A repeat can still weaken an event when the AI, seeing the repeat, proposes a
+  milder answer: the rules let later information only soften an effect, never sharpen
+  it without new evidence. The eval's story-linking cases measure that part.
 - **Where only the AI's judgment protects.** The same rumor rewritten by several
   small sites, satire rewritten as news, and old news with a fresh date all look
   like separate sources to the rules, because GDELT rates every outlet the same
@@ -198,8 +233,13 @@ gate trades needs a separate decision from you.
   Anthropic API key from step G5 and costs about $4–10 per run.
   Recommendation: yes. Run it once before starting the shadow and after every
   prompt or model change, and treat a FAIL as a reason not to start.
-- **Fix the wire-credit gap and the weak-repeat gap in the next news step (R4c).**
-  Recommendation: yes; both only make the news log more faithful, and it stays
-  log-only either way.
+- **Fix the wire-credit gap** (the weak-repeat gap is closed in the news shadow).
+  Recommendation: yes, before the 30 days start; it only makes the news log more
+  faithful, and it stays log-only either way.
+- **The news shadow's monthly AI budget** (default $40, with a $50 limit on the key's
+  workspace in the Anthropic console). Recommendation: keep $40 for the first month
+  and look at the report's spend line after a week.
+- **Start the 30-day news shadow on the VPS** (step G5, `docs/runbooks/NEWS_SHADOW.md`).
+  Recommendation: yes, after the wire-credit fix and one eval run.
 - Still open from Sprint 4a: which news outlets count as HIGH quality
   (see `docs/PLAN_STATUS.md` section 2).

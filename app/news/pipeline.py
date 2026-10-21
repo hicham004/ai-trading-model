@@ -27,6 +27,11 @@ class IngestSummary:
     items_duplicate: int = 0
     items_quarantined: int = 0
     errors: List[str] = field(default_factory=list)
+    # The cycle's new sanitized records and fetch-log entries, for callers that
+    # process them further (the news shadow); not part of ``line()``.
+    records: List[dict] = field(default_factory=list)
+    quarantined: List[dict] = field(default_factory=list)
+    fetches: List[dict] = field(default_factory=list)
 
     def line(self) -> str:
         return (
@@ -54,6 +59,7 @@ def run_once(
     for source in sources:
         summary.sources_attempted += 1
         result = fetcher.fetch(source)
+        summary.fetches.append(result.log_entry())
         if not dry_run:
             store.log_fetch(result.log_entry(), when=now)
         if result.status == "skipped":
@@ -85,5 +91,7 @@ def run_once(
         store.append_records(quarantined, quarantine=True)
         seen.prune(now)
         seen.save()
+    summary.records = new_records
+    summary.quarantined = quarantined
     logger.info("news ingestion cycle finished", extra={"summary": summary.line()})
     return summary

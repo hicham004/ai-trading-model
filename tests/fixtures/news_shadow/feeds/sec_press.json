@@ -1,0 +1,28 @@
+{
+  "kind": "rss",
+  "channel": {
+    "title": "SEC Press Releases (fixture)",
+    "link": "https://www.sec.gov/news/pressreleases",
+    "description": "Fixture feed in the shape of the SEC press-release RSS. Invented items."
+  },
+  "items": [
+    {
+      "title": "SEC Charges Investment Adviser for Misleading Performance Advertising",
+      "link": "https://www.sec.gov/newsroom/press-releases/fixture-2026-151",
+      "published": "2026-10-14T14:30:00Z",
+      "description": "Fixture: an unrelated enforcement action published days before the run (stale backlog)."
+    },
+    {
+      "title": "SEC Announces Agenda for Small Business Capital Formation Forum",
+      "link": "https://www.sec.gov/newsroom/press-releases/fixture-2026-152",
+      "published": "2026-10-15T15:00:00Z",
+      "description": "Fixture: an unrelated announcement published days before the run (stale backlog)."
+    },
+    {
+      "title": "SEC Charges Meridex Exchange Operator With Misappropriating Customer Assets",
+      "link": "https://www.sec.gov/newsroom/press-releases/fixture-2026-160",
+      "published": "2026-10-19T11:08:00Z",
+      "description": "Fixture: the Commission charged the operator of the fictional Meridex crypto asset trading platform with misusing customer funds after a reported security breach."
+    }
+  ]
+}

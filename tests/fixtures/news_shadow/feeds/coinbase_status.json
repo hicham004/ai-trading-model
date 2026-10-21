@@ -1,0 +1,16 @@
+{
+  "kind": "rss",
+  "channel": {
+    "title": "Status page history (fixture)",
+    "link": "https://status.coinbase.com/history",
+    "description": "Fixture feed in the shape of a status-page incident history. Invented items."
+  },
+  "items": [
+    {
+      "title": "Resolved - Delayed fixture-network withdrawals",
+      "link": "https://status.coinbase.com/incidents/fixture-incident-1",
+      "published": "2026-10-17T02:10:00Z",
+      "description": "Fixture: a resolved incident from two days before the run (stale backlog)."
+    }
+  ]
+}

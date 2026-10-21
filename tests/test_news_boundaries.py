@@ -79,6 +79,42 @@ def test_news_sources_never_mention_authenticated_exchange_access():
             assert marker.lower() not in text.lower(), f"app/news/{path.name} mentions {marker}"
 
 
+def test_the_news_shadow_script_stays_outside_the_trading_side():
+    script = ROOT / "scripts" / "run_news_shadow.py"
+    for name, line in _imports(script):
+        assert not _under(name, TRADING_PACKAGES), f"scripts/run_news_shadow.py:{line} imports {name}"
+        assert not _under(name, ("dotenv",) + LLM_SDKS), f"scripts/run_news_shadow.py:{line} imports {name}"
+    text = script.read_text(encoding="utf-8")
+    for marker in AUTH_MARKERS + ("load_dotenv", "run_demo_trading", "run_shadow_period"):
+        assert marker.lower() not in text.lower(), f"scripts/run_news_shadow.py mentions {marker}"
+
+
+def test_the_news_shadow_unit_is_log_only_and_confined():
+    unit = (ROOT / "deploy" / "systemd" / "news-shadow.service").read_text(encoding="utf-8")
+    lines = {line.split("=", 1)[0]: line.split("=", 1)[1] for line in unit.splitlines() if "=" in line and not line.startswith("#")}
+    assert lines["ExecStart"].endswith("scripts/run_news_shadow.py --loop")
+    assert lines["EnvironmentFile"] == "/etc/ai-trading/news-shadow.env"  # its own file, never the repository .env
+    assert lines["NoNewPrivileges"] == "yes" and lines["ProtectSystem"] == "strict" and lines["CapabilityBoundingSet"] == ""
+    assert sorted(lines["ReadWritePaths"].split()) == [
+        "/path/to/ai-trading-model/data/news",
+        "/path/to/ai-trading-model/logs/news_shadow",
+    ]
+    assert lines["RestartPreventExitStatus"] == "2" and lines["User"] != "root"
+    assert "MemoryMax" in lines and "CPUQuota" in lines
+    assert set(lines["InaccessiblePaths"].split()) >= {"-/path/to/ai-trading-model/.env", "-/run/postgresql"}
+    body = "\n".join(line for line in unit.splitlines() if not line.startswith("#") and not line.startswith("InaccessiblePaths="))
+    for forbidden in ("shadow.service", "run_demo_trading", "run_shadow_period", "OKX_", "sk-ant", "/.env"):
+        assert forbidden not in body, f"the news shadow unit mentions {forbidden}"
+
+
+def test_the_news_shadow_env_example_holds_no_secret_and_no_okx_setting():
+    example = (ROOT / "deploy" / "systemd" / "news-shadow.env.example").read_text(encoding="utf-8")
+    settings = dict(line.split("=", 1) for line in example.splitlines() if "=" in line and not line.startswith("#"))
+    assert settings["ANTHROPIC_API_KEY"] == ""
+    assert not [k for k in settings if k.startswith("OKX") or "SECRET" in k or "PASSPHRASE" in k]
+    assert "sk-ant" not in example
+
+
 def test_nothing_on_the_trading_side_imports_the_news_agent():
     trading_dirs = [ROOT / "app" / p.split(".")[1] for p in TRADING_PACKAGES if (ROOT / "app" / p.split(".")[1]).is_dir()]
     files = [f for d in trading_dirs for f in d.rglob("*.py")]
