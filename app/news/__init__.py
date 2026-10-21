@@ -17,6 +17,11 @@ Agent core (Sprint 4a, design 4-7, 9, 13):
 - ``overlay``     a pure function that can only block or shrink a NEW long entry;
 - ``store``       append-only JSONL event and decision logs (``logs/news_shadow``).
 
+Eval (Sprint 4b, design 15): ``evaluation`` runs the labeled synthetic stories in
+``tests/fixtures/news_eval`` through the same path and scores schema validity,
+prohibited actions, single-source effects and accuracy
+(``scripts/eval_news_classifier.py``; the model is called only with a key).
+
 The action vocabulary is BLOCK_NEW_LONGS, REDUCE_SIZE and NO_EFFECT only. No
 module here imports execution, risk, strategy, broker or exchange code, reads
 exchange or demo-account state, or reaches an order path; nothing in the

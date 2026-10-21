@@ -1,0 +1,82 @@
+{
+  "kind": "speculative",
+  "description": "Forecasts, warnings, proposals, odds and opinion: well-reported talk about what might happen, not something that happened. v1 reacts to observed events only (pre-release risk windows are an open design question), so the answer is NO_EFFECT.",
+  "cases": [
+    {
+      "id": "spec-analysts-fed-could-hike",
+      "summary": "Analysts warn the Fed could hike next year.",
+      "now": "2026-11-06T14:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-18m", "observed": "-15m", "title": "Analysts warn Fed could raise rates again next year if inflation persists"},
+        {"key": "b", "publisher": "bloomberg.com", "published": "-13m", "observed": "-10m", "title": "Economists see rising odds of a Fed hike in 2027"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "FED_FOMC_RATES", "category_accept": ["NONE"], "single_source": false},
+      "why": "Forecasts, not a decision."
+    },
+    {
+      "id": "spec-trader-crash-call",
+      "summary": "A trader predicts a bitcoin crash.",
+      "now": "2026-11-12T11:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "cnbc.com", "published": "-17m", "observed": "-14m", "title": "Veteran trader says bitcoin could crash 50% within months"},
+        {"key": "b", "publisher": "fxstreet.com", "published": "-12m", "observed": "-9m", "title": "Bitcoin price prediction: analyst warns of a deep correction"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "NONE", "category_accept": ["LIQUIDATION_CASCADE"], "single_source": false},
+      "why": "A price prediction is opinion, not an event."
+    },
+    {
+      "id": "spec-mining-ban-bill",
+      "summary": "Senators introduce a bill unlikely to pass.",
+      "now": "2026-11-18T22:05:00Z",
+      "items": [
+        {"key": "a", "publisher": "politico.com", "published": "-16m", "observed": "-13m", "title": "Senators introduce bill to ban proof-of-work mining in the US"},
+        {"key": "b", "publisher": "coindesk.com", "published": "-11m", "observed": "-8m", "title": "Proposed Senate bill targets bitcoin mining; passage seen as unlikely"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "category_accept": ["NONE"], "single_source": false},
+      "why": "A proposal with low odds is not an action."
+    },
+    {
+      "id": "spec-prediction-market-odds",
+      "summary": "Prediction-market odds of a conflict rise.",
+      "now": "2026-11-25T05:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "axios.com", "published": "-15m", "observed": "-12m", "title": "Prediction market odds of a Gulf conflict rise to 35%"},
+        {"key": "b", "publisher": "coindesk.com", "published": "-10m", "observed": "-7m", "title": "Polymarket traders bet on Middle East escalation"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "GEOPOLITICAL_ESCALATION", "category_accept": ["NONE"], "single_source": false},
+      "why": "Odds of a conflict are not a conflict; prediction-market signals are out of scope for v1."
+    },
+    {
+      "id": "spec-cpi-preview",
+      "summary": "Economists expect a hot CPI print tomorrow.",
+      "now": "2026-12-09T21:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-17m", "observed": "-14m", "title": "Economists expect a hotter November CPI print on Thursday"},
+        {"key": "b", "publisher": "marketwatch.com", "published": "-12m", "observed": "-9m", "title": "What to watch in this week's CPI report"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MACRO_CPI_PPI_JOBS", "category_accept": ["NONE"], "single_source": false},
+      "why": "A preview of a release that has not happened; v1 reacts only after the release."
+    },
+    {
+      "id": "spec-opinion-sec",
+      "summary": "An opinion column predicts a crackdown.",
+      "now": "2026-12-14T13:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "coindesk.com", "published": "-14m", "observed": "-11m", "title": "Opinion: The SEC is about to crush crypto again"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "NONE", "category_accept": ["MAJOR_REGULATORY_ACTION", "ETF_SEC_DECISION"], "single_source": true},
+      "why": "An opinion column, from one source."
+    },
+    {
+      "id": "spec-sec-weighing-rules",
+      "summary": "The SEC is drafting custody rules with no timeline.",
+      "now": "2026-12-17T15:05:00Z",
+      "items": [
+        {"key": "a", "publisher": "wsj.com", "published": "-16m", "observed": "-13m", "title": "SEC weighing new custody rules for crypto that could take months to finalize"},
+        {"key": "b", "publisher": "theblock.co", "published": "-11m", "observed": "-8m", "title": "SEC staff drafting crypto custody proposal, no timeline set"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "category_accept": ["NONE"], "single_source": false},
+      "why": "Early drafting with no date: no short-term risk."
+    }
+  ]
+}

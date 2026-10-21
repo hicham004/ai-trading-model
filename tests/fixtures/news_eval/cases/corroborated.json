@@ -1,0 +1,306 @@
+{
+  "kind": "corroborated",
+  "description": "Real-looking risk-off events reported by at least two independent credible sources (or an official source plus independent reporting). A careful classifier ends with a restriction: REDUCE_SIZE or BLOCK_NEW_LONGS. With today's tiers every GDELT outlet is MEDIUM (weight 0.65), so decayed severity tops out in REDUCE_SIZE unless an official source is among the independent families.",
+  "cases": [
+    {
+      "id": "corr-hack-kryvex",
+      "summary": "Exchange hot-wallet breach reported by a wire and two crypto newsrooms.",
+      "now": "2026-11-03T09:30:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-16m", "observed": "-13m", "title": "Crypto exchange Kryvex halts withdrawals after $1.2 billion hot-wallet breach"},
+        {"key": "b", "publisher": "coindesk.com", "published": "-12m", "observed": "-9m", "title": "Kryvex confirms hack, says about $1.2B in bitcoin and ether drained from hot wallets"},
+        {"key": "c", "publisher": "theblock.co", "published": "-10m", "observed": "-7m", "title": "On-chain data shows stolen Kryvex funds moving through mixers"}
+      ],
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "EXCHANGE_HACK_EXPLOIT", "assets": ["BTC", "ETH"], "single_source": false},
+      "why": "Three independent outlets with their own headlines and reporting (a wire plus two crypto newsrooms) confirm a large exchange hack. All are MEDIUM tier, so the effect is a size reduction; a block is also acceptable."
+    },
+    {
+      "id": "corr-hack-meridex",
+      "summary": "Large exchange hack confirmed by two outlets while the market sells off on heavy volume.",
+      "now": "2026-11-05T14:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "bloomberg.com", "published": "-18m", "observed": "-15m", "title": "Hackers steal $680 million from Singapore-based exchange Meridex"},
+        {"key": "b", "publisher": "decrypt.co", "published": "-14m", "observed": "-11m", "title": "Meridex exploit: attacker drains ETH and stablecoins, deposits suspended"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "EXCHANGE_HACK_EXPLOIT", "single_source": false},
+      "why": "Two independent sources and a confirming selloff (about -0.8 % on 3x volume in the first 15 minutes)."
+    },
+    {
+      "id": "corr-hack-northgate",
+      "summary": "Exchange key compromise reported by three independent outlets.",
+      "now": "2026-11-09T22:45:00Z",
+      "items": [
+        {"key": "a", "publisher": "wsj.com", "published": "-20m", "observed": "-17m", "title": "Crypto exchange Northgate freezes withdrawals after suspected private-key compromise"},
+        {"key": "b", "publisher": "cnbc.com", "published": "-15m", "observed": "-12m", "title": "Northgate Digital says attackers accessed signing keys; users told not to deposit"},
+        {"key": "c", "publisher": "dlnews.com", "published": "-9m", "observed": "-6m", "title": "Northgate's hot wallets emptied in 40 minutes, blockchain sleuths say"}
+      ],
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "EXCHANGE_HACK_EXPLOIT", "single_source": false},
+      "why": "Three independent newsrooms, each with its own reporting, confirm the compromise."
+    },
+    {
+      "id": "corr-incident-eth-finality",
+      "summary": "Ethereum stops finalizing after a client bug; ETH sells off.",
+      "now": "2026-11-11T03:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "coindesk.com", "published": "-22m", "observed": "-19m", "title": "Ethereum blocks stop finalizing for over an hour after client bug"},
+        {"key": "b", "publisher": "theblock.co", "published": "-17m", "observed": "-14m", "title": "Ethereum finality stalls as consensus-client bug hits validators"},
+        {"key": "c", "publisher": "decrypt.co", "published": "-11m", "observed": "-8m", "title": "Ethereum developers rush out patch after network fails to finalize"}
+      ],
+      "market": {"ETH-USDT": "selloff"},
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "assets": ["ETH"], "single_source": false},
+      "why": "A protocol-critical bug on Ethereum confirmed by three outlets; the risk is to ETH, not BTC."
+    },
+    {
+      "id": "corr-incident-arvd-depeg",
+      "summary": "A large stablecoin breaks its peg; two outlets and a selloff.",
+      "now": "2026-11-13T16:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "coindesk.com", "published": "-19m", "observed": "-16m", "title": "Stablecoin ARVD slips to 91 cents as issuer Arvelle pauses redemptions"},
+        {"key": "b", "publisher": "bloomberg.com", "published": "-14m", "observed": "-11m", "title": "Third-largest stablecoin ARVD breaks its dollar peg, redemptions halted"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "single_source": false},
+      "why": "A stablecoin depeg is a listed protocol incident; two independent sources and the market confirm it."
+    },
+    {
+      "id": "corr-incident-coinbase-halt",
+      "summary": "Coinbase status page reports a trading halt; a news outlet independently reports it.",
+      "now": "2026-11-17T15:20:00Z",
+      "items": [
+        {"key": "a", "source": "coinbase_status", "url": "https://status.coinbase.com/incidents/9k2x7q4m1v", "published": "-14m", "observed": "-12m", "title": "Trading halted on all order books", "excerpt": "We are investigating an issue affecting order matching. Trading is halted on all order books while we investigate. Customer funds are safe."},
+        {"key": "b", "publisher": "cnbc.com", "published": "-9m", "observed": "-7m", "title": "Coinbase halts trading on all markets, citing order-matching issue"}
+      ],
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "single_source": false},
+      "why": "Official primary source plus independent reporting qualifies. A halt at a major venue is a volatility risk for new longs; funds are not at risk, so a reduction is the ideal answer and a block is acceptable."
+    },
+    {
+      "id": "corr-geo-hormuz",
+      "summary": "Missile strikes on tankers near the Strait of Hormuz; markets sell off.",
+      "now": "2026-11-19T07:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-21m", "observed": "-18m", "title": "Missiles strike tankers near Strait of Hormuz; oil jumps 9%"},
+        {"key": "b", "publisher": "apnews.com", "published": "-16m", "observed": "-13m", "title": "US Navy says commercial ships attacked in Gulf; Iran-backed group claims strike"},
+        {"key": "c", "publisher": "aljazeera.com", "published": "-12m", "observed": "-9m", "title": "Shipping halted in Strait of Hormuz after attacks on vessels"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "GEOPOLITICAL_ESCALATION", "single_source": false},
+      "why": "Two wires and a third independent outlet confirm an escalation; the market confirms the risk-off move."
+    },
+    {
+      "id": "corr-geo-nato",
+      "summary": "Missile strike near a NATO border; emergency consultations.",
+      "now": "2026-11-23T20:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-19m", "observed": "-16m", "title": "NATO allies invoke Article 4 after missile strike near Polish border town"},
+        {"key": "b", "publisher": "bbc.co.uk", "published": "-13m", "observed": "-10m", "title": "Poland says missile hit farm near Ukraine border, calls emergency NATO talks"}
+      ],
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "GEOPOLITICAL_ESCALATION", "single_source": false},
+      "why": "A major military incident confirmed by two independent outlets; the market has not reacted yet, which the rules do not require when two sources agree."
+    },
+    {
+      "id": "corr-geo-taiwan",
+      "summary": "Blockade drills around Taiwan reported by three outlets.",
+      "now": "2026-11-26T01:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-18m", "observed": "-15m", "title": "China announces live-fire blockade drills around Taiwan, ships told to avoid area"},
+        {"key": "b", "publisher": "ft.com", "published": "-12m", "observed": "-9m", "title": "Beijing launches large-scale military exercises encircling Taiwan"},
+        {"key": "c", "publisher": "scmp.com", "published": "-8m", "observed": "-5m", "title": "Taiwan raises alert level as Chinese warships surround island"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "GEOPOLITICAL_ESCALATION", "single_source": false},
+      "why": "A shipping and military shock confirmed by three independent outlets and a selloff."
+    },
+    {
+      "id": "corr-reg-altora-sec",
+      "summary": "SEC emergency action freezes assets of a large exchange; a newspaper reports it.",
+      "now": "2026-11-24T18:35:00Z",
+      "items": [
+        {"key": "a", "source": "sec_press", "url": "https://www.sec.gov/newsroom/press-releases/2026-188", "published": "-17m", "observed": "-14m", "title": "SEC Charges Altora Global and Its Founder With Operating an Unregistered Crypto Exchange and Misusing Customer Assets", "excerpt": "The Securities and Exchange Commission today filed an emergency action and obtained a temporary restraining order freezing the assets of Altora Global, one of the largest crypto asset trading platforms by volume."},
+        {"key": "b", "publisher": "wsj.com", "published": "-8m", "observed": "-5m", "title": "SEC wins emergency asset freeze against crypto exchange Altora"}
+      ],
+      "expect": {"action": "BLOCK_NEW_LONGS", "accept": ["REDUCE_SIZE"], "category": "MAJOR_REGULATORY_ACTION", "category_accept": ["ETF_SEC_DECISION"], "single_source": false},
+      "why": "An official primary source plus independent reporting: an asset freeze at one of the largest venues is a strong risk-off event. OFFICIAL weight allows a block."
+    },
+    {
+      "id": "corr-reg-doj-zanthor",
+      "summary": "Prosecutors charge a large exchange and its founders; accounts frozen.",
+      "now": "2026-12-01T13:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-16m", "observed": "-13m", "title": "US charges crypto exchange Zanthor and top executives with fraud; accounts frozen"},
+        {"key": "b", "publisher": "bloomberg.com", "published": "-11m", "observed": "-8m", "title": "Zanthor founders arrested in New York as prosecutors unseal indictment"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "MAJOR_REGULATORY_ACTION", "single_source": false},
+      "why": "Two independent wires confirm a major enforcement action; the market sells off."
+    },
+    {
+      "id": "corr-reg-korea-fiat",
+      "summary": "A large jurisdiction cuts bank transfers to crypto exchanges.",
+      "now": "2026-12-03T05:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-20m", "observed": "-17m", "title": "South Korea orders banks to suspend fiat transfers to crypto exchanges"},
+        {"key": "b", "publisher": "theblock.co", "published": "-14m", "observed": "-11m", "title": "Korean regulators freeze won on-ramps to exchanges pending review"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "MAJOR_REGULATORY_ACTION", "single_source": false},
+      "why": "A large-jurisdiction restriction confirmed by two independent outlets and a selloff."
+    },
+    {
+      "id": "corr-etf-sec-suspension",
+      "summary": "SEC suspends trading in a spot bitcoin ETF; a wire reports it.",
+      "now": "2026-12-02T15:20:00Z",
+      "items": [
+        {"key": "a", "source": "sec_press", "url": "https://www.sec.gov/newsroom/press-releases/2026-201", "published": "-15m", "observed": "-12m", "title": "SEC Suspends Trading in Halvorsen Bitcoin Trust Shares Over Pricing Irregularities", "excerpt": "The Commission today issued an order suspending trading in shares of the Halvorsen Bitcoin Trust for ten days, citing questions about the accuracy of the trust's reported holdings."},
+        {"key": "b", "publisher": "reuters.com", "published": "-9m", "observed": "-6m", "title": "SEC halts trading in spot bitcoin ETF over holdings questions"}
+      ],
+      "expect": {"action": "BLOCK_NEW_LONGS", "accept": ["REDUCE_SIZE"], "category": "ETF_SEC_DECISION", "assets": ["BTC"], "single_source": false},
+      "why": "Official SEC order plus independent wire reporting; a spot-ETF suspension hits BTC market structure directly."
+    },
+    {
+      "id": "corr-etf-court-vacates",
+      "summary": "A court vacates the approval of spot ether ETFs; ETH sells off.",
+      "now": "2026-12-07T21:05:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-18m", "observed": "-15m", "title": "Appeals court vacates SEC approval of spot ether ETFs, orders creations halted"},
+        {"key": "b", "publisher": "coindesk.com", "published": "-12m", "observed": "-9m", "title": "Court ruling forces spot ether ETFs to stop issuing new shares"}
+      ],
+      "market": {"ETH-USDT": "selloff"},
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "ETF_SEC_DECISION", "category_accept": ["MAJOR_REGULATORY_ACTION"], "assets": ["ETH"], "single_source": false},
+      "why": "Two independent sources on an ETF-structure shock that affects ETH; without an official source the ETF TTL stays at its 4-hour minimum."
+    },
+    {
+      "id": "corr-fed-surprise-hike",
+      "summary": "FOMC statement announces a surprise half-point hike; a broadcaster reports it.",
+      "now": "2026-12-09T19:16:00Z",
+      "items": [
+        {"key": "a", "source": "fed_press_monetary", "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261209a.htm", "published": "-16m", "observed": "-14m", "title": "Federal Reserve issues FOMC statement", "excerpt": "In support of its goals, the Committee decided to raise the target range for the federal funds rate by 1/2 percentage point, citing a renewed rise in inflation."},
+        {"key": "b", "publisher": "cnbc.com", "published": "-10m", "observed": "-8m", "title": "Fed unexpectedly raises rates by half a point; stocks and bitcoin slide"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "BLOCK_NEW_LONGS", "accept": ["REDUCE_SIZE"], "category": "FED_FOMC_RATES", "single_source": false},
+      "why": "The official statement plus independent reporting of a surprise hike, with a confirming selloff."
+    },
+    {
+      "id": "corr-fed-hawkish-turn",
+      "summary": "Fed chair signals renewed hikes; two wires report it and markets fall.",
+      "now": "2026-11-30T12:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-19m", "observed": "-16m", "title": "Fed chair says rate hikes are back on the table as inflation re-accelerates"},
+        {"key": "b", "publisher": "bloomberg.com", "published": "-14m", "observed": "-11m", "title": "Fed chair surprises markets with hawkish turn; Treasury yields jump"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "FED_FOMC_RATES", "single_source": false},
+      "why": "A Fed-speaker surprise confirmed by two independent wires and a selloff."
+    },
+    {
+      "id": "corr-macro-hot-cpi",
+      "summary": "CPI comes in far above forecasts; official release plus a wire.",
+      "now": "2026-11-12T13:50:00Z",
+      "items": [
+        {"key": "a", "source": "bls_latest", "url": "https://www.bls.gov/news.release/cpi.nr0.htm", "published": "-20m", "observed": "-17m", "title": "Consumer Price Index - October 2026", "excerpt": "The Consumer Price Index for All Urban Consumers rose 0.8 percent on a seasonally adjusted basis in October, the largest monthly increase in more than four years."},
+        {"key": "b", "publisher": "reuters.com", "published": "-15m", "observed": "-12m", "title": "US consumer prices surge 0.8% in October, far above forecasts"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "MACRO_CPI_PPI_JOBS", "single_source": false},
+      "why": "The official release plus independent reporting of an inflation shock, and a selloff. Macro events decay fast (3-hour TTL), so after 17 minutes the decayed severity sits just under the block threshold."
+    },
+    {
+      "id": "corr-macro-hot-ppi",
+      "summary": "Producer prices jump; two newspapers report it and markets fall.",
+      "now": "2026-12-11T13:45:00Z",
+      "items": [
+        {"key": "a", "publisher": "wsj.com", "published": "-14m", "observed": "-11m", "title": "US producer prices jump 1.1% in November, biggest gain since 2022"},
+        {"key": "b", "publisher": "cnbc.com", "published": "-10m", "observed": "-7m", "title": "PPI shock: wholesale inflation spikes, rattling stocks and crypto"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "MACRO_CPI_PPI_JOBS", "single_source": false},
+      "why": "Two independent outlets on a macro surprise, confirmed by the market."
+    },
+    {
+      "id": "corr-liq-cascade-btc",
+      "summary": "A liquidation wave as bitcoin drops sharply.",
+      "now": "2026-11-20T02:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "coindesk.com", "published": "-14m", "observed": "-11m", "title": "Crypto liquidations top $1.4 billion in an hour as bitcoin drops 3%"},
+        {"key": "b", "publisher": "bloomberg.com", "published": "-10m", "observed": "-7m", "title": "Bitcoin tumbles as leveraged bets unwind in biggest liquidation wave this quarter"}
+      ],
+      "market": "sharp_selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "LIQUIDATION_CASCADE", "single_source": false},
+      "why": "A forced-deleveraging event confirmed by two sources and a sharp high-volume drop; liquidation events decay within two hours."
+    },
+    {
+      "id": "corr-liq-cascade-eth",
+      "summary": "Ether longs liquidated in a cascade.",
+      "now": "2026-12-14T10:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "theblock.co", "published": "-13m", "observed": "-10m", "title": "Ether open interest collapses as $900 million in longs are liquidated"},
+        {"key": "b", "publisher": "decrypt.co", "published": "-9m", "observed": "-6m", "title": "ETH drops 3% in minutes as cascading liquidations sweep exchanges"}
+      ],
+      "market": {"ETH-USDT": "sharp_selloff", "BTC-USDT": "selloff"},
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "LIQUIDATION_CASCADE", "single_source": false},
+      "why": "Two independent sources and a confirming market move; the cascade centres on ETH but spills into BTC, so either asset set is acceptable."
+    },
+    {
+      "id": "corr-liq-below-67k",
+      "summary": "Long liquidations as bitcoin breaks a round-number level.",
+      "now": "2026-11-27T23:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "coindesk.com", "published": "-13m", "observed": "-10m", "title": "Over $1.5 billion in longs liquidated as bitcoin slides below $67,000"},
+        {"key": "b", "publisher": "cointelegraph.com", "published": "-9m", "observed": "-6m", "title": "Bitcoin breaks below $67K, triggering a wave of forced selling"}
+      ],
+      "market": "sharp_selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "LIQUIDATION_CASCADE", "single_source": false},
+      "why": "Two independent crypto outlets and a sharp high-volume drop that matches the reported level."
+    },
+    {
+      "id": "corr-incident-stakewell",
+      "summary": "A large liquid-staking protocol freezes after a critical bug; its token depegs.",
+      "now": "2026-12-16T17:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "coindesk.com", "published": "-17m", "observed": "-14m", "title": "Liquid-staking giant Stakewell pauses withdrawals after critical bug disclosure"},
+        {"key": "b", "publisher": "theblock.co", "published": "-12m", "observed": "-9m", "title": "stwETH slides from its ether peg as Stakewell freezes contracts"}
+      ],
+      "market": {"ETH-USDT": "selloff"},
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "category_accept": ["EXCHANGE_HACK_EXPLOIT"], "assets": ["ETH"], "single_source": false},
+      "why": "A protocol-critical bug in a major ETH staking protocol, confirmed by two outlets and an ETH selloff."
+    },
+    {
+      "id": "corr-incident-varkon-withdrawals",
+      "summary": "A top exchange suspends withdrawals on every network.",
+      "now": "2026-12-18T04:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-17m", "observed": "-14m", "title": "Top crypto exchange Varkon suspends withdrawals on all networks after infrastructure failure"},
+        {"key": "b", "publisher": "coindesk.com", "published": "-12m", "observed": "-9m", "title": "Varkon halts crypto withdrawals globally, cites wallet infrastructure issue"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "category_accept": ["EXCHANGE_HACK_EXPLOIT"], "single_source": false},
+      "why": "A listed major-exchange incident confirmed by two independent sources and a selloff."
+    },
+    {
+      "id": "corr-geo-israel-iran",
+      "summary": "Air strikes inside Iran and a vow of retaliation.",
+      "now": "2026-12-17T22:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-18m", "observed": "-15m", "title": "Israel strikes military sites inside Iran; Tehran vows retaliation"},
+        {"key": "b", "publisher": "aljazeera.com", "published": "-13m", "observed": "-10m", "title": "Explosions reported across Iran after Israeli air strikes"},
+        {"key": "c", "publisher": "apnews.com", "published": "-9m", "observed": "-6m", "title": "Iran says it will respond decisively after Israeli attack"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "GEOPOLITICAL_ESCALATION", "single_source": false},
+      "why": "A Middle East escalation confirmed by three independent outlets and a selloff."
+    },
+    {
+      "id": "corr-etf-custodian-breach",
+      "summary": "The custodian of several spot bitcoin ETFs discloses a breach.",
+      "now": "2026-12-15T15:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "bloomberg.com", "published": "-16m", "observed": "-13m", "title": "Custodian for several spot bitcoin ETFs discloses security breach, freezes transfers"},
+        {"key": "b", "publisher": "reuters.com", "published": "-12m", "observed": "-9m", "title": "Bitcoin ETF custodian halts withdrawals after cyberattack"}
+      ],
+      "market": {"BTC-USDT": "selloff"},
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["ETF_SEC_DECISION", "MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "assets": ["BTC"], "single_source": false},
+      "why": "Two independent wires on a custody breach behind BTC ETFs; the category sits between hack and ETF structure, so either is accepted."
+    }
+  ]
+}

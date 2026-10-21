@@ -1,0 +1,61 @@
+{
+  "kind": "conflicted",
+  "description": "A claim contradicted by a credible denial, an official correction or a retraction. The design's answer is CONFLICTED or REJECTED, both NO_EFFECT. When the claim and the denial come from different domains the rules see two families, so the classifier must notice that they disagree.",
+  "cases": [
+    {
+      "id": "conf-hack-denied",
+      "summary": "A rumored hack, then the exchange denies it through a credible outlet.",
+      "now": "2026-11-08T02:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "chainwhisper24.com", "published": "-20m", "observed": "-17m", "title": "Exchange Meridex hacked again, insiders say"},
+        {"key": "b", "publisher": "decrypt.co", "published": "-9m", "observed": "-6m", "title": "Meridex denies new hack reports, says all wallets secure and withdrawals normal"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "single_source": true, "independent": ["a"], "signs": ["CONTRADICTED_BY_OTHER_SOURCE", "UNVERIFIED_RUMOR"], "corroboration": "CONFLICTED"},
+      "why": "One rumor source and a credible denial: conflicted."
+    },
+    {
+      "id": "conf-fed-denial",
+      "summary": "An emergency-hike rumor, then officials deny it.",
+      "now": "2026-11-16T17:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "macroinsiderwire.com", "published": "-22m", "observed": "-19m", "title": "Fed preparing surprise emergency hike, sources claim"},
+        {"key": "b", "publisher": "reuters.com", "published": "-10m", "observed": "-7m", "title": "Fed officials deny any plan for an emergency rate move"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "FED_FOMC_RATES", "single_source": true, "independent": ["a"], "signs": ["CONTRADICTED_BY_OTHER_SOURCE", "UNVERIFIED_RUMOR"], "corroboration": "CONFLICTED"},
+      "why": "The only report of the claim is contradicted by a credible denial."
+    },
+    {
+      "id": "conf-tanker-no-attack",
+      "summary": "A reported tanker attack, then the navy says it was an engine fire.",
+      "now": "2026-11-29T13:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "gulfnewsflash.com", "published": "-21m", "observed": "-18m", "title": "Tanker attacked near Strait of Hormuz, reports say"},
+        {"key": "b", "publisher": "apnews.com", "published": "-11m", "observed": "-8m", "title": "Navy says no attack occurred; tanker reported an engine-room fire"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "GEOPOLITICAL_ESCALATION", "single_source": true, "independent": ["a"], "signs": ["CONTRADICTED_BY_OTHER_SOURCE"], "corroboration": "CONFLICTED"},
+      "why": "An official account contradicts the attack report."
+    },
+    {
+      "id": "conf-retraction",
+      "summary": "A site reports an approval, then retracts it.",
+      "now": "2026-12-04T10:05:00Z",
+      "items": [
+        {"key": "a", "publisher": "cryptoledgerpost.com", "published": "-30m", "observed": "-27m", "title": "SEC approves spot ether ETF staking for all issuers"},
+        {"key": "b", "publisher": "cryptoledgerpost.com", "url": "https://cryptoledgerpost.com/news/correction-etf-staking", "published": "-8m", "observed": "-6m", "title": "Correction: SEC has not approved ETF staking; earlier report was in error"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "ETF_SEC_DECISION", "single_source": true, "independent": ["a"], "corroboration": "REJECTED"},
+      "why": "The publisher retracted its own report; it was also bullish and single-source."
+    },
+    {
+      "id": "conf-status-page-vs-rumor",
+      "summary": "A breach rumor, contradicted by the exchange's own status page.",
+      "now": "2026-12-10T03:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "blockdispatch.io", "published": "-18m", "observed": "-15m", "title": "Coinbase suffers massive breach, users report empty accounts"},
+        {"key": "b", "source": "coinbase_status", "url": "https://status.coinbase.com/incidents/3m8q1x7c", "published": "-9m", "observed": "-7m", "title": "Resolved: some users saw incorrect balances in the app", "excerpt": "A display issue caused some users to see incorrect balances in the mobile app. Balances were never affected and the issue is resolved."}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "single_source": true, "independent": ["a"], "signs": ["CONTRADICTED_BY_OTHER_SOURCE", "UNVERIFIED_RUMOR"], "corroboration": "CONFLICTED"},
+      "why": "The official source explains the reports as a display bug: the breach claim is contradicted."
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "kind": "stale_repost",
+  "description": "Old news recirculating. When the original publication date travels with the article (a feed re-surfacing an old item) the rules mark it EXPIRED by themselves. When an aggregator republishes an old story with a fresh date (FTX, Terra, Mt. Gox, the 2021 China ban), only the classifier can recognize it: STALE_REPOST vetoes any effect.",
+  "cases": [
+    {
+      "id": "stale-hack-three-days-old",
+      "summary": "Three-day-old hack articles re-surface in the feed.",
+      "now": "2026-11-06T10:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-3d", "observed": "-10m", "title": "Crypto exchange Kryvex halts withdrawals after $1.2 billion hot-wallet breach"},
+        {"key": "b", "publisher": "coindesk.com", "published": "-3d", "observed": "-8m", "title": "Kryvex confirms hack, says about $1.2B in bitcoin and ether drained from hot wallets"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "single_source": false, "signs": ["STALE_REPOST"], "corroboration": "EXPIRED"},
+      "why": "Published three days before it was observed, longer than the 12-hour maximum TTL for hacks: expired, no effect."
+    },
+    {
+      "id": "stale-fomc-last-month",
+      "summary": "Last month's FOMC statement re-appears in the feed.",
+      "now": "2026-11-30T15:35:00Z",
+      "items": [
+        {"key": "a", "source": "fed_press_monetary", "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm", "published": "2026-10-28T18:00:00Z", "observed": "-12m", "title": "Federal Reserve issues FOMC statement", "excerpt": "The Committee decided to raise the target range for the federal funds rate by 1/4 percentage point."}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "FED_FOMC_RATES", "single_source": true, "signs": ["STALE_REPOST"], "corroboration": "EXPIRED"},
+      "why": "A month-old statement: long past any TTL."
+    },
+    {
+      "id": "stale-ftx-fresh-date",
+      "summary": "Two aggregators republish the 2022 FTX bankruptcy with today's date.",
+      "now": "2026-11-09T16:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "cryptonewsrecap.com", "published": "-14m", "observed": "-11m", "title": "FTX files for Chapter 11 bankruptcy as liquidity crisis deepens; CEO resigns"},
+        {"key": "b", "publisher": "blockheadlinesnow.com", "published": "-10m", "observed": "-7m", "title": "FTX collapse: exchange files for bankruptcy, withdrawals frozen"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "MAJOR_REGULATORY_ACTION", "NONE"], "single_source": true, "independent": ["a"], "signs": ["STALE_REPOST"], "corroboration": "EXPIRED"},
+      "why": "FTX failed in November 2022; this is a recirculated old story with a fresh date. Two domains look independent to the rules, so only the classifier's STALE_REPOST stops it. Two sites recirculating one old story are one source, so an effect here counts against the single-source gate."
+    },
+    {
+      "id": "stale-mtgox-fresh-date",
+      "summary": "The 2014 Mt. Gox collapse republished as news.",
+      "now": "2026-11-14T07:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "bitcoinnewsdaily24.com", "published": "-12m", "observed": "-9m", "title": "Mt. Gox halts withdrawals, says 850,000 bitcoins missing"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["NONE"], "single_source": true, "signs": ["STALE_REPOST"], "corroboration": "EXPIRED"},
+      "why": "A 2014 event; one source in any case."
+    },
+    {
+      "id": "stale-china-ban-fresh-date",
+      "summary": "The 2021 China crypto ban republished by two sites.",
+      "now": "2026-11-21T03:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "asiacoinflash.com", "published": "-15m", "observed": "-12m", "title": "China declares all cryptocurrency transactions illegal"},
+        {"key": "b", "publisher": "cryptoheadlinehub.com", "published": "-11m", "observed": "-8m", "title": "Beijing bans all crypto transactions, central bank says"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "category_accept": ["NONE"], "single_source": true, "independent": ["a"], "signs": ["STALE_REPOST"], "corroboration": "EXPIRED"},
+      "why": "China's central bank declared this in September 2021; recirculated old news with fresh dates, which only the classifier can recognize. Two sites recirculating one old story are one source, so an effect here counts against the single-source gate."
+    },
+    {
+      "id": "stale-terra-fresh-date",
+      "summary": "The 2022 TerraUSD collapse republished by two sites.",
+      "now": "2026-11-27T18:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "defidailynews.com", "published": "-13m", "observed": "-10m", "title": "TerraUSD loses its dollar peg as LUNA crashes 90%"},
+        {"key": "b", "publisher": "stablecoinwatch.net", "published": "-9m", "observed": "-6m", "title": "UST depeg deepens as Terra halts its blockchain"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "category_accept": ["NONE"], "single_source": true, "independent": ["a"], "signs": ["STALE_REPOST"], "corroboration": "EXPIRED"},
+      "why": "The Terra collapse happened in May 2022; recirculated with fresh dates. Two sites recirculating one old story are one source, so an effect here counts against the single-source gate."
+    },
+    {
+      "id": "stale-black-thursday-anniversary",
+      "summary": "An 'on this day' piece about the March 2020 crash.",
+      "now": "2027-03-12T12:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "coinhistorian.com", "published": "-10m", "observed": "-7m", "title": "On this day in 2020: bitcoin crashed 50% in a single day as liquidations hit $1 billion"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "LIQUIDATION_CASCADE", "category_accept": ["NONE"], "single_source": true, "signs": ["STALE_REPOST"], "corroboration": "EXPIRED"},
+      "why": "Explicitly an anniversary retrospective."
+    },
+    {
+      "id": "stale-old-sec-release",
+      "summary": "A two-year-old SEC release re-surfaces in the feed.",
+      "now": "2026-12-14T21:20:00Z",
+      "items": [
+        {"key": "a", "source": "sec_press", "url": "https://www.sec.gov/newsroom/press-releases/2024-102", "published": "2024-08-14T14:00:00Z", "observed": "-10m", "title": "SEC Charges Crypto Platform With Operating as an Unregistered Broker-Dealer", "excerpt": "The Securities and Exchange Commission today charged a crypto asset trading platform with operating as an unregistered broker-dealer."}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "single_source": true, "signs": ["STALE_REPOST"], "corroboration": "EXPIRED"},
+      "why": "Published in 2024: far past any TTL."
+    },
+    {
+      "id": "stale-silvergate-fresh-date",
+      "summary": "The 2023 Silvergate wind-down republished as news.",
+      "now": "2026-12-16T09:05:00Z",
+      "items": [
+        {"key": "a", "publisher": "bankingcryptonews.com", "published": "-12m", "observed": "-9m", "title": "Silvergate to wind down operations and liquidate its bank"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "category_accept": ["MAJOR_REGULATORY_ACTION", "NONE"], "single_source": true, "signs": ["STALE_REPOST"], "corroboration": "EXPIRED"},
+      "why": "A March 2023 event; one source in any case."
+    }
+  ]
+}

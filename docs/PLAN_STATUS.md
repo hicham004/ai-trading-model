@@ -71,3 +71,15 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   official feed (SEC, Fed, an exchange status page) can produce a hypothetical block.
   Recommendation: approve a short HIGH list (Reuters, AP, Bloomberg, Dow Jones/WSJ,
   Financial Times) before the 30-day news shadow (G5). It is log-only either way.
+- R4b — Run the news eval (`scripts/eval_news_classifier.py`: 134 synthetic stories, about
+  340 model calls, an estimated $4–10 a run at list prices) with the capped key from G5
+  before starting the news shadow, and again after any prompt or model change?
+  Recommendation: yes, and treat a FAIL on any of its three safety gates as a reason not
+  to start the shadow. It changes nothing in trading.
+- R4b — Add two small news-rule fixes found by the eval to R4c's scope? (1) The rules
+  spot copies credited to "Reuters" or "(AP)" but not "Associated Press" or "Agence
+  France-Presse" in capitals, so such copies count as independent sources (eval story
+  `syn-ap-attribution-capitalized`). (2) A repeat of a live story replaces its evidence
+  with the repeat's alone (`merge_event` in `app/news/decay.py`), so one weak repeat
+  switches a real warning off; R4c should judge evidence over all of a story's articles.
+  Recommendation: yes; both make the news log more faithful, and it stays log-only.

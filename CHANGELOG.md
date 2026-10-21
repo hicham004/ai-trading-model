@@ -4,6 +4,63 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — Sprint 4b: news eval set and harness (plan row R4b; Phase 6b design §15, master plan §5.2)
+
+Log-only tooling: nothing here gates an entry, reaches an order path, or is read
+by the trading runtime.
+
+### Added
+- `tests/fixtures/news_eval/`: 134 labeled synthetic stories in 13 kinds
+  (corroborated events, syndicated copies, single-source rumors, satire, stale
+  reposts, prompt-injection text, homoglyph and zero-width text, plus
+  corroborated-but-harmless, one-source-plus-market, off-watchlist, speculation,
+  contradicted claims and story linking), each with its expected final action,
+  category and label rationale; public-style candle scenarios (`market.json`,
+  including a look-ahead trap and a bullish pump); a hand-written recorded run
+  with deliberate flaws (`recorded/sample_run.jsonl`); README. The data files are
+  ASCII-only: hidden and look-alike characters are written as `\u` escapes.
+  Every label was re-derived by a second agent before commit; the flagged cases
+  were corrected (an ambiguous single-source flag, aggregator repeats, same-owner
+  outlets, invented incidents at real companies and tokens, label-revealing site
+  names, accepted categories) and the stale reposts' single-source flags made
+  consistent with the design's independence rules.
+- `app/news/evaluation.py`: runs each story through the production path (real
+  sanitizer, `NewsClassifier` triage and classification, price/volume check on
+  candles closed before the decision, `assess`, `build_event`,
+  `effective_signal`) and scores schema validity per stage (gate ≥ 95 %),
+  prohibited actions (gate 0), single-source effects (gate 0), final-action and
+  category accuracy per kind and per category with Wilson intervals, missed and
+  false effects, triage recall, story links, refusals, truncations, tokens,
+  latency and a list-price cost estimate. Infrastructure errors (including a
+  reply from another model; a dated snapshot of the requested model counts as
+  that model) are never scored, and only a case's last attempt counts, while the
+  cost counts every attempt. Recording (the header keeps the run's models and
+  settings) and replay clients (payload-hash checked) and four scripted offline
+  models (reference answers, never-acting, block-everything, broken output) for a
+  self-test of the harness and the labels; markdown report.
+- `scripts/eval_news_classifier.py`: live run only when `ANTHROPIC_API_KEY` is
+  set (otherwise prints `not run: no API key` and exits 0; five SDK retries
+  against rate limits), `--replay` with the recorded settings, `--self-test`,
+  case/kind filters, repetitions, parallel workers, and `--resume`, which
+  continues an interrupted run with its own cases, repetitions and models and
+  refuses conflicting flags; outputs under `artifacts/news_eval/`.
+- `docs/NEWS_AGENT.md`: the news agent and its eval in plain words for the owner.
+- Tests (offline): the eval set's coverage, ASCII-only data, the real sanitizer
+  on adversarial text, label consistency through the reference answers and the
+  independence rules, the three baselines, exact scoring of the recorded run,
+  record/replay integrity, labels never reaching the model, error isolation,
+  served-model checks, cost of retried attempts, look-ahead, the report and the
+  CLI in every mode including resume.
+
+### Found, not fixed here (outside this step's scope)
+- `app/news/corroborate.py` recognizes "Associated Press" and "Agence
+  France-Presse" credits only in lower case, so capitalized credits count as
+  independent sources (eval case `syn-ap-attribution-capitalized`).
+- `merge_event` in `app/news/decay.py` replaces a live event's corroboration with
+  the repeat's own, so a repeat backed by one credible source switches a
+  corroborated event off. Both are proposed for R4c (`docs/PLAN_STATUS.md`
+  section 2).
+
 ## Unreleased — Sprint 4a: news agent core, log-only (plan row R4a; Phase 6b design §4–7, §9, §13)
 
 Phase 6b is authorized for log-only operation only; nothing here gates an

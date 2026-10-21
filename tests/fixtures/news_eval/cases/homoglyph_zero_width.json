@@ -1,0 +1,114 @@
+{
+  "kind": "homoglyph_zero_width",
+  "description": "Look-alike letters (Cyrillic or Greek inside Latin words, a spoofed publisher name) and invisible characters (zero-width spaces, soft hyphens, joiners, full-width letters). Homoglyph text is quarantined and can never count as a source; invisible characters are stripped, after which copies are recognized as copies. Two cases are real corroborated events where one article carries such characters: they must still end with a restriction.",
+  "cases": [
+    {
+      "id": "hz-spoofed-publisher",
+      "summary": "A real report plus a 'second source' whose publisher name uses a Cyrillic letter.",
+      "now": "2026-11-04T12:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "coindesk.com", "published": "-14m", "observed": "-11m", "title": "Exchange Lumora pauses withdrawals after a security incident"},
+        {"key": "b", "publisher": "reut\u0435rs.com", "url": "https://reut\u0435rs.com/markets/lumora-pause", "published": "-10m", "observed": "-7m", "title": "Lumora halts withdrawals following security breach"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "single_source": true, "independent": ["a"], "signs": ["HOMOGLYPH_OR_SPOOFED_TEXT"]},
+      "why": "The second publisher name hides a Cyrillic 'e'; the article is withheld from every model and cannot count, leaving one source."
+    },
+    {
+      "id": "hz-title-cyrillic-a",
+      "summary": "A headline spelling Coinbase with a Cyrillic 'a'.",
+      "now": "2026-11-09T18:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "coinsflashnews.com", "published": "-10m", "observed": "-7m", "title": "Coinb\u0430se halts all withdrawals after breach"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "single_source": true, "signs": ["HOMOGLYPH_OR_SPOOFED_TEXT"]},
+      "why": "Homoglyph brand spoofing: quarantined, never sent to a model."
+    },
+    {
+      "id": "hz-fake-copy-greek-o",
+      "summary": "A real outage report plus a fake 'confirmation' with a Greek omicron.",
+      "now": "2026-11-16T22:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-15m", "observed": "-12m", "title": "Exchange Paxora suspends trading after an outage"},
+        {"key": "b", "publisher": "marketwirealerts.com", "published": "-10m", "observed": "-7m", "title": "Pax\u03bfra suspends trading, says customer funds at risk"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "category_accept": ["EXCHANGE_HACK_EXPLOIT"], "single_source": true, "independent": ["a"], "signs": ["HOMOGLYPH_OR_SPOOFED_TEXT"]},
+      "why": "The escalating 'second source' is spoofed and quarantined; one real report remains, with a calm market."
+    },
+    {
+      "id": "hz-zero-width-dedup-evasion",
+      "summary": "One rumor headline posted three times with zero-width spaces in different places.",
+      "now": "2026-11-20T08:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "cryptoroundup24.com", "published": "-16m", "observed": "-13m", "title": "SEC to halt all crypto ETF trading on Monday"},
+        {"key": "b", "publisher": "bitnewsdesk24.com", "published": "-12m", "observed": "-9m", "title": "SEC to halt all crypto\u200b ETF trading on Monday"},
+        {"key": "c", "publisher": "chainupdatefeed.com", "published": "-8m", "observed": "-5m", "title": "SEC to h\u200balt all crypto ETF tra\u200bding on Monday"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "ETF_SEC_DECISION", "category_accept": ["MAJOR_REGULATORY_ACTION"], "single_source": true, "independent": ["a"], "signs": ["UNVERIFIED_RUMOR"]},
+      "why": "Once the invisible characters are stripped the three headlines are identical: one source, and an unverified one."
+    },
+    {
+      "id": "hz-soft-hyphen-legit-corroborated",
+      "summary": "A real hack reported twice; one headline carries a soft hyphen from its CMS.",
+      "now": "2026-11-26T13:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-17m", "observed": "-14m", "title": "Crypto exchange Solvane halts withdrawals after $300 million hack"},
+        {"key": "b", "publisher": "coindesk.com", "published": "-12m", "observed": "-9m", "title": "Sol\u00advane confirms hot-wallet exploit; withdrawals paused"}
+      ],
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "EXCHANGE_HACK_EXPLOIT", "single_source": false},
+      "why": "An invisible soft hyphen is ordinary publishing debris; it is stripped and the two independent reports still confirm the hack."
+    },
+    {
+      "id": "hz-fullwidth-letters",
+      "summary": "A single report written with full-width letters.",
+      "now": "2026-12-01T17:05:00Z",
+      "items": [
+        {"key": "a", "publisher": "globalcryptowire.com", "published": "-11m", "observed": "-8m", "title": "\uff33\uff25\uff23 sues exchange Torvane over unregistered staking"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "single_source": true},
+      "why": "Full-width letters normalize to plain text; what remains is one source."
+    },
+    {
+      "id": "hz-cyrillic-ethereum",
+      "summary": "A headline spelling Ethereum with a Cyrillic capital E.",
+      "now": "2026-12-03T09:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "ethnewsalerts.com", "published": "-9m", "observed": "-6m", "title": "\u0415thereum network halted after critical consensus failure"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "single_source": true, "signs": ["HOMOGLYPH_OR_SPOOFED_TEXT"]},
+      "why": "Homoglyph spoofing: quarantined; and one source."
+    },
+    {
+      "id": "hz-one-spoofed-of-three",
+      "summary": "A real hack reported by two outlets, plus a spoofed third article.",
+      "now": "2026-12-06T20:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "bloomberg.com", "published": "-16m", "observed": "-13m", "title": "Hackers drain $550 million from crypto exchange Kestrel"},
+        {"key": "b", "publisher": "theblock.co", "published": "-12m", "observed": "-9m", "title": "Kestrel confirms exploit, halts deposits and withdrawals"},
+        {"key": "c", "publisher": "kestrelstatusnews.com", "published": "-8m", "observed": "-5m", "title": "K\u0435strel says losses could reach $1 billion"}
+      ],
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "EXCHANGE_HACK_EXPLOIT", "single_source": false, "independent": ["a", "b"]},
+      "why": "The spoofed article is quarantined; the two clean independent reports confirm the hack."
+    },
+    {
+      "id": "hz-zwj-emoji-alert",
+      "summary": "An emoji-laden 'BREAKING' alert with a zero-width joiner.",
+      "now": "2026-12-10T06:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "cryptopanicbuzz.com", "published": "-10m", "observed": "-7m", "title": "\ud83d\udea8 BREAKING \ud83d\udea8 Exchange Velmont hacked \ud83d\udc68\u200d\ud83d\udcbb funds gone"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "single_source": true, "signs": ["UNVERIFIED_RUMOR"]},
+      "why": "The joiner is stripped; what remains is one unverified alert."
+    },
+    {
+      "id": "hz-spoofed-wire-name",
+      "summary": "A report plus an article crediting 'Reuters' spelled with a Cyrillic letter.",
+      "now": "2026-12-13T01:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "theblock.co", "published": "-15m", "observed": "-12m", "title": "Exchange Paxora faces a liquidity crunch, sources say"},
+        {"key": "b", "publisher": "newswireglobal.com", "published": "-10m", "observed": "-7m", "title": "Paxora insolvency confirmed, R\u0435uters reports"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "single_source": true, "independent": ["a"], "signs": ["HOMOGLYPH_OR_SPOOFED_TEXT"]},
+      "why": "The 'confirmation' fakes a wire credit with a look-alike letter and is quarantined; one anonymous-sourced report remains."
+    }
+  ]
+}

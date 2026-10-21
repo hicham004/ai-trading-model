@@ -1,0 +1,94 @@
+{
+  "kind": "off_watchlist",
+  "description": "Well-reported news outside the eight v1 watchlist categories: equities, memecoins, record highs, other chains, listings, chips, whale transfers, fundraising. Triage should drop it (or the classifier answer NONE); either way NO_EFFECT, and a record high is never a reason to act.",
+  "cases": [
+    {
+      "id": "off-apple-earnings",
+      "summary": "Apple beats earnings.",
+      "now": "2026-11-02T21:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-18m", "observed": "-15m", "title": "Apple shares rise after quarterly results beat estimates"},
+        {"key": "b", "publisher": "cnbc.com", "published": "-13m", "observed": "-10m", "title": "Apple tops earnings forecasts on strong iPhone sales"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "NONE", "single_source": false},
+      "why": "Equity earnings are outside the watchlist."
+    },
+    {
+      "id": "off-celebrity-memecoin",
+      "summary": "A celebrity memecoin soars and crashes.",
+      "now": "2026-11-10T15:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "coindesk.com", "published": "-17m", "observed": "-14m", "title": "Pop star's memecoin soars 900% in hours, then crashes"},
+        {"key": "b", "publisher": "decrypt.co", "published": "-12m", "observed": "-9m", "title": "Celebrity token launch triggers frenzy and an 80% crash"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "NONE", "single_source": false},
+      "why": "A memecoin is not BTC or ETH and not a watchlist event."
+    },
+    {
+      "id": "off-btc-record-high",
+      "summary": "Bitcoin hits a record high on ETF inflows.",
+      "now": "2026-11-17T20:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-18m", "observed": "-15m", "title": "Bitcoin hits record high as ETF inflows top $1 billion in a day"},
+        {"key": "b", "publisher": "bloomberg.com", "published": "-13m", "observed": "-10m", "title": "Bitcoin climbs to all-time high on surging fund demand"}
+      ],
+      "market": "rally",
+      "expect": {"action": "NO_EFFECT", "category": "NONE", "category_accept": ["ETF_SEC_DECISION"], "single_source": false, "direction": "RISK_ON"},
+      "why": "Price and fund-flow news, not a decision or an incident; bullish moves never earn a boost."
+    },
+    {
+      "id": "off-solana-upgrade",
+      "summary": "Another chain ships an upgrade.",
+      "now": "2026-11-24T13:05:00Z",
+      "items": [
+        {"key": "a", "publisher": "theblock.co", "published": "-16m", "observed": "-13m", "title": "Solana activates network upgrade aimed at faster block times"},
+        {"key": "b", "publisher": "decrypt.co", "published": "-11m", "observed": "-8m", "title": "Solana's latest upgrade goes live without disruption"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "NONE", "single_source": false},
+      "why": "Not BTC or ETH, and nothing went wrong."
+    },
+    {
+      "id": "off-exchange-listings",
+      "summary": "Exchanges list new altcoins.",
+      "now": "2026-12-01T10:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "cointelegraph.com", "published": "-15m", "observed": "-12m", "title": "Major exchange lists new memecoin trading pairs"},
+        {"key": "b", "publisher": "u.today", "published": "-10m", "observed": "-7m", "title": "Exchange adds five new altcoin listings this week"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "NONE", "single_source": false},
+      "why": "Routine listings are outside the watchlist."
+    },
+    {
+      "id": "off-nvidia-chip",
+      "summary": "A chipmaker unveils a new processor.",
+      "now": "2026-12-03T22:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-16m", "observed": "-13m", "title": "Nvidia unveils next-generation AI chip"},
+        {"key": "b", "publisher": "ft.com", "published": "-11m", "observed": "-8m", "title": "Nvidia launches new data-centre processor"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "NONE", "single_source": false},
+      "why": "Technology news, not crypto risk."
+    },
+    {
+      "id": "off-whale-transfer",
+      "summary": "A whale moves bitcoin between wallets.",
+      "now": "2026-12-08T12:05:00Z",
+      "items": [
+        {"key": "a", "publisher": "whalealertnews.com", "published": "-9m", "observed": "-6m", "title": "Whale moves 20,000 BTC from dormant wallet to new address, on-chain data shows"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "NONE", "category_accept": ["LIQUIDATION_CASCADE"], "single_source": true},
+      "why": "A wallet transfer is not a liquidation or any other watchlist event."
+    },
+    {
+      "id": "off-vc-fund",
+      "summary": "A venture firm raises a crypto fund.",
+      "now": "2026-12-11T16:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "theblock.co", "published": "-14m", "observed": "-11m", "title": "Crypto venture firm raises $300 million for new fund"},
+        {"key": "b", "publisher": "techcrunch.com", "published": "-10m", "observed": "-7m", "title": "VC firm closes $300M crypto fund focused on infrastructure"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "NONE", "single_source": false},
+      "why": "Fundraising news is outside the watchlist."
+    }
+  ]
+}

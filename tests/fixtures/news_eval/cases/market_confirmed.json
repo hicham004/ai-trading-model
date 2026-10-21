@@ -1,0 +1,104 @@
+{
+  "kind": "market_confirmed",
+  "description": "One source plus public market data. The design lets a single credible source count only when price AND volume already moved the expected way, using candles closed before the decision: at least half an ATR of move and 1.5x the rolling volume. Cases where the market did not confirm (wrong direction, low volume, no move, or a move that happens only after the decision) must end NO_EFFECT.",
+  "cases": [
+    {
+      "id": "mkt-coinbase-status-selloff",
+      "summary": "Official exchange status notice of an outage, confirmed by a high-volume selloff.",
+      "now": "2026-11-21T14:20:00Z",
+      "items": [
+        {"key": "a", "source": "coinbase_status", "url": "https://status.coinbase.com/incidents/7r3m9k2p", "published": "-18m", "observed": "-16m", "title": "Investigating: trading unavailable on all markets", "excerpt": "We are investigating reports that users are unable to place orders on all markets. We will provide an update shortly."}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "corroboration": "PRICE_VOLUME_CONFIRMED", "single_source": false},
+      "why": "An official primary source plus price/volume confirmation qualifies (design 7.5). An outage at a major venue is a volatility risk; a reduction is ideal, a block acceptable."
+    },
+    {
+      "id": "mkt-velor-withdrawals-selloff",
+      "summary": "One wire report of a withdrawal halt, confirmed by a high-volume selloff.",
+      "now": "2026-12-08T06:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-19m", "observed": "-16m", "title": "Crypto exchange Velor halts withdrawals citing irregular outflows"}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "corroboration": "PRICE_VOLUME_CONFIRMED", "single_source": false},
+      "why": "One credible source and a confirming selloff (-0.8 % on 3x volume in the first closed candle)."
+    },
+    {
+      "id": "mkt-daxio-calm",
+      "summary": "One wire report of a withdrawal pause; the market does not react.",
+      "now": "2026-11-16T10:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-18m", "observed": "-15m", "title": "Exchange Daxio pauses ether withdrawals for wallet maintenance"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "NONE"], "single_source": true},
+      "why": "A single source and a calm market: nothing confirms the claim, so it has no effect."
+    },
+    {
+      "id": "mkt-hack-but-rally",
+      "summary": "One report of a DeFi hack while the market rallies.",
+      "now": "2026-11-28T12:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "bloomberg.com", "published": "-17m", "observed": "-14m", "title": "Hackers drain $200 million from DeFi lender Corvana"}
+      ],
+      "market": "rally",
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "single_source": false, "direction": "RISK_OFF", "reaction": "DOWN_OR_VOLATILE"},
+      "why": "A hack's expected reaction is down or volatile; the market rallied instead, which confirms nothing, so the one source has no effect. A 'volatility either way' reading lets the rally count as confirmation (design 7.5 rule) and ends with a false effect; the case is not counted in the single-source gate because the market did move hard on heavy volume."
+    },
+    {
+      "id": "mkt-raid-dip-low-volume",
+      "summary": "One report of a raid; price dips but volume stays ordinary.",
+      "now": "2026-12-12T18:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "ft.com", "published": "-18m", "observed": "-15m", "title": "Regulators raid offices of crypto exchange Brightvault in Hong Kong"}
+      ],
+      "market": "dip_low_volume",
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "single_source": true},
+      "why": "Price dipped but volume stayed near 1.2x, under the 1.5x the rule requires: no confirmation."
+    },
+    {
+      "id": "mkt-fomc-minutes-selloff",
+      "summary": "Hawkish FOMC minutes (official) followed by a high-volume selloff.",
+      "now": "2026-11-18T19:20:00Z",
+      "items": [
+        {"key": "a", "source": "fed_press_monetary", "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261118a.htm", "published": "-20m", "observed": "-18m", "title": "Minutes of the Federal Open Market Committee, October 27-28, 2026", "excerpt": "Most participants judged that further increases in the target range would likely be appropriate if inflation failed to moderate."}
+      ],
+      "market": "selloff",
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "FED_FOMC_RATES", "corroboration": "PRICE_VOLUME_CONFIRMED", "single_source": false},
+      "why": "An official hawkish surprise confirmed by a selloff on heavy volume."
+    },
+    {
+      "id": "mkt-fsa-volume-no-move",
+      "summary": "One report of a regulator order; volume spikes but price does not move.",
+      "now": "2026-12-17T08:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-18m", "observed": "-15m", "title": "Japan's FSA orders exchange Haneoka to suspend new account openings"}
+      ],
+      "market": "volume_no_move",
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "category_accept": ["NONE"], "single_source": true},
+      "why": "Volume rose but price moved far less than half an ATR: no confirmation, and the order itself is minor."
+    },
+    {
+      "id": "mkt-lookahead-late-selloff",
+      "summary": "One report of a lender halting withdrawals; the crash in the data comes only after the decision.",
+      "now": "2026-12-18T11:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "bloomberg.com", "published": "-18m", "observed": "-14m", "title": "Crypto lender Ardent Finance halts withdrawals, citing liquidity crunch"}
+      ],
+      "market": "late_selloff",
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "single_source": true},
+      "why": "At the decision time only the calm first candle has closed; the crash candles close later and must be ignored (no look-ahead). One source, no confirmation: no effect."
+    },
+    {
+      "id": "mkt-bullish-pump",
+      "summary": "One outlet reports a surprise bullish SEC decision while ether spikes vertically.",
+      "now": "2026-12-09T15:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "coindesk.com", "published": "-14m", "observed": "-11m", "title": "SEC unexpectedly clears staking in spot ether ETFs, issuers say"}
+      ],
+      "market": {"ETH-USDT": "pump"},
+      "expect": {"action": "NO_EFFECT", "accept": ["REDUCE_SIZE"], "category": "ETF_SEC_DECISION", "assets": ["ETH"], "single_source": false, "signs": ["PUMP_AND_DUMP_RISK"], "direction": "RISK_ON", "reaction": "UP_BUT_REVERSAL_RISK"},
+      "why": "Design section 10: a bullish headline while the price spikes vertically is never a reason to buy. The spike on heavy volume confirms reversal risk (design 7.5), so a size reduction is as acceptable as no effect; with one MEDIUM source a block is out of reach. Nothing in the vocabulary boosts, and a reply that tries counts as a prohibited action."
+    }
+  ]
+}

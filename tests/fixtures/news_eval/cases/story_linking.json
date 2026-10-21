@@ -1,0 +1,90 @@
+{
+  "kind": "story_linking",
+  "description": "New articles arriving while an event is already in the store. A repeat of the same story must link to it (same_story_as) and never re-fire its TTL or strengthen it; a genuinely new development gets its own event; an unrelated story links to nothing; a repeat of an expired or contradicted story stays dead; new independent evidence may upgrade a single-source event.",
+  "cases": [
+    {
+      "id": "link-repeat-active",
+      "summary": "Two newsrooms repeat an active hack story an hour later.",
+      "now": "2026-11-03T10:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-12m", "observed": "-9m", "title": "Kryvex withdrawals stay frozen as investigators trace $1.2 billion in stolen crypto"},
+        {"key": "b", "publisher": "theblock.co", "published": "-8m", "observed": "-5m", "title": "Kryvex gives no timeline for reopening withdrawals after $1.2B hack"}
+      ],
+      "existing_events": [
+        {"event_id": "evt_20261103_hack_btc_eth_7c1e9a4b2f60", "category": "EXCHANGE_HACK_EXPLOIT", "first_seen": "-63m", "ttl_minutes": 720, "status": "INDEPENDENT_SOURCE_CONFIRMED", "independent_sources": 3, "action": "REDUCE_SIZE", "summary": "Exchange Kryvex halts withdrawals after a reported $1.2 billion hot-wallet breach."}
+      ],
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "EXCHANGE_HACK_EXPLOIT", "single_source": false, "same_story_as": "evt_20261103_hack_btc_eth_7c1e9a4b2f60", "new_development": false},
+      "why": "Same story, nothing new, from two independent newsrooms: link to the active event, which keeps its original TTL and strength (still a reduction an hour in)."
+    },
+    {
+      "id": "link-new-development",
+      "summary": "Hours later the same hack escalates: larger losses and a full trading halt.",
+      "now": "2026-11-03T13:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-15m", "observed": "-12m", "title": "Kryvex hack losses climb to $2.1 billion; exchange suspends all trading"},
+        {"key": "b", "publisher": "coindesk.com", "published": "-11m", "observed": "-8m", "title": "Kryvex halts trading entirely as stolen funds total $2.1B"}
+      ],
+      "existing_events": [
+        {"event_id": "evt_20261103_hack_btc_eth_7c1e9a4b2f60", "category": "EXCHANGE_HACK_EXPLOIT", "first_seen": "-273m", "ttl_minutes": 720, "status": "INDEPENDENT_SOURCE_CONFIRMED", "independent_sources": 3, "action": "REDUCE_SIZE", "summary": "Exchange Kryvex halts withdrawals after a reported $1.2 billion hot-wallet breach."}
+      ],
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "EXCHANGE_HACK_EXPLOIT", "single_source": false, "same_story_as": "evt_20261103_hack_btc_eth_7c1e9a4b2f60", "new_development": true},
+      "why": "Losses nearly doubled and trading stopped: a genuinely new development of the linked story, corroborated by two independent outlets, so it gets its own fresh event."
+    },
+    {
+      "id": "link-expired-repost",
+      "summary": "A three-day-old hack story recirculates with fresh dates.",
+      "now": "2026-11-08T09:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "cryptonewsdigest.com", "published": "-12m", "observed": "-9m", "title": "Hackers steal $680 million from Singapore-based exchange Meridex"},
+        {"key": "b", "publisher": "coinupdateswire.com", "published": "-8m", "observed": "-5m", "title": "Meridex exploit drains ETH and stablecoins"}
+      ],
+      "existing_events": [
+        {"event_id": "evt_20261105_hack_btc_eth_a83d5e12c9f4", "category": "EXCHANGE_HACK_EXPLOIT", "first_seen": "-3d", "ttl_minutes": 720, "status": "INDEPENDENT_SOURCE_CONFIRMED", "independent_sources": 2, "action": "REDUCE_SIZE", "summary": "Hackers steal $680 million from exchange Meridex; deposits suspended."}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "single_source": true, "independent": ["a"], "same_story_as": "evt_20261105_hack_btc_eth_a83d5e12c9f4", "new_development": false, "signs": ["STALE_REPOST"], "corroboration": "EXPIRED"},
+      "why": "The articles repeat a story first seen three days ago whose event has expired; linking it keeps it expired. Two fresh domains reposting one old story are one source, so an unlinked effect counts against the single-source gate."
+    },
+    {
+      "id": "link-unrelated-existing",
+      "summary": "A new hack story while an unrelated geopolitical event is active.",
+      "now": "2026-11-19T08:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-16m", "observed": "-13m", "title": "Exchange Corvex freezes withdrawals after $250 million exploit"},
+        {"key": "b", "publisher": "theblock.co", "published": "-11m", "observed": "-8m", "title": "Corvex confirms hot-wallet hack, pauses all withdrawals"}
+      ],
+      "existing_events": [
+        {"event_id": "evt_20261119_geopol_btc_eth_5b2f8c3e1d07", "category": "GEOPOLITICAL_ESCALATION", "first_seen": "-63m", "ttl_minutes": 360, "status": "INDEPENDENT_SOURCE_CONFIRMED", "independent_sources": 3, "action": "REDUCE_SIZE", "summary": "Missiles strike tankers near the Strait of Hormuz; shipping halted."}
+      ],
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "EXCHANGE_HACK_EXPLOIT", "single_source": false},
+      "why": "A different story: same_story_as must be null, and the new hack is its own corroborated event."
+    },
+    {
+      "id": "link-conflicted-repeat",
+      "summary": "New chatter repeats a rumor that was already contradicted.",
+      "now": "2026-11-16T19:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "macrowhisper.net", "published": "-10m", "observed": "-7m", "title": "Traders still betting on Fed emergency hike despite denial"},
+        {"key": "b", "publisher": "ratesinsiderdaily.com", "published": "-6m", "observed": "-4m", "title": "Fed emergency hike talk returns on trading desks"}
+      ],
+      "existing_events": [
+        {"event_id": "evt_20261116_fed_btc_eth_e4a19c7b3d52", "category": "FED_FOMC_RATES", "first_seen": "-110m", "ttl_minutes": 240, "status": "CONFLICTED", "independent_sources": 1, "action": "NO_EFFECT", "summary": "Rumor of a Fed emergency hike, contradicted by an official denial."}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "FED_FOMC_RATES", "single_source": true, "independent": ["a"], "same_story_as": "evt_20261116_fed_btc_eth_e4a19c7b3d52", "new_development": false, "signs": ["UNVERIFIED_RUMOR"], "corroboration": "CONFLICTED"},
+      "why": "The same rumor again; the linked event stays CONFLICTED (sticky), and the new chatter is not independent evidence."
+    },
+    {
+      "id": "link-upgrade-second-source",
+      "summary": "A single-source withdrawal halt gains an independent confirmation.",
+      "now": "2026-11-12T07:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-38m", "observed": "-35m", "title": "Crypto exchange Ostrava halts withdrawals, citing suspicious activity"},
+        {"key": "b", "publisher": "bloomberg.com", "published": "-9m", "observed": "-6m", "title": "Ostrava confirms $310 million stolen in hack; withdrawals remain frozen"}
+      ],
+      "existing_events": [
+        {"event_id": "evt_20261112_hack_btc_eth_19f3b7d2c8e6", "category": "EXCHANGE_HACK_EXPLOIT", "first_seen": "-35m", "ttl_minutes": 720, "status": "SINGLE_SOURCE", "independent_sources": 1, "action": "NO_EFFECT", "summary": "Exchange Ostrava halts withdrawals, citing suspicious activity (one source)."}
+      ],
+      "expect": {"action": "REDUCE_SIZE", "accept": ["BLOCK_NEW_LONGS"], "category": "EXCHANGE_HACK_EXPLOIT", "single_source": false, "same_story_as": "evt_20261112_hack_btc_eth_19f3b7d2c8e6"},
+      "why": "A second, independent wire confirms the story: the linked event may now take effect (new evidence is the only thing that can strengthen an event). Whether the hack confirmation counts as a new development is a judgment call, so either answer is accepted."
+    }
+  ]
+}

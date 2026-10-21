@@ -11,8 +11,10 @@ or live entries is **not** authorized and needs a separate owner decision.
   [Agent core](#agent-core-sprint-4a) below): event schema, Haiku/Opus
   classifier, corroboration, TTL/decay, the shadow overlay and the
   append-only shadow logs. It is a library; the log-only shadow runner, its
-  daily report and the VPS unit come in Sprint 4c, the labeled eval set in
-  Sprint 4b.
+  daily report and the VPS unit come in Sprint 4c.
+- **Eval** (Sprint 4b, section [Eval](#eval-sprint-4b) below): 134 labeled
+  synthetic stories and a harness that scores the classifier on them. The
+  owner-facing explanation is [`NEWS_AGENT.md`](NEWS_AGENT.md).
 
 Nothing in `app/news` reads exchange or demo-account state, and no trading
 module imports it (`tests/test_news_boundaries.py` enforces both directions).
@@ -100,11 +102,41 @@ calls to the Anthropic API, which happen only when `ANTHROPIC_API_KEY` is set.
 The `anthropic` SDK is the only new dependency (pinned and hashed in
 `requirements.txt`); only `classifier.py` imports it.
 
+## Eval (Sprint 4b)
+
+`app/news/evaluation.py` and `scripts/eval_news_classifier.py` (design §15,
+master plan §5.2). The labeled set lives in `tests/fixtures/news_eval/` (see its
+README): 134 synthetic stories in 13 kinds, each article raw as a source would
+deliver it, with the final action, category and source facts a careful
+classifier should end with. Each case runs through the production path: the
+real sanitizer builds the ingestion records, `NewsClassifier` triages each article
+and classifies the story, public-style candles from `market.json` feed the
+price/volume check (only candles closed before the decision), then `assess`,
+`build_event` and `effective_signal` decide. Story-linking cases carry existing
+events; a reply that links a repeat merges into that event (`merge_event`), a
+new development builds a fresh one.
+
+Scoring: schema validity per stage (gate ≥ 95 %), prohibited actions (gate 0),
+single-source effects (gate 0), and final-action and category accuracy per kind
+and per category with 95 % Wilson intervals, missed and false effects, triage
+recall, story links, refusals, truncations, tokens, latency and a list-price
+cost estimate. Infrastructure failures (API errors, a missing recording, a
+reply from another model than the one asked for — a dated snapshot of the
+requested model counts as that model) are never scored; above 10 % they make
+the run INCONCLUSIVE, and only a case's last attempt counts. Clients: the real
+SDK client only when `ANTHROPIC_API_KEY` is set (otherwise `not run: no API key`,
+exit 0; five SDK retries against rate limits), a recording wrapper
+(`recording.jsonl`, whose header keeps the run's models and settings; replayable
+with `--replay`, payload hashes checked), and four scripted offline models for
+`--self-test` (reference answers, never-acting, block-everything, broken output).
+`--resume DIR` continues an interrupted live or replay run with its own cases,
+repetitions, models and efforts, redoing only unscored cases; the cost counts
+every attempt. Outputs go to `artifacts/news_eval/` (git-ignored).
+
 ## Not in scope here
 
-The shadow runner, daily report, spend cap and VPS unit (Sprint 4c); the
-labeled eval set and harness (Sprint 4b); corroboration through the API's
-web-search/web-fetch tools (master plan §5.2, not built); Batch-API re-scoring;
-and any connection to the risk manager or the demo runtime, which needs a
-separate owner decision. See `docs/PHASE6B_DESIGN.md` and the master plan
-Sprint 4.
+The shadow runner, daily report, spend cap and VPS unit (Sprint 4c);
+corroboration through the API's web-search/web-fetch tools (master plan §5.2,
+not built); Batch-API re-scoring; and any connection to the risk manager or the
+demo runtime, which needs a separate owner decision. See
+`docs/PHASE6B_DESIGN.md` and the master plan Sprint 4.

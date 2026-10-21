@@ -1,0 +1,150 @@
+{
+  "kind": "syndicated_copies",
+  "description": "One source copied many times: wire stories republished verbatim or with attribution, an official release reposted, a single social-media post relayed by several outlets, one unnamed report repeated. However many articles there are, it is one source, so the answer is NO_EFFECT. Some copies are caught by the deterministic family rules; others (paraphrased relays, attributions the rules do not recognize) need the classifier to see that the outlets are not independent.",
+  "cases": [
+    {
+      "id": "syn-reuters-exclusive-verbatim",
+      "summary": "A wire exclusive republished verbatim by three aggregators.",
+      "now": "2026-11-04T16:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-25m", "observed": "-22m", "title": "Exclusive: US prosecutors prepare charges against crypto exchange Zanthor, sources say"},
+        {"key": "b", "publisher": "finance.yahoo.com", "published": "-18m", "observed": "-15m", "title": "Exclusive: US prosecutors prepare charges against crypto exchange Zanthor, sources say"},
+        {"key": "c", "publisher": "marketscreener.com", "published": "-14m", "observed": "-11m", "title": "Exclusive: US prosecutors prepare charges against crypto exchange Zanthor, sources say"},
+        {"key": "d", "publisher": "investing.com", "published": "-10m", "observed": "-7m", "title": "Exclusive: US prosecutors prepare charges against crypto exchange Zanthor, sources say"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "single_source": true, "independent": ["a"], "signs": ["COPIED_WIRE_STORY"]},
+      "why": "One wire exclusive based on anonymous sources, syndicated verbatim: one source."
+    },
+    {
+      "id": "syn-reuters-attribution",
+      "summary": "Two crypto sites rewrite a wire exclusive and credit the wire.",
+      "now": "2026-11-06T09:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-24m", "observed": "-21m", "title": "Exclusive: Crypto exchange Paxora under US sanctions probe, sources say"},
+        {"key": "b", "publisher": "cointelegraph.com", "published": "-15m", "observed": "-12m", "title": "Paxora faces US sanctions probe, Reuters reports"},
+        {"key": "c", "publisher": "u.today", "published": "-10m", "observed": "-7m", "title": "Report: US investigating exchange Paxora over sanctions, per Reuters"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "single_source": true, "independent": ["a"], "signs": ["COPIED_WIRE_STORY"]},
+      "why": "The rewrites attribute the wire: copies of one source."
+    },
+    {
+      "id": "syn-ap-attribution-capitalized",
+      "summary": "Two small sites relay an AP report, crediting 'the Associated Press'.",
+      "now": "2026-11-08T17:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "apnews.com", "published": "-22m", "observed": "-19m", "title": "Hackers hit crypto exchange Velmont, freezing customer withdrawals"},
+        {"key": "b", "publisher": "blockfeedtoday.com", "published": "-15m", "observed": "-12m", "title": "Exchange Velmont freezes withdrawals after hack, the Associated Press reports"},
+        {"key": "c", "publisher": "dailycoinbrief.com", "published": "-11m", "observed": "-8m", "title": "Velmont hack: withdrawals frozen, according to the Associated Press"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "single_source": true, "independent": ["a"], "signs": ["COPIED_WIRE_STORY"]},
+      "why": "One AP report and two attributed relays. Known gap: the deterministic rules match 'associated press' only in lower case, so they count three families here; the classifier must narrow to one."
+    },
+    {
+      "id": "syn-social-post-explicit",
+      "summary": "Three outlets relay one post on X by an exchange CEO.",
+      "now": "2026-11-10T23:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "theblock.co", "published": "-21m", "observed": "-18m", "title": "Kryvex CEO says on X that withdrawals will be limited for a few days"},
+        {"key": "b", "publisher": "decrypt.co", "published": "-16m", "observed": "-13m", "title": "Kryvex boss warns of withdrawal limits in post on X"},
+        {"key": "c", "publisher": "cointelegraph.com", "published": "-11m", "observed": "-8m", "title": "Kryvex to cap withdrawals, CEO tweets"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "single_source": true, "independent": ["a"], "signs": ["SINGLE_SOCIAL_POST"]},
+      "why": "Articles quoting one social-media post are not independent of that post."
+    },
+    {
+      "id": "syn-social-post-paraphrased",
+      "summary": "Three small sites paraphrase one late-night message from an exchange founder.",
+      "now": "2026-11-14T04:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "coinjournalpro.com", "published": "-24m", "observed": "-21m", "title": "Exchange founder hints at withdrawal limits in late-night message"},
+        {"key": "b", "publisher": "bitdailywire.com", "published": "-17m", "observed": "-14m", "title": "Founder of exchange Nexabit warns users may face withdrawal caps"},
+        {"key": "c", "publisher": "tokenmarketnews.com", "published": "-12m", "observed": "-9m", "title": "Nexabit withdrawal caps coming? Founder's remarks spark concern"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "NONE"], "single_source": true, "independent": ["a"], "signs": ["SINGLE_SOCIAL_POST", "UNVERIFIED_RUMOR"]},
+      "why": "All three relay one message; the wording avoids the phrases the rules look for, so only the classifier can collapse them to one source."
+    },
+    {
+      "id": "syn-aggregator-identical",
+      "summary": "A wire headline reposted unchanged by two aggregators.",
+      "now": "2026-11-15T13:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "bloomberg.com", "published": "-20m", "observed": "-17m", "title": "Cleveland Fed president says another rate increase cannot be ruled out"},
+        {"key": "b", "publisher": "msn.com", "published": "-15m", "observed": "-12m", "title": "Cleveland Fed president says another rate increase cannot be ruled out"},
+        {"key": "c", "publisher": "newsbreak.com", "published": "-12m", "observed": "-9m", "title": "Cleveland Fed president says another rate increase cannot be ruled out"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "FED_FOMC_RATES", "category_accept": ["NONE"], "single_source": true, "independent": ["a"], "signs": ["COPIED_WIRE_STORY"]},
+      "why": "One remark, one source; the aggregators add nothing. It is also hedged, not a decision."
+    },
+    {
+      "id": "syn-press-release-wire",
+      "summary": "A lender's own press release distributed through a newswire.",
+      "now": "2026-11-19T12:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "globenewswire.com", "published": "-18m", "observed": "-15m", "title": "Halcyon Lending Announces Temporary Pause of Customer Withdrawals"},
+        {"key": "b", "publisher": "finance.yahoo.com", "published": "-14m", "observed": "-11m", "title": "Halcyon Lending Announces Temporary Pause of Customer Withdrawals"},
+        {"key": "c", "publisher": "marketwatch.com", "published": "-10m", "observed": "-7m", "title": "Halcyon Lending Announces Temporary Pause of Customer Withdrawals"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "single_source": true, "independent": ["a"], "signs": ["COPIED_WIRE_STORY"]},
+      "why": "One company statement distributed verbatim: one source, with a calm market."
+    },
+    {
+      "id": "syn-case-punctuation-variants",
+      "summary": "The same rumor headline with only case and punctuation changed.",
+      "now": "2026-11-22T20:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "chainalertdaily.com", "published": "-19m", "observed": "-16m", "title": "BREAKING: SEC to sue crypto exchange Lumora"},
+        {"key": "b", "publisher": "coinwirefeed.com", "published": "-14m", "observed": "-11m", "title": "Breaking - SEC to sue crypto exchange Lumora!"},
+        {"key": "c", "publisher": "altcoinbulletin.com", "published": "-10m", "observed": "-7m", "title": "breaking: sec to sue crypto exchange lumora"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "single_source": true, "independent": ["a"], "signs": ["UNVERIFIED_RUMOR"]},
+      "why": "Identical headlines once case and punctuation are normalized: one copied claim, about a future lawsuit, with no named source."
+    },
+    {
+      "id": "syn-report-prefix-variants",
+      "summary": "Three small sites repeat one unnamed report with different wording.",
+      "now": "2026-11-29T07:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "blockpulsenews.com", "published": "-18m", "observed": "-15m", "title": "Report: SEC preparing lawsuit against exchange Lumora"},
+        {"key": "b", "publisher": "satoshitimes.net", "published": "-13m", "observed": "-10m", "title": "SEC preparing lawsuit against exchange Lumora - report"},
+        {"key": "c", "publisher": "hodlherald.com", "published": "-9m", "observed": "-6m", "title": "Lumora reportedly faces SEC lawsuit"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "single_source": true, "independent": ["a"], "signs": ["UNVERIFIED_RUMOR"]},
+      "why": "All three cite the same unnamed report; the headlines differ, so the rules count three families and the classifier must collapse them."
+    },
+    {
+      "id": "syn-korean-media-relay",
+      "summary": "Two regional sites relay one Korean media report.",
+      "now": "2026-12-06T02:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "seoulcoinnews.com", "published": "-20m", "observed": "-17m", "title": "Korean exchange Hanbit halts deposits after abnormal withdrawals, local media report"},
+        {"key": "b", "publisher": "asiacryptowire.com", "published": "-14m", "observed": "-11m", "title": "Hanbit suspends deposits, citing abnormal outflows, Korean media say"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "single_source": true, "independent": ["a"], "signs": ["COPIED_WIRE_STORY"]},
+      "why": "Both relay the same local media report; neither reported it independently."
+    },
+    {
+      "id": "syn-official-verbatim-reposts",
+      "summary": "An SEC release and two verbatim reposts of its headline.",
+      "now": "2026-12-09T15:35:00Z",
+      "items": [
+        {"key": "a", "source": "sec_press", "url": "https://www.sec.gov/newsroom/press-releases/2026-205", "published": "-16m", "observed": "-13m", "title": "SEC Charges Crypto Lender Brightvault With Defrauding Retail Investors", "excerpt": "The Securities and Exchange Commission today charged Brightvault Capital and two executives with misleading investors about the safety of customer deposits."},
+        {"key": "b", "publisher": "finance.yahoo.com", "published": "-11m", "observed": "-8m", "title": "SEC Charges Crypto Lender Brightvault With Defrauding Retail Investors"},
+        {"key": "c", "publisher": "marketscreener.com", "published": "-9m", "observed": "-6m", "title": "SEC Charges Crypto Lender Brightvault With Defrauding Retail Investors"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "single_source": true, "independent": ["a"], "signs": ["COPIED_WIRE_STORY"]},
+      "why": "An official release alone is still one source until independent reporting or the market confirms it; verbatim reposts add nothing (calm market)."
+    },
+    {
+      "id": "syn-bloomberg-headline-relay",
+      "summary": "Three sites relay one Bloomberg scoop.",
+      "now": "2026-12-13T15:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "fxstreet.com", "published": "-17m", "observed": "-14m", "title": "Bloomberg: Exchange Torvane weighs suspending US customers"},
+        {"key": "b", "publisher": "investing.com", "published": "-12m", "observed": "-9m", "title": "Torvane may suspend US users, Bloomberg reports"},
+        {"key": "c", "publisher": "cryptoticker24.com", "published": "-8m", "observed": "-5m", "title": "Torvane considering a US exit, according to Bloomberg"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "category_accept": ["NONE", "MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "single_source": true, "independent": ["a"], "signs": ["COPIED_WIRE_STORY"]},
+      "why": "Every article relays one Bloomberg report, and the report is about a possibility, not an action."
+    }
+  ]
+}
