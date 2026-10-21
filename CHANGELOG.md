@@ -4,6 +4,70 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — R6: daily ops digest and OKX changelog watcher (plan row R6; master plan sections 5.4 and 9)
+
+Observability only: both tools read files and one public web page, hold no OKX keys,
+never open the demo database and cannot reach an order, a stop, the kill switch or
+reconciliation; nothing in the trading runtime imports them. `app/notify`, `app/shadow`
+and the safety core are unchanged.
+
+### Added
+- `app/ops/digest.py`, `scripts/ops_digest.py`: a plain-English daily digest (07:00
+  Beirut) from the files the services already write — the Phase 6a heartbeat,
+  `state.json`, `ALERT` and the day's journal with its ledger mirror (signals, risk
+  decisions, fills and cash result after fees, reconciliations, uptime, restarts), the
+  news shadow's state, spend and the day's numbers through its own
+  `build_report_data`, the paper fleet's saved state, and the changelog watcher's
+  state. Fixed rules list what needs attention (ACTION: an `ALERT`, a heartbeat older
+  than 10 minutes, no candle closed for 2.5 hours, an inconsistent reconciliation, an
+  unreadable `ALERT`/`state.json`/heartbeat, a failed news safety check, a stopped news
+  shadow or fleet; CHECK: hours of downtime (missing candles), process starts and
+  restarts, runtime errors and notable events such as a deferred exit, the
+  market-continuity pause, uptime below 95 % while running, the kill switch, an
+  incompletely read journal, AI spend above 80 % of the cap, stale fleet prices, a fleet
+  drawdown ALARM, new or undelivered changelog flags, a blind or missing watcher). The
+  heartbeat, the `ALERT`/state files and the journal are read independently and record
+  by record, so a broken journal never hides a halt; downtime and uptime rules wait for a
+  complete journal, a day that is not over only expects the hours that passed, and "no
+  candle since a restart" is timed from the restart. Sent through the existing Telegram
+  notifier in pieces under Telegram's size limit before it is saved under
+  `logs/ops/digest/`; `TELEGRAM_DRY_RUN` honoured. A missing or broken file is one line,
+  never a missing digest. Without `--send` it only prints; `--dry-run` checks the whole
+  path offline on the bundled fixtures.
+- `app/ops/digest_ai.py`: an optional Claude Opus 5.5 summary after the NEEDS ATTENTION
+  list, only when `ANTHROPIC_API_KEY` is set and no ACTION line exists, through the news
+  agent's client builder and spend guard with its own cap (`OPS_DIGEST_AI_MONTHLY_CAP_USD`,
+  default $3). Dropped on a refusal, a cut-off, empty, over-long answer, a link or web
+  address, or any number (with its sign) that is not in the digest; the template is sent
+  either way. No server-side fallback model (the spend guard reserves one model's worst
+  case).
+- `app/ops/okx_changelog.py`, `app/ops/okx_usage.py`, `scripts/watch_okx_changelog.py`:
+  a daily watcher of https://www.okx.com/docs-v5/log_en/ (one GET, host pinned,
+  redirects refused, size capped). It splits the page into its entries (date groups,
+  "Upcoming Changes", h2/h3 entries, older plain groups), remembers each entry's id and
+  text hash, and flags new or edited entries that mention a host, port, REST path, doc
+  anchor, WebSocket channel or authentication rule this repository uses (the watch list
+  is kept in step with the code by a test; hidden characters are removed before matching,
+  and negated wording such as "will not be deprecated" is not ranked as a deprecation).
+  First run = silent baseline plus the upcoming changes and the last 30 days; a page where
+  most entries look new at once is a new baseline with one notice; an alert or notice that
+  was not delivered (Telegram down, or a dry run) is sent again for 7 days, also on days
+  the page cannot be read; a block page, a
+  shrunken page or a fetch failure is a failed check that keeps the known entries, with
+  one alert after 3 in a row. Without `--send` it is a preview that saves nothing. Checked
+  live on 2026-10-22: 449 entries; the first check flags the port-8443 shutdown and the
+  coming SBE services.
+- `research/paper_fleet/digest.py`: the fleet's facts for the digest, read-only through
+  `status_from_state` and the weekly report's own verdicts (`build_report_data`).
+- `deploy/systemd/ops-digest.{service,timer}`, `okx-changelog-watch.{service,timer}`
+  (oneshot, 07:00 and 06:30 `Asia/Beirut`, `Persistent=true`, write access to `logs/ops`
+  only, the repository `.env` and the PostgreSQL socket unreachable),
+  `deploy/systemd/ops.env.example`, `docs/runbooks/OPS_DIGEST.md` (with cron lines as an
+  alternative).
+- Tests: `tests/test_okx_changelog.py`, `tests/test_ops_digest.py`,
+  `tests/test_ops_digest_ai.py`, `tests/test_ops_boundaries.py` (offline; synthetic page
+  fixtures under `tests/fixtures/okx_changelog/`).
+
 ## Unreleased — Sprint 5b: portfolio allocator v2 (plan row R5b; master plan Sprint 5 item 2)
 
 Simulation only, in `research/` and the paper fleet; `app/risk` (the demo and live

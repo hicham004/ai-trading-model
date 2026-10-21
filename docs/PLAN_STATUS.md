@@ -71,6 +71,17 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   that did not pass on their own, timeframes picked on out-of-sample numbers). Recommendation: pre-register for the next
   portfolio study that a portfolio counts as a candidate only when its sleeves pass on their own or its holdout confirms
   it; nothing already run is re-judged.
+- From R6: install the daily digest and the OKX changelog watcher on the VPS (`docs/runbooks/OPS_DIGEST.md`, about 15
+  minutes, free; rotate the exposed Telegram token first, CLAUDE.md open item 8). Recommendation: yes, right after G2 is
+  merged: the watcher is the early warning for the next port-8443 kind of change, the digest the daily check while away.
+- From R6: the digest's optional Claude summary (a second key in the capped news-shadow workspace, about $1 a month, its
+  own $3 cap). Recommendation: start without it, since the template already says everything in plain words; revisit
+  after G5.
+- From R6: OKX's changelog of 2026-05-20 recommends a new REST domain, `openapi.okx.com`; `www.okx.com` "will continue to
+  work and will not be deprecated". Switching would change the reviewed demo host allowlist (`app/exchange`, safety
+  core). Recommendation: no change now; the watcher flags it if OKX ever announces a deprecation.
+- From R6, for information: OKX's API documentation now says that continued use of its API means accepting the OKX API
+  Agreement (seen 2026-10-22). Recommendation: read it once; this system uses demo trading and public data only.
 
 ### Decided — the owner, 2026-10-21 ("yes to all of your recommendations")
 
