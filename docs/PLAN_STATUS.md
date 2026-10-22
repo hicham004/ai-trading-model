@@ -88,6 +88,20 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   from a checkout that includes R7, and add the 2028 dates when the Fed publishes them (the fleet report warns from
   2027-10-09).
 
+- From R9: Phase 9 itself. The long/short design study (`docs/PHASE9_DESIGN_STUDY.md`) found that adding the mirrored
+  shorts made the trend rules worse in most cases (Calmar above long-only in 3 of 16 pairs; the BTC shorts lost in 7 of 8);
+  one rule, S2 breakout on ETH 6H, passed every test, but the same rule on ETH 4H was contradicted by the holdout, whose
+  falling direction was known before it was opened. Recommendation: no Phase 9 build now; revisit only with a short rule
+  designed and pre-registered as one, judged on forward data.
+- From R9: a paper-only long/short account for S2 on ETH 6H in the paper fleet (new scope: simulated shorts on public prices
+  and OKX's public funding; no derivatives access, no key). Recommendation: not now; revisit at G7 if the fleet's long-only S2
+  ETH accounts hold up.
+- From R9, before any Phase 9 work: whether OKX offers USDT perpetual swaps to your account (your country of residence decides)
+  and from the Singapore VPS is a question for OKX and, if needed, a lawyer. Recommendation: ask once, only if Phase 9 is ever
+  considered.
+- From R9, for information: the 12-month holdout (2025-10 to 2026-10) is used up for long/short questions (its falling
+  direction was known). Recommendation: judge any future long/short study on forward data only.
+
 ### Decided — the owner, 2026-10-21 ("yes to all of your recommendations")
 
 - R9, the paper-only long/short design study: **yes**. R9 is Open. Trading shorts,

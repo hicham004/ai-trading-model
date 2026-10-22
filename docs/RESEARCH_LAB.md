@@ -337,3 +337,75 @@ code (`tests/fixtures/paper_fleet_r5a`, two accounts) resumes with its records
 untouched and continues byte for byte as an uninterrupted run, while the
 allocator account joins from its own start; an account that joins on lagging data
 ends with the same forward record as one that joined on complete data.
+
+## Phase 9 design study — long and short through perpetual swaps (plan row R9)
+
+The owner's go of 2026-10-21 for a paper-only study: would the trend rules earn
+their keep if they could also be short — through BTC- and ETH-USDT perpetual
+swaps with collateral at least equal to the position (no leverage) — after fees,
+slippage and funding? Phase 9 itself, trading shorts and derivatives access stay
+unauthorized. Report: `docs/research/LONG_SHORT_STUDY_REPORT.md` (numbers in
+`docs/research/long_short_results.json`); the design study with the extra safety
+rules and the review path: `docs/PHASE9_DESIGN_STUDY.md`. Simulation only.
+
+| Module | Purpose |
+|---|---|
+| `research/longshort.py` | `run_long_short`: `run_vectorized` with a second, short side. With no shorts and no funding it is the long-only engine operation for operation (parity-tested bit for bit on every overlay). A short sells at the next open (slippage against it), its stop sits `stop_distance` ABOVE the decision close and fills on the bar's high (a gap fills at the worse open), targets below, a trailing stop that follows the running low and only moves down, reduce-only buy-backs, time stops, end of data; the long side wins a tie, so it is the long-only rule unchanged; one position per column. Funding: per-bar settled rates, charged at the bar's close on the open position (longs pay positive rates, shorts receive them), per leg. A 1x isolated liquidation tripwire (`entry x 2 / (1 + mmr)`, OKX tier-1 mmr 0.4 %) and a leverage trace. Every short exit path is tested against the long engine on the price path reflected around the entry. |
+| `research/strategies/shorts.py` | The mirror images of S1, S2, S4 and the S5 filter with the same parameters (S1 and S2 are tested to equal the reviewed long rules on the reflected market); `build_ls_frames` keeps the long frames of Sprint 2c unchanged and lets a short START only while the long rule is flat and the S0 filter (and the S5 mirror) allow an entry. |
+| `research/longshort_data.py` | Binance's public funding history as the proxy for OKX's swaps (OKX keeps months; the two are compared where both exist), settlement-to-bar assignment (a settlement at `s` belongs to the bar with `open < s <= next open`; time-unit safe), OKX's public BTC-/ETH-USDT-SWAP 1H candles collected through the GET-only `OKXPublicRest` into `data/lake/candles/<SWAP>/1H` (resumable), the perp aligned onto spot bars, spot-perp basis. |
+| `research/longshort_study.py`, `scripts/run_long_short_study.py` | The pre-registered study (`PREREGISTRATION`, hashed with the configuration into the results): S1, S2, S4, S1+S5 x BTC/ETH x 4H/6H x two designs — hybrid (long on spot 0.10 %, short on the swap 0.05 % + funding) and all-perp (both on the swap) — under Sprint 2c's walk-forward, policy sizing (both sides) and gates. The long-only path is run first and must reproduce Sprint 2c's stored numbers or the study stops. The evidence rule: the v1c gates, a profitable short leg on its own and a Calmar above Sprint 2c's long-only result on the walk-forward, then a confirming holdout — opened only for configurations meeting the walk-forward part (`holdout_step`). Diagnostics: leg attribution, funding x0/x2 and slippage x2/x3 replays, the swap legs replayed on the perp's own candles, the shorts without the crash filter (post-hoc, recorded as such), the families' default parameters over 2020-01-01 to the holdout start, funding by year, the largest rises against a short, basis. |
+| `research/report_longshort.py` | The report; every plain-English sentence is computed from the run. |
+
+### Running
+
+```bash
+python scripts/run_long_short_study.py --collect-perp-candles            # once: OKX public swap candles (resumable, ~10 min)
+python scripts/run_long_short_study.py --evaluate-holdout --workers 4    # the study (~9 min on 4 cores)
+python scripts/run_long_short_study.py --quick --families S1 --instruments BTC-USDT --timeframes 4H --report - --json -   # smoke run
+python scripts/run_long_short_study.py --render-from-json docs/research/long_short_results.json                         # re-render
+```
+
+The holdout is opened only by the full pre-registered study (never with `--quick` or a subset)
+and every opening is appended to `docs/research/long_short_holdout_ledger.json`, which the report
+shows.
+
+### Result (2026-10-22)
+
+32 configurations; all 16 long-only reproductions matched Sprint 2c. **4 of 32 met the
+walk-forward part of the evidence rule — S2 (Donchian breakout) on ETH-USDT 4H and 6H, each in
+both designs; the untouched 12 months (2025-10-20 → 2026-10-20) confirmed ETH 6H (+2.3 %, 28
+trades, PF 1.29; its short side +6.0 % from 10 trades, its long side −3.7 %) and contradicted
+ETH 4H (−4.8 %, 42 trades, PF 0.59).** The holdout's falling direction was known before it was
+opened (pre-registered caveat), so the confirmation is weak.
+
+- Adding the mirrored shorts made the rules worse in most cases: hybrid Calmar above long-only
+  in 3 of 16 family-and-series pairs (median 0.05 against 0.35); the short leg profitable in 7
+  of 16 — BTC losing in 7 of 8, ETH winning in 6 of 8 (most of the gain went to fees); 2022
+  better than long-only in 13 of 16 pairs but positive in 4 (median −2.6 % → −1.5 %). With the
+  fixed default parameters over 2020-01-01 to the holdout start (no selection) the shorts lowered
+  Calmar in 15 of 16 pairs.
+- Funding flowed from longs to shorts (Binance proxy, 2020 to the holdout start: +13.1 %/yr BTC,
+  +15.7 %/yr ETH): the hybrid's shorts received 0.3–1.0 % of capital, the all-perp design's
+  longs paid 1.1–4.7 %; the hybrid beat the all-perp design in 13 of 16 pairs.
+- Diagnostics: the swap legs on OKX's own perpetual candles moved no Calmar by more than 0.05;
+  the shorts without the crash filter (post-hoc) were worse in 28 of 32; no liquidation, account
+  leverage at most 0.84x, the worst move against an open short 18 %.
+- BTC rose up to 138 % and ETH up to 151 % within 30 days (December 2020 – January 2021): an
+  unprotected 1x short would have been liquidated from 0.4 % (BTC) and 1.3 % (ETH) of the hourly
+  closes of 2020 – October 2025.
+- An independent review found one real defect before the final run: a short-to-long switch could
+  start the long one bar late when the short's stop fired in that bar. Fixed and re-run; the first
+  run's holdout openings (the same verdicts) are the ledger's first entry.
+
+### Reading the R9 report honestly
+
+- The long side is Sprint 2c's long-only rule unchanged and the shorts are mirror images with the
+  same parameters: nothing was tuned for shorting, which is the point of the test and also why a
+  dedicated short rule might do better — that would be a new, pre-registered study.
+- Hybrid and all-perp versions of one rule share their signals: four passing configurations are
+  two rules, and the holdout split them one each.
+- Funding comes from Binance's public history; OKX's own (since 2026-07, inside the holdout window)
+  only calibrates it. OKX settles more often when a rate sits at its cap, which the proxy cannot
+  show for OKX.
+- Positions are small at the policy sizing (10 % vol target), so returns are small in absolute
+  terms on both sides of the comparison.

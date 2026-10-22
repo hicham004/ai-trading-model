@@ -1,0 +1,182 @@
+{
+ "note": "Every opening of the 12-month holdout by the Phase 9 long/short study (plan row R9), in order; entries are appended, never edited. The report shows all of them.",
+ "entries": [
+  {
+   "generated_at": "2026-10-22 01:25 UTC",
+   "started_at": "2026-10-22 01:17 UTC",
+   "preregistration_sha256": "977162712ac4f6f846fd39964313a9360029f21c5f6a38428585e2df004d6fed",
+   "results_file": "not kept (the first full run wrote to a temporary file)",
+   "note": "First full run. The independent code review then found that a flip (short to long or back) was delayed by one bar when the old position's stop fired in the flip bar; the engine was fixed and the study re-run (next entry). Recorded here because these four holdout results were seen before the re-run.",
+   "openings": [
+    {
+     "configuration": "S2 ETH-USDT 4H hybrid",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 10,
+      "vol_mult": 1.5,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.050234,
+     "max_drawdown": 0.065692,
+     "profit_factor": 0.572115,
+     "n_trades": 43,
+     "confirmed": false
+    },
+    {
+     "configuration": "S2 ETH-USDT 4H perp",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 10,
+      "vol_mult": 1.5,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.04893,
+     "max_drawdown": 0.06441,
+     "profit_factor": 0.578843,
+     "n_trades": 43,
+     "confirmed": false
+    },
+    {
+     "configuration": "S2 ETH-USDT 6H hybrid",
+     "selected_params": {
+      "entry_days": 20,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "time30"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.041374,
+     "max_drawdown": 0.022817,
+     "profit_factor": 2.469815,
+     "n_trades": 14,
+     "confirmed": true
+    },
+    {
+     "configuration": "S2 ETH-USDT 6H perp",
+     "selected_params": {
+      "entry_days": 20,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "time30"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.041483,
+     "max_drawdown": 0.022724,
+     "profit_factor": 2.482389,
+     "n_trades": 14,
+     "confirmed": true
+    }
+   ]
+  },
+  {
+   "generated_at": "2026-10-22 02:44 UTC",
+   "started_at": "2026-10-22 02:37 UTC",
+   "preregistration_sha256": "977162712ac4f6f846fd39964313a9360029f21c5f6a38428585e2df004d6fed",
+   "results_file": "docs/research/long_short_results.json",
+   "openings": [
+    {
+     "configuration": "S2 ETH-USDT 4H hybrid",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 10,
+      "vol_mult": 1.5,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.047704,
+     "max_drawdown": 0.063413,
+     "profit_factor": 0.585586,
+     "n_trades": 42,
+     "confirmed": false
+    },
+    {
+     "configuration": "S2 ETH-USDT 4H perp",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 10,
+      "vol_mult": 1.5,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.046469,
+     "max_drawdown": 0.062649,
+     "profit_factor": 0.592203,
+     "n_trades": 42,
+     "confirmed": false
+    },
+    {
+     "configuration": "S2 ETH-USDT 6H hybrid",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 10,
+      "vol_mult": 1.5,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.02257,
+     "max_drawdown": 0.03799,
+     "profit_factor": 1.286294,
+     "n_trades": 28,
+     "confirmed": true
+    },
+    {
+     "configuration": "S2 ETH-USDT 6H perp",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 10,
+      "vol_mult": 1.5,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.022542,
+     "max_drawdown": 0.037773,
+     "profit_factor": 1.288359,
+     "n_trades": 28,
+     "confirmed": true
+    }
+   ]
+  }
+ ]
+}

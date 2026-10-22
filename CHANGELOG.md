@@ -4,6 +4,70 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — R9: Phase 9 design study, long and short through perpetual swaps without leverage (plan row R9)
+
+Paper only, at the owner's go of 2026-10-21. Phase 9, trading shorts, perpetual swaps and any
+derivatives access stay unauthorized and unrepresentable; nothing under `app/`, `config/` or
+`deploy/` changed, no key was used, and the trading runtime imports none of this (tested).
+
+### Added
+- `research/longshort.py`: a long/short version of the research engine. With no shorts and no
+  funding it is `run_vectorized` bit for bit (parity-tested on every overlay); every short exit
+  path (stop on the high with gap fills, target, trailing stop on the running low, time stop,
+  reduce-only buy-back, end of data) is tested against the long engine on the reflected price
+  path; every conflict between the sides falls on the short side, so without the ladder the long
+  side trades exactly like the long-only engine (tested on random paths with random shorts);
+  funding charged per leg at the close of the bar it settles in; a 1x isolated liquidation
+  tripwire and a leverage trace.
+- `research/strategies/shorts.py`: the mirror images of S1, S2, S4 and the S5 filter (S1 and S2
+  equal the reviewed long rules on the reflected market); a short starts only while the long rule
+  is flat and the no-trade filter allows an entry.
+- `research/longshort_data.py`: Binance's public funding history as the proxy for OKX's swaps
+  (compared with OKX's own funding where both exist), settlement-to-bar assignment (time-unit
+  safe: the lake stores milliseconds), OKX's public BTC-/ETH-USDT-SWAP 1H candles collected
+  through the GET-only public client into `data/lake/candles/<SWAP>/1H`, basis.
+- `research/longshort_study.py`, `scripts/run_long_short_study.py`, `research/report_longshort.py`:
+  the pre-registered study (32 configurations: S1, S2, S4, S1+S5 x BTC/ETH x 4H/6H x hybrid and
+  all-perp designs) under Sprint 2c's walk-forward, policy sizing and gates; the long-only path
+  must first reproduce Sprint 2c's stored numbers (all 16 did); a stricter evidence rule (the v1c
+  gates, a profitable short leg on its own, a Calmar above long-only, then a confirming holdout,
+  opened only for walk-forward passers, only by the full pre-registered study, and recorded in an
+  append-only ledger, `docs/research/long_short_holdout_ledger.json`); diagnostics; the generated
+  report, in which every plain-English sentence follows the numbers it states.
+- `docs/research/LONG_SHORT_STUDY_REPORT.md`, `docs/research/long_short_results.json`,
+  `docs/research/okx_swap_reference_2026-10-22.json` (OKX's public contract, margin-tier and
+  funding settings), and `docs/PHASE9_DESIGN_STUDY.md`: the numbers in plain words, sixteen
+  proposed extra safety rules, what would change in the system and the review path.
+
+### Result (simulation)
+- Adding the mirrored shorts made the trend rules worse in most cases: Calmar above long-only in
+  3 of 16 family-and-series pairs (median 0.35 -> 0.05); the BTC short legs lost in 7 of 8, the
+  ETH short legs made a little in 6 of 8 (most of it went to fees); 2022 better in 13 of 16 pairs
+  but positive in only 4 (median -2.6 % -> -1.5 %).
+- 4 of 32 configurations met the walk-forward part of the rule — S2 (Donchian breakout) on ETH 4H
+  and 6H, each in both designs. The untouched 12 months confirmed ETH 6H (+2.3 %, 28 trades, the
+  gain from its short side) and contradicted ETH 4H (-4.8 %, 42 trades); their direction (a
+  falling market) was known before they were opened, so the confirmation is weak.
+- Funding flowed from longs to shorts (about 13 %/yr BTC, 16 %/yr ETH, 2020-2025): the hybrid
+  design (longs on spot) beat the all-perp design in 13 of 16 pairs.
+- Recommendation in the design study: no Phase 9 build now.
+
+### Independent review
+- A read-only review found one real defect: a switch from short to long was delayed by one bar
+  when the short's stop also fired in that bar (the long side was then not exactly the long-only
+  rule). Fixed — a short that the long side needs closes at the open first; a long that gives way
+  keeps the long-only stop-first rule — with regression tests, and the study re-run; no rule, gate
+  or setting changed and the pre-registration hash is the same. The first run's holdout openings
+  (the same verdicts) are the first entry of the ledger. Also fixed from the review: the S5 mirror
+  and the S0 filter gate a short in the long side's order; a loss-free leg's profit factor is 999;
+  the holdout can only be opened by the full study; every summary sentence is conditional on its
+  numbers; the disclosures in the report's method notes.
+
+### Changed
+- `tests/test_research_boundaries.py`: the study's files are inside the research sandbox (no
+  risk, database, broker, execution or exchange imports; no network library of their own).
+- `docs/RESEARCH_LAB.md`: the R9 section; `docs/PLAN_STATUS.md`: section 2.
+
 ## Unreleased — R7: FOMC calendar check (plan row R7)
 
 Research data only. The calendar feeds the S0 no-trade filter of the research and the

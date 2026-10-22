@@ -30,7 +30,8 @@ def _imports(path: Path):
 
 def test_research_package_and_runner_stay_in_the_sandbox():
     files = list((ROOT / "research").rglob("*.py")) + [ROOT / "scripts" / "run_research.py", ROOT / "scripts" / "run_research_v1b.py", ROOT / "scripts" / "run_research_v1c.py",
-                                                       ROOT / "scripts" / "run_paper_fleet.py", ROOT / "scripts" / "run_allocator_v2.py"]
+                                                       ROOT / "scripts" / "run_paper_fleet.py", ROOT / "scripts" / "run_allocator_v2.py",
+                                                       ROOT / "scripts" / "run_long_short_study.py"]
     assert files
     for path in files:
         for module in _imports(path):
@@ -56,3 +57,22 @@ def test_research_is_not_wired_into_the_live_registry():
     for name in ("registry.py", "library.py"):
         for module in _imports(ROOT / "app" / "strategy" / name):
             assert not module.startswith("research"), f"app/strategy/{name} imports {module}"
+
+
+def test_the_long_short_design_study_stays_paper_only():
+    """Plan row R9: the long/short study is research code — no risk, database, broker, execution or exchange code, and the
+    trading runtime never imports it. Its only network access is the GET-only public client of the data lake."""
+    stricter = FORBIDDEN + ("app.risk", "app.db", "app.broker", "app.backtest")
+    study_files = [ROOT / "research" / name for name in ("longshort.py", "longshort_data.py", "longshort_study.py", "report_longshort.py")]
+    study_files += [ROOT / "research" / "strategies" / "shorts.py", ROOT / "scripts" / "run_long_short_study.py"]
+    for path in study_files:
+        assert path.exists(), path
+        modules = list(_imports(path))
+        for module in modules:
+            for forbidden in stricter:
+                assert not (module == forbidden or module.startswith(forbidden + ".")), f"{path.relative_to(ROOT)} imports {module}"
+        network = [m for m in modules if m.split(".")[0] in ("requests", "httpx", "urllib", "websocket", "websockets", "aiohttp", "socket")]
+        assert not network, f"{path.relative_to(ROOT)} opens its own network path: {network}"
+    for path in (ROOT / "app").rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        assert "research.longshort" not in text and "research.strategies.shorts" not in text, path
