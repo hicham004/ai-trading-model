@@ -453,7 +453,11 @@ def test_a_fleet_written_by_the_r5a_code_resumes_and_the_allocator_account_joins
         after = (tmp_path / "journals" / f"{aid}.jsonl").read_bytes().splitlines()
         straight = (pair_straight / "journals" / f"{aid}.jsonl").read_bytes().splitlines()
         assert after[:len(before)] == before  # what the R5a code wrote stays as it was
-        assert len(after) > len(before) and after[len(before):] == straight[len(before):]  # and the record goes on byte for byte as an uninterrupted run
+        # ...and the record goes on as an uninterrupted run. The fixture was written on Windows; elsewhere (Linux CI) the
+        # last bits of some floats differ (libm), so the records are compared value by value, not byte for byte.
+        rest, rest_straight = after[len(before):], straight[len(before):]
+        assert 0 < len(rest) == len(rest_straight)
+        assert all(_approx_equal(json.loads(x), json.loads(y)) for x, y in zip(rest, rest_straight))
     alloc = journals(tmp_path, pair)[ALLOC]
     assert alloc[0]["type"] == "start" and alloc[0]["created_at"] == "2026-10-16T18:10:00Z"
     assert alloc[1]["type"] == "portfolio_warmup" and alloc[1]["forward_start_day"] == "2026-10-17"
