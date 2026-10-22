@@ -590,8 +590,9 @@ def render(data: Mapping[str, Any]) -> str:
     last_fomc = max(FOMC_DECISION_DAYS)
     gen = data["generated_at"]
     if pd.Timestamp(last_fomc, tz="UTC") < gen + pd.Timedelta(days=FOMC_WARNING_DAYS):
-        lines.append(f"- **FOMC calendar runs out**: the S0 filter's last built-in FOMC date is {last_fomc}; extend `research/events.py` "
-                     "(plan row R7 verifies the dates) or the filter stops blocking FOMC windows after it.")
+        lines.append(f"- **FOMC calendar runs out**: the S0 filter's last built-in FOMC date is {last_fomc}; add the next year's dates "
+                     "from the Federal Reserve's published calendar to `research/events.py` (how: `tests/fixtures/fomc_calendar/README.md`) "
+                     "and restart the fleet, or the filter stops blocking FOMC windows after it.")
     stale = [r for r in data["week_log"] if r.get("type") in ("data_stale", "data_fresh")]
     if stale:
         lines.append("- Data freshness changes this week: " + "; ".join(f"{r['type']} at {r['now']}" for r in stale) + ".")

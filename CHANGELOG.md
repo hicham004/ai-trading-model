@@ -4,6 +4,53 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — R7: FOMC calendar check (plan row R7)
+
+Research data only. The calendar feeds the S0 no-trade filter of the research and the
+paper fleet, which blocks NEW entries around FOMC statements; it never touches an exit,
+a stop, the kill switch, reconciliation, demo or live trading. The research was not
+re-run and the holdout was not touched.
+
+### Checked
+- The 57 FOMC decision days of 2020–2026 in `research/events.py` (written from memory in
+  Sprint 2c) against the Federal Reserve's published calendar (federalreserve.gov
+  `fomccalendars.htm`, last updated 2026-10-07, and `fomchistorical2020.htm`): all 57
+  right — every scheduled statement day plus the unscheduled cuts of March 3 and 15,
+  2020. By the calendar's rule (meetings only) the cancelled March 17–18, 2020 meeting
+  and the notation votes are left out; none of them set rates. The closest call, the
+  notation vote of March 23, 2020 (an FOMC statement that started unlimited bond buying,
+  rates unchanged), lies only in the first walk-forward window's training data; the rule
+  stays as Sprint 2c fixed it. Nothing was corrected, so no Sprint 2c verdict can change
+  (paragraph in the owner-decisions section of `docs/research/ENSEMBLE_V1C_REPORT.md`).
+  The release time printed on each of the 55 statements so far (2:00 p.m. New York time =
+  19:00 UTC in winter, 18:00 UTC in daylight time; the March 2020 cuts at 15:00 and 21:00
+  UTC) falls inside its ±6 h window centred on 18:00 UTC.
+
+### Added
+- The eight 2027 decision days from the same calendar (January 27, March 17, April 28,
+  June 9, July 28, September 15, October 27, December 8): the built-in calendar now ends
+  2027-12-08 instead of 2026-12-09. The Fed calls each date tentative until the meeting
+  before it confirms it.
+- `tests/fixtures/fomc_calendar/`: the Fed's calendar for 2020–2027 as published, one
+  entry per line with each page's last-update date, the release time printed on every
+  statement so far, the offline parser that made it and how to refresh it.
+  `tests/test_fomc_calendar.py` compares the built-in calendar with it, checks that the S0
+  filter blocks the 2027 meetings and that every published release time falls inside its
+  window; a paper-fleet runner test shows that
+  a fleet started on the old calendar resumes after a restart, blocks the 2027 meeting and
+  keeps journals identical to a fleet that always had the new calendar.
+
+### Changed
+- `research/events.py`: the description records the check and its source, and gives
+  winter and daylight time the right way round (wording only; no window moves).
+- `research/paper_fleet/report.py`: the "FOMC calendar runs out" line says how to extend
+  the calendar instead of pointing at plan row R7. The fleet's fingerprints do not cover
+  the calendar's dates (the shared rules name the filter, `FOMC±6/6h`), so a running fleet
+  resumes in its folder and picks up the 2027 dates at its next restart
+  (`docs/runbooks/PAPER_FLEET.md`).
+- `docs/RESEARCH_LAB.md`, `docs/runbooks/PAPER_FLEET.md`: the calendar is checked data;
+  what a running fleet needs.
+
 ## Unreleased — R6: daily ops digest and OKX changelog watcher (plan row R6; master plan sections 5.4 and 9)
 
 Observability only: both tools read files and one public web page, hold no OKX keys,

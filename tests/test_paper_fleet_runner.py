@@ -10,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from research import events as events_mod
 from research.engine import Costs
 from research.paper_fleet import runner as runner_mod
 from research.paper_fleet.config import INSTRUMENTS, FleetManifest, load_manifest
@@ -629,3 +630,61 @@ def test_the_dry_run_starts_later_when_its_first_hour_is_not_ready(tmp_path):
     result = run_dry(tmp_path / "dry", days=1.5, manifest=_subset(LIGHT), settings=settings, market_data=(candles, funding, oi))
     assert result.ok, result.checks
     assert pd.Timestamp(result.start) > start and result.source == "given market data"
+
+
+# -- plan row R7: the FOMC calendar is data, so a running fleet takes new dates at its next restart ---------------------
+
+FOMC_ACCOUNTS = ("c01-s1s5-btc-6h-none", "ctl-hold-btc-4h")  # a 6H and a 4H sleeve, both behind the S0 filter
+FOMC_T0 = pd.Timestamp("2027-01-25 10:20", tz="UTC")
+FOMC_RESTART = pd.Timestamp("2027-01-26 21:10", tz="UTC")  # the code is updated before the first 2027 meeting
+FOMC_END = pd.Timestamp("2027-01-28 12:10", tz="UTC")
+FOMC_WINDOW = (pd.Timestamp("2027-01-27 12:00", tz="UTC"), pd.Timestamp("2027-01-28 00:00", tz="UTC"))  # statement 2027-01-27
+
+
+@pytest.fixture(scope="module")
+def data_2027():
+    return synthetic_market(days=1000, end=pd.Timestamp("2027-01-29 00:00", tz="UTC"))
+
+
+def _pre_r7_calendar(monkeypatch) -> None:
+    """The S0 filter as it was before plan row R7: the built-in FOMC calendar ended on 2026-12-09."""
+    old = tuple(d for d in events_mod.FOMC_DECISION_DAYS if d < "2027")
+    assert len(old) == 57 and old[-1] == "2026-12-09"
+    real = events_mod.fomc_windows
+    monkeypatch.setattr(events_mod, "FOMC_DECISION_DAYS", old)  # the module's list too, for anything that reads it while running
+    monkeypatch.setattr(events_mod, "fomc_windows", lambda **kw: real(**dict(kw, days=old)))  # its default was bound at import
+
+
+def _s0(root: Path, manifest):
+    """Per account: bar open time -> whether the S0 filter allowed entries in the decision made at that bar's close."""
+    return {aid: {r["bar"]: r["decision"]["diagnostics"]["s0_tradeable"] for r in recs if r["type"] == "bar" and "decision" in r}
+            for aid, recs in journals(root, manifest).items()}
+
+
+def test_a_fleet_started_on_the_old_fomc_calendar_resumes_and_blocks_the_2027_meetings_after_a_restart(tmp_path, data_2027, monkeypatch):
+    accounts = _subset(FOMC_ACCOUNTS)
+    straight, never, updated = tmp_path / "straight", tmp_path / "never_updated", tmp_path / "updated"
+    fleet, feed = make(straight, data_2027, accounts, FOMC_T0)  # always the new calendar
+    advance(fleet, feed, FOMC_T0 + pd.Timedelta(minutes=40), FOMC_END)
+    fleet.release()
+    with monkeypatch.context() as m:
+        _pre_r7_calendar(m)
+        fleet, feed = make(never, data_2027, accounts, FOMC_T0)  # never updated: the old calendar throughout
+        advance(fleet, feed, FOMC_T0 + pd.Timedelta(minutes=40), FOMC_END)
+        fleet.release()
+        fleet, feed = make(updated, data_2027, accounts, FOMC_T0)  # started on the old calendar, running until the update ...
+        advance(fleet, feed, FOMC_T0 + pd.Timedelta(minutes=40), FOMC_RESTART)
+        fleet.release()
+    fleet, feed = make(updated, data_2027, accounts, FOMC_RESTART)  # ... then restarted on the new one, in the same folder
+    advance(fleet, feed, FOMC_RESTART, FOMC_END)
+    fleet.release()
+    assert journals(updated, accounts) == journals(straight, accounts)  # as if it had always had the new calendar
+    log = [json.loads(line) for line in (updated / "fleet.jsonl").read_text(encoding="utf-8").splitlines()]
+    # Resumed, not refused. That no fingerprint covers the dates is pinned by the R5a fingerprints in test_paper_fleet_config.py.
+    assert [r["type"] for r in log if r["type"] in ("created", "resume")] == ["created", "resume"]
+    new, old = _s0(straight, accounts), _s0(never, accounts)
+    for aid in FOMC_ACCOUNTS:
+        inside = sorted(t for t in new[aid] if FOMC_WINDOW[0] <= pd.Timestamp(t) <= FOMC_WINDOW[1])
+        assert len(inside) == (4 if aid.startswith("ctl-hold") else 3), (aid, inside)  # 4H: 12, 16, 20, 00 h; 6H: 12, 18, 00 h
+        assert not any(new[aid][t] for t in inside), aid  # the new calendar blocks new entries around the statement
+        assert any(old[aid][t] for t in inside), aid  # the old one did not

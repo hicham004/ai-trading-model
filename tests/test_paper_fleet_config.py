@@ -115,7 +115,8 @@ def test_candidates_with_their_own_exits_are_refused_and_no_fleet_candidate_has_
 
 
 # Fingerprints of the 19 R5a accounts and of the shared rules, taken before plan row R5b: a fleet started with the R5a code
-# resumes only if none of them changes (the allocator-v2 account joins it as a new account).
+# resumes only if none of them changes (the allocator-v2 account joins it as a new account). They were taken while the FOMC
+# calendar ended in 2026; plan row R7 added the 2027 dates and they hold, because no fingerprint covers the dates.
 R5A_FLEET_FINGERPRINT = "ef9a24cda90e2fd1d29735d29bf30b6bfc22d4699abe3ed8b2c6b1255f24b48e"
 R5A_FINGERPRINTS = {
     "c01-s1s5-btc-6h-none": "4d2045a7a638be352b44cc60e42731c3f83738d04fd7de216137414fb07b0550",

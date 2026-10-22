@@ -168,7 +168,7 @@ by `scripts/run_research_v1c.py`. Simulation only, as before.
 |---|---|
 | `research/hmm.py` | Diagonal-Gaussian hidden Markov model in numpy (EM + a forward-only filter). Written in-repo instead of `hmmlearn` so the lockfile stays audited and, more importantly, so the regime probability of a bar is the *filtered* posterior that uses only bars up to and including it (`hmmlearn` exposes smoothed posteriors, which look into the future). Tested: EM never decreases the log-likelihood, a planted two-regime series is recovered, appending future bars never changes earlier filtered rows. |
 | `research/regime_v2.py` | Regime v2: 3 states on (log return, log 7-day realized vol), fitted on each walk-forward TRAIN slice, applied forward through the test slice; states ordered by mean return (bear / chop / bull). `mode="gate"` blocks NEW entries while `P(bear) >= 0.5`; `mode="scale"` sizes them at a quarter; exits, stops and brackets never see the regime. |
-| `research/events.py` + `research/strategies/s0_filters.py` | Scheduled-event windows for the S0 no-trade filter (built-in FOMC decision days 2020–2026, ±6 h around the release; a JSON calendar can be supplied). The dates were written from memory and must be verified by the owner; they block ~6–7 % of bars together with the existing vol-spike / spread / gap rules. |
+| `research/events.py` + `research/strategies/s0_filters.py` | Scheduled-event windows for the S0 no-trade filter (built-in FOMC decision days 2020–2027, ±6 h around 18:00 UTC on the statement day, which holds the 2:00 p.m. New York release in winter and in daylight time; a JSON calendar can be supplied). Written from memory in Sprint 2c and checked against the Federal Reserve's published calendar in plan row R7 (2026-10-22): all 57 dates of 2020–2026 were right, the 2027 dates were added, and `tests/test_fomc_calendar.py` compares the calendar with the Fed's, recorded in `tests/fixtures/fomc_calendar/`. Together with the vol-spike / spread / gap rules they block ~6–7 % of bars. |
 | `research/strategies/turnover.py`, `s1_tsmom.py` (`S1h`) | Lower-turnover variants: `S1w` weekly clock (state sampled once a week), `S1d`/`S2d`/`S4d` 1D entry clock (entries only at the daily close, exits on every bar), `S1h` hysteresis bands on the vol-scaled momentum. Same entry rules, different clocks. |
 | `research/strategies/s5_positioning.py` (`+S5s`) | S5 re-test with a 7–14-day funding z-window and an open-interest change window (1 or 3 days) on the full Binance history. |
 | `research/gated_walkforward.py` | Walk-forward with the per-window regime fit, entries-only gating of the desired matrix, Sprint 2b's staged rule selection on the gated train slice, the FIXED policy sizing (`vt10/30 crash15/90dh ladder`, planner decision 2) on the test slice, an optional small train-selected sizing comparison, and fixed replays (robustness, full-size sleeve, slippage stress) that reuse the per-window regimes. `mode="none"` reproduces Sprint 2b's policy walk-forward bit for bit (tested). |
@@ -242,7 +242,11 @@ the Sprint 2c walk-forward gates at the fixed policy sizing; the untouched
 - Deflated Sharpe counts the rule trials of the last train window; the regime
   modes and clocks multiply the number of things tried and are the reason the
   DSRs stay low.
-- The FOMC calendar is unverified data (mechanism tested, dates not).
+- The FOMC calendar was written from memory; plan row R7 (2026-10-22) found all
+  57 dates of 2020–2026 right against the Federal Reserve's published calendar,
+  so no Sprint 2c number depends on a wrong date. The Fed calls each date
+  tentative until the meeting before it confirms it; the built-in calendar ends
+  2027-12-08 (refreshing it: `tests/fixtures/fomc_calendar/README.md`).
 
 ## Sprint 5a — the paper fleet (plan row R5a)
 

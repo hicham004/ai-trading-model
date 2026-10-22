@@ -82,6 +82,11 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   core). Recommendation: no change now; the watcher flags it if OKX ever announces a deprecation.
 - From R6, for information: OKX's API documentation now says that continued use of its API means accepting the OKX API
   Agreement (seen 2026-10-22). Recommendation: read it once; this system uses demo trading and public data only.
+- From R7, for G6: the FOMC calendar matched the Federal Reserve's for all 2020–2026 dates (nothing corrected, no 2c
+  verdict changes) and now runs to 2027-12-08. A paper fleet started on code from before R7 keeps its folder and needs
+  only the updated checkout and one restart before 2027-01-27 (`docs/runbooks/PAPER_FLEET.md`). Recommendation: start G6
+  from a checkout that includes R7, and add the 2028 dates when the Fed publishes them (the fleet report warns from
+  2027-10-09).
 
 ### Decided — the owner, 2026-10-21 ("yes to all of your recommendations")
 

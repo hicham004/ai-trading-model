@@ -129,7 +129,14 @@ def test_report_puts_the_controls_first_and_speaks_plainly(tmp_path):
     assert "## In short (plain English)" in text and "No ranking yet" in text
     assert "too early" in text and "blocked by a filter" in text
     assert "until 2026-11-04 00:05 UTC" in text.splitlines()[0]  # a report ends at the fleet's last cycle
-    assert "FOMC calendar runs out" in text  # the built-in calendar ends 2026-12-09, within 60 days of this report
+    assert "FOMC calendar runs out" not in text  # the built-in calendar runs to 2027-12-08 since plan row R7 (it ended 2026-12-09)
+
+
+def test_report_warns_60_days_before_the_fomc_calendar_runs_out(tmp_path):
+    paths = _fleet(tmp_path, "2027-11-01T00:00:00Z", "2027-11-03T00:05:00Z")
+    text = write_week(paths, datetime(2027, 11, 3, 0, 30, tzinfo=timezone.utc)).read_text(encoding="utf-8")
+    line = next(l for l in text.splitlines() if "FOMC calendar runs out" in l)
+    assert "last built-in FOMC date is 2027-12-08" in line and "tests/fixtures/fomc_calendar/README.md" in line and "R7" not in line
 
 
 def test_scheduler_finalizes_the_previous_week_once(tmp_path):

@@ -201,6 +201,33 @@ sudo rm /etc/systemd/system/paper-fleet.service && sudo systemctl daemon-reload
 Keep `logs/paper_fleet/` when you stop: it is the record. Deleting it and
 starting again starts a new forward record from zero.
 
+### A new FOMC calendar on a running fleet (plan row R7)
+
+The no-trade filter reads its FOMC meeting calendar (`research/events.py`) when
+the program starts. Plan row R7 checked that calendar against the Federal
+Reserve's published one (all 2020–2026 dates right) and added the 2027 meetings;
+before R7 it ended on 2026-12-09. A fleet started before R7 needs only the
+updated checkout ("Before you start", step 1) and one restart, at any time
+before the first 2027 meeting (statement on 2027-01-27; the filter's window
+opens at 12:00 UTC that day):
+
+```bash
+sudo systemctl restart paper-fleet.service   # resumes in the same folder
+```
+
+Nothing else: the same folder, no new account, no migration. The calendar's
+dates are not part of any fingerprint (the shared rules name the filter,
+`FOMC±6/6h`, not its dates), so the fleet resumes, and every decision already
+made stands. R7 changed no date before 2027, so a fleet restarted before that
+first window continues exactly as if it had always had the new calendar
+(tested); one restarted later simply did not block entries around the meetings
+that passed in between. Without the restart the fleet keeps running but does
+not block entries around the 2027 meetings, and the weekly reports the service
+writes keep saying "FOMC calendar runs out".
+A fleet started after R7 needs nothing until late 2027, when the 2028 dates are
+added and the service restarted the same way (the report starts warning 60 days
+before 2027-12-08; how to add them: `tests/fixtures/fomc_calendar/README.md`).
+
 ## Troubleshooting
 
 | What you see | What it means | What to do |
@@ -211,7 +238,7 @@ starting again starts a new forward record from zero.
 | `… S5 accounts run on 'okx' positioning data, not 'none' …` (exit 2) | A manual run used another `--positioning-source` than the fleet was started with | Run it without that option (the default is the one the service uses) |
 | `--status` shows data **STALE** | No new public candle for more than 2.5 hours | Check the network (`curl -s https://www.okx.com/api/v5/public/time`); it recovers by itself and catches up |
 | Report: "missing bars skipped" | OKX never delivered one hourly candle of a bar | Nothing; after the next bar closes the fleet waits 90 more minutes for the late candle, then skips that one bar, as a real feed outage would |
-| Report: **FOMC calendar runs out** | The built-in central-bank meeting calendar (`research/events.py`) has no dates after 2026-12-09 | Add the 2027 dates (plan row R7 verifies the existing ones); until then the no-trade filter does not block entries around meetings |
+| Report: **FOMC calendar runs out** | The built-in central-bank meeting calendar (`research/events.py`) has no dates after the one named, which is less than 60 days away or already past. Since plan row R7 the calendar runs to 2027-12-08; a service still running code from before R7 has the old one, which ended 2026-12-09 | Update the checkout and restart the service (see "A new FOMC calendar on a running fleet"): the fleet resumes in its folder. If the updated checkout still ends there, the next year's dates need adding first (`tests/fixtures/fomc_calendar/README.md`). Until then the no-trade filter does not block entries around meetings after that date |
 | `paper fleet not started yet: public data not complete yet, pf-s1s2s4-btceth-vt15-alloc2 not added …` (exit 3) | A new account joins only once its markets are ready: the bar that closed last is complete (OKX publishes the last hourly candle seconds to minutes after the hour) and no earlier bar still waits for a late candle | Nothing: the service tries again every minute. Until the account joins, the whole fleet waits; then every account catches up bar by bar with the same records as if it had never stopped. A candle that never arrives delays the join until the fleet gives up on it (90 minutes after the next bar closed), as it would anyway |
 | `paper fleet resume: … (20 accounts, …)` and `accounts added: pf-s1s2s4-btceth-vt15-alloc2; retired: none` after updating the code | The fleet was started before plan row R5b with 19 accounts; the allocator-v2 account joins it now, with its own start and warm-up, and counts from that moment. The 19 accounts continue unchanged | Nothing. The state file is upgraded in place (version 2), so an older checkout can no longer open it (`fleet state version 2 is not 1`, exit 2): keep the updated code |
 | `journal_set_aside` in `fleet.jsonl`, a file `journals/<account>.unfinished-<time>.jsonl` | An earlier start of that account was interrupted after its journal was written but before the state was saved (a crash or a full disk) | Nothing: the account started again cleanly and the interrupted file is kept for reference |
