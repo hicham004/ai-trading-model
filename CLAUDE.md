@@ -113,9 +113,9 @@ test and run it as a separate log-only observer per `docs/PHASE6B_DESIGN.md`.
 Using news to gate demo or live entries is NOT authorized and needs a separate
 owner decision. Phase 7 and all later phases require explicit human approval
 before any work begins.
-The operator is travelling for roughly one week around June 28, 2026; while
-away, no agent may advance a phase, weaken a safety rule, make a safety-core
-change, merge/deploy autonomously, or treat a clean test run as approval.
+No agent may advance a phase, weaken a safety rule, merge or deploy, or treat
+a clean test run as approval; a safety-core change needs the owner's explicit
+go and an independent review.
 
 ## Standing Safety Contract
 
@@ -148,8 +148,8 @@ change, merge/deploy autonomously, or treat a clean test run as approval.
 - **No auto-commit.** Commit only when the operator asks. Standing exception
   (owner, October 20, 2026): unattended chats started by
   `scripts/plan-runner.ps1` commit their own step on the runner branch
-  `plan/auto` once the full test suite, the travel-mode guard and
-  `git diff --check` pass; they never push, merge or switch branches (see
+  `plan/auto` once the full test suite and `git diff --check` pass; they
+  never push, merge or switch branches (see
   `docs/PLAN_STATUS.md`). A passing backtest
   or test suite never authorizes paper, demo, or live execution, and no agent
   may approve its own implementation or declare a phase complete.
@@ -170,42 +170,35 @@ change, merge/deploy autonomously, or treat a clean test run as approval.
   size, so exact-zero is unreachable; sub-lot residue is unsellable dust.
 - Operator CLI: `scripts/run_demo_trading.py`
   (`--status/--reconcile/--arm/--disarm/--engage-kill-switch/...`).
-- AgentOps travel mode is merged on `main`: PR-based workflow, CI safety
-  guard, and Telegram notification tooling exist for code-review process only.
-  They do not run or protect the demo shadow process; the shadow run's
-  durability depends on the VPS/service setup above.
-- Telegram notification surfaces are separate and must not be confused:
-  - **VPS/shadow-side notification:** the repo provides the generic,
-    secret-redacting notifier in `app/notify/telegram.py` and the CLI wrapper
-    `scripts/notify_telegram.py`. Credentials come from the VPS process
-    environment (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, optional
-    `TELEGRAM_DRY_RUN`), not from GitHub secrets. The CLI does not load `.env`
-    by itself; if it is run under `systemd`, an `EnvironmentFile` or another
-    export mechanism must put those variables into the service environment.
-    Runtime notifications are now wired through `app/shadow/notifications.py`
-    and `app/shadow/supervisor.py` after merge commit `d2eae04` / feature
-    commit `d870fed`: fills, ALERT files, stale heartbeat, private-WS auth
-    drop, permanent halt, and disarm emit best-effort Telegram messages.
-    Notification delivery is observability-only: it is fire-and-forget,
-    exception-swallowed, deduped/rate-limited with bounded state, and must
-    never affect gating, arming, entries, exits, reconciliation, kill switch,
-    or supervisor control flow. Verify the service environment on the VPS
-    before relying on delivery.
-  - **CI/code notification:** `.github/workflows/notify.yml` is merged on
-    `main` and runs in GitHub Actions via `workflow_run` after pull-request CI.
-    It uses GitHub Actions repository secrets named `TELEGRAM_BOT_TOKEN` and
-    `TELEGRAM_CHAT_ID`, not the VPS `.env`, and emits `ci_pass`, `ci_fail`, or
-    `safety_fail` based on the trusted CI conclusion and summary artifact. The
-    current workflow does not send `pr_opened` or `pr_updated` notifications.
-    External GitHub repo setup still must be confirmed there: repo secrets
-    present, and `TRAVEL_MODE=1` set while travelling so safety-sensitive PRs
-    fail closed.
+- Changes reach `main` only through pull requests: `main` is protected, CI
+  (`.github/workflows/ci.yml`, check name `tests`) runs the offline test
+  suite, and the owner merges. CI does not run or protect the demo shadow
+  process; the shadow run's durability depends on the VPS/service setup above.
+  The former "travel mode" (CI safety guard, `TRAVEL_MODE` switch, CI
+  Telegram notifications, GitHub Claude action) was removed at the owner's
+  request on October 22, 2026.
+- **Telegram notifications (VPS/shadow side):** the repo provides the generic,
+  secret-redacting notifier in `app/notify/telegram.py` and the CLI wrapper
+  `scripts/notify_telegram.py`. Credentials come from the VPS process
+  environment (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, optional
+  `TELEGRAM_DRY_RUN`). The CLI does not load `.env` by itself; if it is run
+  under `systemd`, an `EnvironmentFile` or another export mechanism must put
+  those variables into the service environment. Runtime notifications are
+  wired through `app/shadow/notifications.py` and `app/shadow/supervisor.py`
+  after merge commit `d2eae04` / feature commit `d870fed`: fills, ALERT files,
+  stale heartbeat, private-WS auth drop, permanent halt, and disarm emit
+  best-effort Telegram messages. Notification delivery is observability-only:
+  it is fire-and-forget, exception-swallowed, deduped/rate-limited with
+  bounded state, and must never affect gating, arming, entries, exits,
+  reconciliation, kill switch, or supervisor control flow. Verify the service
+  environment on the VPS before relying on delivery.
 - Operator security item: the Telegram bot token was operator-reported as
   exposed on screen during VPS setup. Revoke/regenerate it in BotFather before
-  relying on notifications, then update every configured location: the VPS
-  exported environment / `systemd` `EnvironmentFile`, and the GitHub Actions
-  repository secret `TELEGRAM_BOT_TOKEN` if CI notifications are enabled. Do
-  not paste tokens or chat ids into the repo, chats, screenshots, or logs.
+  relying on notifications, then update the VPS exported environment /
+  `systemd` `EnvironmentFile`. The GitHub Actions secrets `TELEGRAM_BOT_TOKEN`
+  and `TELEGRAM_CHAT_ID` are no longer used by any workflow and can be
+  deleted. Do not paste tokens or chat ids into the repo, chats, screenshots,
+  or logs.
 
 ## Deferred / Open Items (tracked)
 
@@ -234,9 +227,9 @@ change, merge/deploy autonomously, or treat a clean test run as approval.
    gate because Phase 6a data loss is demo-only.
 8. Rotate the Telegram bot token: it was operator-reported as exposed on
    screen during VPS setup. Revoke/regenerate it in BotFather, update the VPS
-   `EnvironmentFile` / `.env`, restart `shadow.service`, verify a fresh
-   heartbeat, and update the GitHub Actions secret if CI notifications are
-   enabled.
+   `EnvironmentFile` / `.env`, restart `shadow.service`, and verify a fresh
+   heartbeat. Delete the unused GitHub Actions copies of the token and chat
+   id.
 
 ## Completion And Change Control
 

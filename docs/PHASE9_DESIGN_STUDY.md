@@ -314,8 +314,7 @@ points at this study or at OKX's own rules.
 ## 5. What would change in the system — and what must not
 
 A long/short phase touches the reviewed safety core in every layer. Each item is
-a separate, reviewed pull request; the travel-mode guard fails on all of them by
-design, so only the owner can merge them.
+a separate, reviewed pull request that only the owner can merge.
 
 | Layer | Change | Why it is risky |
 |---|---|---|
@@ -324,7 +323,7 @@ design, so only the owner can merge them.
 | `app/risk` | rules S6–S8 and S14 as final-veto checks | the final veto |
 | `config/` | per-coin short caps next to today's caps | trading caps |
 | operator CLI | status, disarm and kill switch cover the swap | the human's emergency tools |
-| governance | `CLAUDE.md`, `PROJECT_RULES.md`, `AGENTS.md`, the travel-mode guard's rules | written and approved by the owner only |
+| governance | `CLAUDE.md`, `PROJECT_RULES.md`, `AGENTS.md` | written and approved by the owner only |
 
 Prerequisites that are open today and must be closed first, whatever the
 strategy: exchange-side protective stops independently reviewed and demo-drilled

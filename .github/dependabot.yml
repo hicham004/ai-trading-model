@@ -1,5 +1,5 @@
 # Dependabot: proposes dependency updates as pull requests. It can only OPEN
-# PRs; CI (and the travel-mode guard) run on them and a human merges. Nothing
+# PRs; CI runs on them and a human merges. Nothing
 # here can merge, deploy, or touch the demo runtime.
 version: 2
 updates:

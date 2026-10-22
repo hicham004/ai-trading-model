@@ -10,7 +10,7 @@ safety net for tables that already exist.
 
 Files: `alembic.ini` (no URL inside), `migrations/env.py`,
 `migrations/versions/*.py`. `migrations/` and `alembic.ini` are
-safety-sensitive paths for the travel-mode guard.
+safety-sensitive paths (see `AGENTS.md`).
 
 ## Which database does a command hit?
 

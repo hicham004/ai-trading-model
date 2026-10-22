@@ -64,11 +64,8 @@ deploy, or advance a phase. Those remain human decisions.
 - [ ] No `--dangerously-skip-permissions` / bypass-permission / unattended
       privileged automation added.
 - [ ] `main` stays protected; merges require human action.
-- [ ] `scripts/check_travel_mode_safety.py` and its CI step are present and not
-      weakened.
 - [ ] **CI secret isolation intact:** no secret (`${{ secrets.* }}`) is exposed
-      to a job that checks out/runs PR code; notifications stay in the
-      `workflow_run` workflow that does not run PR code; no untrusted
+      to a job that checks out/runs PR code; no untrusted
       `${{ github.event.* }}` value is interpolated into a `run:` shell body
       (`tests/test_ci_workflow_isolation.py` must pass).
 
@@ -83,7 +80,7 @@ deploy, or advance a phase. Those remain human decisions.
 
 - [ ] Targeted tests for the changed area were run and pass.
 - [ ] Full `pytest` was run if feasible; if not, the reason is stated.
-- [ ] CI is green (including the travel-mode safety check).
+- [ ] CI is green.
 
 ## 9. Changed Files Summarized
 

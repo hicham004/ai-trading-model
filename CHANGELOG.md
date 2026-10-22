@@ -4,6 +4,29 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — Travel mode removed (owner, 2026-10-22)
+
+At the owner's request the AgentOps travel-mode tooling is gone. The trading safety contract
+(demo-only, SPOT long-only at 1x, the risk manager's final veto, fail-closed, no LLM order
+authority, PR-only merges by the owner) is unchanged.
+
+### Removed
+- `scripts/check_travel_mode_safety.py` (the CI safety guard), its tests and the `TRAVEL_MODE`
+  switch (`.env.example`, CI).
+- `.github/workflows/notify.yml` (CI → Telegram pings), the CI summary artifact it read, and the
+  `ci_pass`, `ci_fail`, `pr_opened`, `pr_updated` and `safety_fail` notifier labels.
+- `.github/workflows/claude.yml` (the GitHub Claude PR assistant).
+- `docs/TRAVEL_MODE.md`, `docs/GITHUB_SETUP_FOR_TRAVEL.md`, `docs/CLAUDE_ROUTINE_SETUP.md`,
+  `docs/agentops_smoke_test.md`.
+
+### Changed
+- The CI job is now named `tests` (was `tests + travel-mode safety guard`). The branch
+  protection rule for `main` must require `tests` instead (owner step, plan row G2).
+- `AGENTS.md` keeps the full list of safety-sensitive paths (it absorbed the guard's list).
+  `CLAUDE.md`, `docs/CODE_REVIEW.md`, the plan runner's commit checks and the plan docs no
+  longer mention the guard; runner chats now name every changed file under `app/execution`,
+  `app/risk`, `app/exchange`, `app/shadow` or `config/` in their report.
+
 ## Unreleased — R9: Phase 9 design study, long and short through perpetual swaps without leverage (plan row R9)
 
 Paper only, at the owner's go of 2026-10-21. Phase 9, trading shorts, perpetual swaps and any

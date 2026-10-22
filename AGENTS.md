@@ -48,16 +48,22 @@ diff for these, not just the summary:
   arming, policy, journal, report).
 - **Kill switch logic** — kill-switch and arming code paths in
   `app/execution/` and `scripts/run_demo_trading.py`.
+- **Execution-adjacent runtime** — `app/live/` (live market-data feed),
+  `app/broker/`, and `app/strategy/` (strategy logic and the confidence
+  floor; changes are owner-gated scope changes).
 - **Credentials / secret / env handling** — `app/exchange/credentials.py`,
-  secret-redaction filters, `.env`, `.env.example`.
+  secret-redaction filters, `.env`, `.env.example`, `app/notify/` and
+  `scripts/notify_telegram.py` (bot token handling).
 - **Operator CLIs** — `scripts/run_demo_trading.py`,
-  `scripts/run_shadow_period.py` (they can arm, kill, or place demo orders).
-- **CI / automation** — `.github/`, `scripts/check_travel_mode_safety.py`
-  (the travel-mode guard itself).
+  `scripts/run_shadow_period.py` (they can arm, kill, or place demo orders),
+  `scripts/run_paper_trading.py`, `scripts/run_live_market_data.py`.
+- **Governance** — `AGENTS.md`, `docs/CODE_REVIEW.md`.
+- **CI / automation** — `.github/` (could add auto-merge, deploy, or bypass).
+- **Dependency surface** — `requirements.in`, the generated
+  `requirements.txt` lockfile, `pyproject.toml`.
+- **Database schema migrations** — `migrations/`, `alembic.ini`.
 
-The authoritative, machine-checkable list lives in
-`scripts/check_travel_mode_safety.py`. When in doubt, classify a path as
-safety-sensitive.
+When in doubt, classify a path as safety-sensitive.
 
 ## P0 / P1 — Block the PR
 
@@ -85,8 +91,6 @@ before merge)** and recommend the operator do NOT merge:
   authorized scope (Phase 6b log-only is authorized; news gating of entries
   and Phase 7+ are not). P1
   (stop and require operator approval).
-- **Removing or disabling `scripts/check_travel_mode_safety.py` or its CI
-  step.** P0.
 
 ## P2 / P3 — Note, Don't Block
 
@@ -113,9 +117,5 @@ before merge)** and recommend the operator do NOT merge:
 - If a test requires real OKX or private credentials, that is itself a P0
   finding — tests must run offline against mocks/fakes.
 - If you cannot tell whether a change is safe, treat it as unsafe and say so.
-- When the change is safety-sensitive and travel mode is on, expect the
-  travel-mode CI guard to fail by design; do not recommend "just disable the
-  guard."
 
-See `docs/CODE_REVIEW.md` for the full reviewer checklist and
-`docs/TRAVEL_MODE.md` for how this fits the travel workflow.
+See `docs/CODE_REVIEW.md` for the full reviewer checklist.

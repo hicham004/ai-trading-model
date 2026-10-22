@@ -9,7 +9,7 @@ docs/PLAN_STATUS.md, whose rows point into docs/MASTER_PLAN_2026-10-20.md.
 Each step is a new `claude -p` chat at max effort, on Opus 5.5 unless -RowModels names another
 model for its row. It gets $stepIntro and the unattended-run rules in $sharedRules below. The
 owner decided on 2026-10-20 that such a chat commits its own step on the runner branch
-(plan/auto) once the full test suite, the travel-mode guard and git diff --check are clean. A
+(plan/auto) once the full test suite and git diff --check are clean. A
 chat never pushes, merges or switches branches: deny rules block git push, merge and rebase,
 ssh and scp, and the two demo-trading scripts. With -Push the runner itself pushes the runner
 branch after each clean step: never main, and never again once a scan of the new commits has
@@ -162,10 +162,9 @@ $sharedRules = @'
 - Commit approved. When the step meets its definition of done and these checks pass, commit
   the step on the current branch, then record the hash in its status row in a second small
   commit, in the form the Done rows use. The checks: the full test suite
-  (.venv\Scripts\python.exe -m pytest -q); the travel-mode guard
-  (.venv\Scripts\python.exe scripts\check_travel_mode_safety.py --base <the commit this step
-  started from>), whose flagged files must be ones the row is meant to change, named in the
-  report; and git diff --check. Stage only the files this step changed, by explicit path.
+  (.venv\Scripts\python.exe -m pytest -q) and git diff --check. Name in the report every
+  changed file under app/execution, app/risk, app/exchange, app/shadow or config/; none may
+  change unless the row says so. Stage only the files this step changed, by explicit path.
   Never push, never merge, never create or switch branches, never amend, rebase or reset
   commits.
 - A dependency change goes into requirements.in and the hashed requirements.txt, regenerated

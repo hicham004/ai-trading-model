@@ -63,6 +63,11 @@ Status log:
   - R7 also adds the 2027 FOMC dates.
 
   Details: `docs/PLAN_STATUS.md`, section 2.
+- 2026-10-22: R4d, R5b, R6, R7 and R9 are done; the runner stopped at R10
+  (Optional). At the owner's request, travel mode was removed entirely: the
+  CI guard, the `TRAVEL_MODE` switch, the CI Telegram notifications, the
+  GitHub Claude action and the travel docs. The CI check is now `tests`;
+  G2 names the one GitHub setting to change.
 
 ---
 
@@ -413,7 +418,7 @@ Loop: *hypothesis → implement in the Strategy contract → vectorbt sweep → 
 
 ### 5.5 Agent workflow (how we build)
 
-Claude Code builds in bounded PRs; Codex (or a second Claude with `/code-review`) reviews; you approve. Safety-core paths keep the travel-mode guard. Each sprint has a kickoff prompt (Section 10) and a definition of done. Drop ceremony that does not protect money: smoke-test PRs, duplicate governance prose, nightly "resume" scripts.
+Claude Code builds in bounded PRs; Codex (or a second Claude with `/code-review`) reviews; you approve. Safety-core paths get a full owner review. Each sprint has a kickoff prompt (Section 10) and a definition of done. Drop ceremony that does not protect money: smoke-test PRs, duplicate governance prose, nightly "resume" scripts.
 
 ---
 
@@ -441,7 +446,7 @@ Claude Code builds in bounded PRs; Codex (or a second Claude with `/code-review`
 
 Keep (non-negotiable): demo-only until gates; LLM never places/sizes/approves orders; risk manager final veto; fail-closed; no martingale; PR-only; human approves each phase; secrets never in repo/logs.
 
-Change: one `CHANGELOG.md`; the per-phase docs become short records; a `research/` sandbox with lighter rules; sprint-level definition of done instead of per-file ceremony; remove travel-mode bits that block routine research PRs while keeping the safety-path guard.
+Change: one `CHANGELOG.md`; the per-phase docs become short records; a `research/` sandbox with lighter rules; sprint-level definition of done instead of per-file ceremony. (Travel mode was removed entirely at the owner's request on 2026-10-22.)
 
 ---
 
@@ -472,7 +477,7 @@ All must be true, each with evidence in the repo:
 
 **Sprint 0**
 ```text
-Read docs/MASTER_PLAN_2026-10-20.md Sprint 0. On a new branch: remove ":8443" from every WebSocket default and doc (config.py, okx_public_ws.py, okx_demo_endpoints.py, .env.example, docs). Keep validators accepting None/443/8443. Add a test that defaults contain no port. Delete resume_claude_at_1.sh. Bump CI to Python 3.13. Add uv lockfile and pip-audit job. Run pytest and the travel-mode guard. Open a PR; do not merge. Then write a VPS runbook snippet for updating .env and restarting shadow.service.
+Read docs/MASTER_PLAN_2026-10-20.md Sprint 0. On a new branch: remove ":8443" from every WebSocket default and doc (config.py, okx_public_ws.py, okx_demo_endpoints.py, .env.example, docs). Keep validators accepting None/443/8443. Add a test that defaults contain no port. Delete resume_claude_at_1.sh. Bump CI to Python 3.13. Add uv lockfile and pip-audit job. Run pytest. Open a PR; do not merge. Then write a VPS runbook snippet for updating .env and restarting shadow.service.
 ```
 
 **Sprint 1**
