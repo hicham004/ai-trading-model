@@ -128,10 +128,74 @@ missed bar only the prices that existed at that bar, so the result is the same
 as if it had never stopped. Do not run it on the VPS **and** the laptop as the
 "real" fleet: pick one place and keep it there, so there is one record.
 
+### Option B2 — this laptop, as a Windows scheduled task from its own checkout (what runs since 2026-11-04)
+
+A window can be closed by mistake, and the repository folder is where the plan
+runner's chats edit and test code. So the fleet runs from a **separate
+checkout** of `plan/auto` with its own `.venv`, started by a scheduled task
+that restarts it after a crash or a reboot. Runner chats never touch that
+folder, and the fleet never sees a half-edited file.
+
+```powershell
+# one-time setup (done 2026-11-04)
+cd C:\Users\Admin\Desktop
+git clone --branch plan/auto "C:\Users\Admin\Desktop\AI Trading model" ai-trading-fleet
+cd ai-trading-fleet
+git remote set-url origin https://github.com/hicham004/ai-trading-model.git
+py -3.13 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install --no-deps -e .
+.venv\Scripts\python.exe scripts\run_paper_fleet.py --dry-run        # every line "check: ... ok"
+
+# the task: at logon (a boot trigger and the S4U logon type need administrator rights, so the task
+# runs in the logged-on session like the plan runner's), restart on failure, never stopped on battery
+$action = New-ScheduledTaskAction -Execute 'powershell.exe' `
+    -Argument '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Users\Admin\Desktop\ai-trading-fleet\scripts\paper-fleet-task.ps1"' `
+    -WorkingDirectory 'C:\Users\Admin\Desktop\ai-trading-fleet'
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+    -StartWhenAvailable -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) `
+    -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName 'AI Trading paper fleet' -Action $action -Trigger $trigger -Settings $settings `
+    -Principal (New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited)
+Start-ScheduledTask -TaskName 'AI Trading paper fleet'
+```
+
+`scripts/paper-fleet-task.ps1` runs `run_paper_fleet.py --loop`, appends its
+output to `logs\paper_fleet\console.log` and starts it again a minute after it
+exits (exit code 2, a setup problem, stops the loop instead). Day to day:
+
+```powershell
+Get-ScheduledTask -TaskName 'AI Trading paper fleet' | Select-Object State          # Running
+Get-Content C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\console.log -Tail 20
+C:\Users\Admin\Desktop\ai-trading-fleet\.venv\Scripts\python.exe C:\Users\Admin\Desktop\ai-trading-fleet\scripts\run_paper_fleet.py --status
+Stop-ScheduledTask -TaskName 'AI Trading paper fleet'      # stop at once; Start-ScheduledTask to resume (it catches up)
+New-Item C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\STOP   # or: the wrapper ends the fleet within ~15 s and does not restart it
+```
+
+Reports: `C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\reports\weekly-YYYY-Www.md`.
+The laptop does not sleep while plugged in; if it sleeps or reboots anyway,
+the task starts again when the owner logs on and the fleet catches up bar by
+bar (missed bars are replayed with the prices of their own time).
+
+**Updating the fleet's code** (a new shortlist account from a research row, a
+bug fix): stop the task, `git pull` in the fleet checkout, run `--dry-run`,
+start the task. If `git pull` refuses because an untracked file "would be
+overwritten by merge", that file was copied in by hand before it was
+committed: delete it and pull again (the pulled copy is the same content). The fleet resumes in its folder; an added account joins at
+that restart, and changed rules of an existing account are refused (exit 2),
+as the troubleshooting table says.
+
+**Moving the record to the VPS later** (option A): stop the task, copy the
+whole `logs\paper_fleet\` folder to the VPS checkout at the same code
+version (`git log -1` in both places), then start `paper-fleet.service`
+there. The fleet resumes from the copied state; the laptop task stays stopped
+(one record, one place).
+
 ## Check that it works (first hour)
 
 ```bash
-journalctl -u paper-fleet.service -n 30 --no-pager      # VPS; option B: read the PowerShell window
+journalctl -u paper-fleet.service -n 30 --no-pager      # VPS; option B: the PowerShell window; B2: logs\paper_fleet\console.log
 # expect "paper fleet created: …/logs/paper_fleet (20 accounts, …)" and, once a 4H or 6H bar closes
 # (00, 04, 08, 12, 16, 20 h UTC), a line "cycle N: bars {…} …"
 .venv/bin/python scripts/run_paper_fleet.py --status

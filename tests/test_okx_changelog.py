@@ -21,6 +21,7 @@ from app.ops.okx_changelog import ChangelogEntry, ChangelogError
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures" / "okx_changelog"
+FIXTURE_DAY = "2026-10-22T12:00:00+00:00"  # when changelog_v1.html was recorded (plan row R6)
 V1 = (FIXTURES / "changelog_v1.html").read_text(encoding="utf-8")
 V2 = (FIXTURES / "changelog_v2.html").read_text(encoding="utf-8")
 NOW = datetime(2026, 10, 22, 3, 30, tzinfo=timezone.utc)
@@ -447,13 +448,14 @@ def test_the_script_reports_a_failed_send_and_keeps_the_alert(tmp_path, monkeypa
 
     script = _script()
     monkeypatch.setattr(tg, "_requests_transport", lambda url, payload: (502, "bad gateway"))
-    env = {"TELEGRAM_BOT_TOKEN": "123:not-a-real-token", "TELEGRAM_CHAT_ID": "42"}
+    # The fixture was recorded on 2026-10-22; pin the clock there so its dated entries stay inside the baseline window.
+    env = {"TELEGRAM_BOT_TOKEN": "123:not-a-real-token", "TELEGRAM_CHAT_ID": "42", "OKX_CHANGELOG_NOW": FIXTURE_DAY}
     page = str(FIXTURES / "changelog_v1.html")
     assert script.main(["--send", "--from-file", page, "--state-dir", str(tmp_path)], env=env) == 0  # the check itself worked
     out = capsys.readouterr().out
     assert "NOT sent (failed" in out and "kept for the next check" in out and "not-a-real-token" not in out
     assert len(json.loads((tmp_path / oc.STATE_FILE).read_text(encoding="utf-8"))["pending"]) == 3
-    assert script.main(["--send", "--from-file", page, "--state-dir", str(tmp_path)], env={"TELEGRAM_DRY_RUN": "1"}) == 0
+    assert script.main(["--send", "--from-file", page, "--state-dir", str(tmp_path)], env={"TELEGRAM_DRY_RUN": "1", "OKX_CHANGELOG_NOW": FIXTURE_DAY}) == 0
     assert "kept for the next real send" in capsys.readouterr().out
     assert len(json.loads((tmp_path / oc.STATE_FILE).read_text(encoding="utf-8"))["pending"]) == 3
 

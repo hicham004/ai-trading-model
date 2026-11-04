@@ -6,8 +6,8 @@ Runs docs/PLAN_STATUS.md unattended: one fresh Claude chat per row.
 Adapted on 2026-10-20 from the TB Gym plan runner. It runs the status table in section 0 of
 docs/PLAN_STATUS.md, whose rows point into docs/MASTER_PLAN_2026-10-20.md.
 
-Each step is a new `claude -p` chat at max effort, on Opus 5.5 unless -RowModels names another
-model for its row. It gets $stepIntro and the unattended-run rules in $sharedRules below. The
+Each step is a new `claude -p` chat at max effort, on -Model (Fable 5.1 since 2026-11-04; Opus
+5.5 before) unless -RowModels names another model for its row. It gets $stepIntro and the unattended-run rules in $sharedRules below. The
 owner decided on 2026-10-20 that such a chat commits its own step on the runner branch
 (plan/auto) once the full test suite and git diff --check are clean. A
 chat never pushes, merges or switches branches: deny rules block git push, merge and rebase,
@@ -16,9 +16,9 @@ branch after each clean step: never main, and never again once a scan of the new
 found something that looks like a credential (the repository is public).
 
 A chat that hits a usage limit is resumed where it stopped. A five-hour limit is waited out on
-the same model. The owner decided on 2026-10-20 that every row runs on Opus 5.5 at max effort
-and that a weekly limit (one resetting more than 12 hours away) is waited out too, so the plan
-finishes while the owner is away. With -FallbackModel set, a weekly limit instead moves the
+the same model. The owner decided on 2026-10-20 that every row runs on one model at max effort
+(Opus 5.5 then, Fable 5.1 since 2026-11-04) and that a weekly limit (one resetting more than 12
+hours away) is waited out too, so the plan finishes while the owner is away. With -FallbackModel set, a weekly limit instead moves the
 chat to that model at once, later rows stay on it until the limit resets, and Claude Code's
 --fallback-model does the same for a model that is overloaded or unavailable.
 
@@ -44,10 +44,14 @@ param(
     [double]$StepHours = 8,
     [int]$IdleMinutes = 20,
     [int]$MaxLimitWaits = 12,
-    # Row id pattern (-like) to model; a row matching none runs on $model below.
+    # The model every row runs on unless -RowModels names another for it. The owner moved the
+    # runner from Opus 5.5 to Fable 5.1 on 2026-11-04 ("all on fable max").
+    [string]$Model = 'claude-fable-5-1',
+    # Row id pattern (-like) to model; a row matching none runs on -Model.
     [hashtable]$RowModels = @{},
     # After a weekly limit the chat carries on with this model, and so do later rows until that
-    # limit resets. Empty (the owner, 2026-10-20: Opus only): the limit is waited out instead.
+    # limit resets. Empty (the owner, 2026-10-20 and 2026-11-04: one model only): the limit is
+    # waited out instead.
     [string]$FallbackModel = '',
     # The branch every step commits on. The runner never creates or switches branches.
     [string]$Branch = 'plan/auto',
@@ -78,7 +82,7 @@ if ($LogFolder) { $logDir = $LogFolder }
 $stopFile = Join-Path $logDir 'STOP'
 $lockFile = Join-Path $logDir 'runner.lock'
 $summaryPath = Join-Path $logDir 'summary.md'
-$model = 'claude-opus-5-5'
+$model = $Model
 $effort = 'max'
 $chatPrefix = 'AI trading runner '
 # Models whose weekly limit is used up, with when to try them again; their rows run on $FallbackModel.

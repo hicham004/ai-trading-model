@@ -68,6 +68,17 @@ Status log:
   CI guard, the `TRAVEL_MODE` switch, the CI Telegram notifications, the
   GitHub Claude action and the travel docs. The CI check is now `tests`;
   G2 names the one GitHub setting to change.
+- 2026-11-04: the owner asked for the next appropriate steps without waiting for
+  decisions, "all on Fable max". The plan runner's default model is now Fable 5.1
+  (`-Model`); the second run opens R4e (news follow-up), R12 (replication of the
+  2c rules on other OKX spot markets), R13 (research round 1, three pre-registered
+  hypotheses), R14 (position-persistence design), R15 (migration workflow and
+  backups), R16 (research round 2). The paper fleet (G6) started on the laptop as
+  a Windows task from its own checkout. Found and fixed: a clock-dependent test
+  that began failing on its own on 2026-10-29; OKX still answered on port 8443 with a
+  retirement notice; the 8443 runbook was wrong (the WebSocket URLs are part of
+  the demo account identity, so the fix needs a new account name) and was
+  rewritten. The owner's remaining steps are in `docs/OWNER_CHECKLIST.md`.
 
 ---
 

@@ -90,6 +90,15 @@ def notifier_from_env(env: Mapping[str, str]) -> TelegramNotifier:
     return TelegramNotifier.from_env(env)
 
 
+
+def _now(env: Mapping[str, str]) -> datetime:
+    """The clock. ``OKX_CHANGELOG_NOW`` (ISO 8601, tests only) pins it so fixture dates stay comparable."""
+    pinned = env.get("OKX_CHANGELOG_NOW")
+    if pinned:
+        value = datetime.fromisoformat(pinned)
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return datetime.now(tz=timezone.utc)
+
 def _state_dir(args: argparse.Namespace, env: Mapping[str, str]) -> Path:
     """``--state-dir``, else ``$OKX_CHANGELOG_STATE_DIR``, else ``$OPS_DIR/okx_changelog`` (where the digest reads it)."""
     if args.state_dir:
@@ -111,7 +120,7 @@ def cmd_status(args: argparse.Namespace, env: Mapping[str, str]) -> int:
     except (OSError, ValueError) as exc:
         print(f"okx changelog watcher: the state file is unreadable ({type(exc).__name__})", file=sys.stderr)
         return 1
-    summary = status_summary(state, datetime.now(tz=timezone.utc))
+    summary = status_summary(state, _now(env))
     if args.json:
         print(json.dumps(summary, sort_keys=True, default=str))
         return 0
@@ -161,7 +170,7 @@ def cmd_check(args: argparse.Namespace, env: Mapping[str, str]) -> int:
             printed.append((f"NOT sent ({result.status}: {result.error or 'no detail'}); kept for the next check", text))
         return result.status == "sent"
 
-    now = datetime.now(tz=timezone.utc)
+    now = _now(env)
     # Without --send this is a preview: the state is not saved, so the timer still sends what is new.
     result = run_check(state_dir, now, fetch=fetch, notify=notify, baseline_days=args.baseline_days, persist=args.send)
     payload = {"ok": result.ok, "first_run": result.first_run, "mass_change": result.mass_change, "entries": result.entries,

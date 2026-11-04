@@ -4,6 +4,39 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — Second plan run on Fable 5.1, paper fleet started, 8443 runbook corrected (2026-11-04)
+
+At the owner's go ("do the next appropriate steps without the need of my decisions ... all on
+Fable max"). The trading safety contract is unchanged; nothing under `app/execution`, `app/risk`,
+`app/exchange`, `app/shadow` or `config/` changed.
+
+### Added
+- `docs/OWNER_CHECKLIST.md`: the owner's remaining steps (G1–G5, the Telegram token, the stale
+  `demo` row, the stale pull request #7) in order, with copy-paste commands and what each unlocks.
+- `docs/PR_PLAN_AUTO.md`: the ready-to-paste text of the one pull request from `plan/auto` into
+  `main` (plan row G2).
+- `scripts/paper-fleet-task.ps1` and runbook option B2: the paper fleet as a Windows scheduled
+  task from its own checkout; started on the owner's laptop on 2026-11-04 (plan row G6).
+- Plan rows R4e, R12, R13, R14, R15 and R16 in `docs/PLAN_STATUS.md` (section 0) for the second
+  unattended run; the owner's 2026-11-04 decision recorded in section 2.
+- `scripts/watch_okx_changelog.py`: `OKX_CHANGELOG_NOW` (tests only) pins the watcher's clock.
+
+### Changed
+- `scripts/plan-runner.ps1`: a `-Model` parameter; the default model is Fable 5.1 (was Opus 5.5).
+- `docs/runbooks/VPS_8443_UPDATE.md` rewritten: the OKX WebSocket URLs are part of the fixed demo
+  account identity (`app/execution/identity.py`), so moving off port 8443 needs a new account name
+  (`demo-shadow-1h-443`) and a flat position; the old Path A ("works with the code deployed today")
+  would have made the existing account refuse to start. Also records that OKX still answered on
+  port 8443 on 2026-11-04 with a "will be retired soon" notice.
+- `docs/runbooks/PAPER_FLEET.md`: option B2 (Windows scheduled task, separate checkout), and how to
+  move a running record to the VPS.
+
+### Fixed
+- `tests/test_okx_changelog.py`: one test compared the fixture's entry dates with the real clock
+  and began failing on its own on 2026-10-29 (the fixture was recorded 2026-10-22; the oldest
+  flagged entry left the 30-day first-run window). The two script tests now pin the clock to the
+  recording day. Nothing in the watcher's behaviour changed.
+
 ## Unreleased — Travel mode removed (owner, 2026-10-22)
 
 At the owner's request the AgentOps travel-mode tooling is gone. The trading safety contract
