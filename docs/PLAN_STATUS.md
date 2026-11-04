@@ -159,6 +159,29 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   where the base rule was weakest (the gated 4H rules) and lost on 6H; a candidate for R16 is its
   strictness or the attention idea on R12's markets, pre-registered and fixed a priori, never swept.
   No gate changed after the results. Nothing to decide.
+- From R14: whether to build the position-persistence and lot-precision change described in
+  `docs/design/POSITION_PERSISTENCE.md` on its own branch after an independent review of that design.
+  It is a safety-core change (`app/execution` driver, runtime and store, the shadow supervisor's
+  start-up order, `scripts/run_demo_trading.py`), so building it is not delegated to the runner.
+  Recommendation: yes, in two parts: part A (lot-precision gating: dust and an unsellable remainder
+  no longer count as an open position; `--release-stale-lock` also disarms) first, as a small
+  reviewed change from `main` once G2 has merged, deployed to the shadow run by runbook so Phase 6a
+  can produce entries again; part B (the resume protocol: the strategy window rebuilt exactly from
+  OKX's public candle history after the fail-closed gate, so a restart no longer sells a position
+  the rule would have kept, with today's behaviour as the fallback) on top of
+  `sprint-3/exchange-side-stops` after the G3 drills, validated by the design's demo drills on a
+  non-shadow OKX account. Until part B is deployed, restart the shadow run only while the heartbeat
+  says `flat_at_lot: true`.
+- From R14, for information: an offline reproduction with the real driver shows that after the first
+  round trip the sub-lot fee dust (seen live on June 11) makes every later entry fail with
+  `position_already_open`, and that a candle low under the stale stop level skips the strategy for
+  that candle. `demo-shadow-1h` made one round trip on June 21, so it has very likely been unable to
+  open a position since; the G4 files settle it (daily reports after June 21 reading "FLAT at lot
+  precision (sub-lot dust ...)", journal `event` lines with `position_already_open`). A hard crash
+  (kill, out-of-memory, power loss) also leaves the dead process's lock in place, so the supervisor
+  halts with `restart_budget_exhausted` within about two minutes and an open position is unmanaged
+  until the operator runs `--release-stale-lock` and `--acknowledge-alert`. Nothing to decide now;
+  both are addressed by the R14 change, and the lock rule stays operator-only by design.
 - From 2026-11-04: one test in `tests/test_okx_changelog.py` compared the fixture's entry dates with
   the real clock and began failing on its own on 2026-10-29 (when the oldest flagged entry left the
   30-day first-run window), which would have stopped every runner chat at its full-suite check. Fixed in this session (the script's clock can be pinned by tests). No decision
