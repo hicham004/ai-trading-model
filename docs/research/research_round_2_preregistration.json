@@ -1,0 +1,144 @@
+{
+ "note": "Plan row R16. The hypotheses, rules, parameters, markets, timeframes, gates and verdict rules of research round 2, fixed BEFORE the first run. Never edited.",
+ "written_at": "2026-11-04T21:20:59+00:00",
+ "data_end": "2026-10-20T10:00:00+00:00",
+ "gates": {
+  "profit_factor_min": 1.2,
+  "max_drawdown_max": 0.2,
+  "sharpe_min": 0.7,
+  "calmar_min": 0.5,
+  "rolling_12m_positive_min": 0.75,
+  "worst_calendar_year_min": -0.1,
+  "min_trades": 30,
+  "robust_share_min": 0.5,
+  "min_year_days": 60
+ },
+ "replication_markets": [
+  "XRP-USDT",
+  "DOGE-USDT",
+  "LINK-USDT",
+  "TRX-USDT",
+  "ADA-USDT",
+  "LTC-USDT",
+  "SOL-USDT"
+ ],
+ "trend_markets": [
+  "BTC-USDT",
+  "ETH-USDT",
+  "ADA-USDT",
+  "DOGE-USDT",
+  "TRX-USDT"
+ ],
+ "configuration": {
+  "hypotheses": [
+   "H4",
+   "H5",
+   "H6"
+  ],
+  "regime_modes": [
+   "none",
+   "gate"
+  ],
+  "timeframes": [
+   "4H",
+   "6H"
+  ],
+  "reproduction": true,
+  "data_end": "2026-10-20T10:00:00+00:00",
+  "quick": false,
+  "lake_dir": null
+ },
+ "preregistration": {
+  "fixed_on": "2026-11-04, before any run (plan row R16)",
+  "question": "Do the two ideas the replication study (R12) and research round 1 (R13) left as the credible next tests \u2014 the volume (attention) confirmation on the seven replication markets, and a SLOW own-market trend filter (the close above its 200-day moving average) for the breakout rule and for the risk-managed exposure itself \u2014 give configurations that pass the Sprint 2c gates on the walk-forward and are then confirmed by the untouched 12 months?",
+  "why": "From the failure analyses. R13: the volume confirmation (H2 there) was confirmed once, on BTC-USDT 4H with the regime gate; it gained most where the base rule was weakest (the gated 4H rules) and lost on 6H, and the report named 'the attention idea on R12's markets, pre-registered and fixed a priori, never swept' as the candidate for this round \u2014 a test on seven markets the idea has never seen is the cleanest check of whether that one pass was luck. R12: the breakout family (S2) passed walk-forward on BTC in Sprint 2c and on ADA, DOGE and TRX, and the untouched 12 months \u2014 a bear year \u2014 contradicted it on every one of them; the HMM regime gate (a volatility-regime detector) did not keep it out, and R13's H1 showed a FAST trend condition (BTC's 7/14/30-day momentum vote) changes little. Untested so far is the SLOW trend condition the literature has used since Faber (2007) \u2014 the close above its 200-day moving average \u2014 the plain answer to 'buy breakouts only in uptrends' (plan section 2.6: trend is the one robust family; drawdown control is the problem to solve). R12 and 2c also found hold + policy sizing the strongest control (beaten by more than 0.1 Calmar on only 4 of 14 series) yet a loser on every market's untouched 12 months; the Phase 7/8 product candidate is that risk-managed exposure, and the slow trend filter applied to it is the standard remedy for its bear-year losses and the benchmark that says whether the breakout adds anything to the filter. Not retested, per the R13 readings: the fast BTC-trend condition for ETH (changed little), dual momentum (churned), and the strictness of the volume confirmation on BTC/ETH (deferred: it would be a second look at the same months on the same markets with a near-identical rule; the forward fleet judges the z > 1 version first).",
+  "hypotheses": {
+   "H4": {
+    "title": "the volume (attention) confirmation on the replication markets",
+    "rule": "S1+VC exactly as research round 1 registered it: S1 with Sprint 2c's parameters, grid and brackets, new entries allowed only on bars whose volume z-score over the trailing 30 days is above 1 (the bar's own volume against the trailing mean and standard deviation of the bars of that window); entries only, an open position is left to the base rule's own exits and stop. The window and the threshold are fixed and never in a grid.",
+    "candidates": [
+     "S1+VC"
+    ],
+    "markets": [
+     "XRP-USDT",
+     "DOGE-USDT",
+     "LINK-USDT",
+     "TRX-USDT",
+     "ADA-USDT",
+     "LTC-USDT",
+     "SOL-USDT"
+    ],
+    "timeframes": [
+     "4H",
+     "6H"
+    ],
+    "regime_modes": [
+     "none",
+     "gate"
+    ],
+    "comparison": "the same S1 configuration on the same market without the condition (the replication study's stored numbers, reproduced in this run)",
+    "readings": "(a) per configuration, the v1c gates and the holdout rule; (b) a pre-registered directional reading: the attention effect 'replicates in direction' when the condition raises Calmar beside S1 in at least k of the n judged configurations, k being the smallest count whose one-sided binomial(n, 1/2) tail is at most 0.05 (19 of 28 when every configuration runs; 14 would be expected by chance) \u2014 the configurations share markets across two timeframes and two modes, so this is indicative, not a test of independent trials; (c) the pattern check: round 1's gain was concentrated in the gated 4H configurations, so the same reading is 'consistent with round 1' when the condition raises Calmar in at least 5 of the 7 markets' 4H [gate] configurations, otherwise 'not consistent'",
+    "why": "one confirmation among 20 comparisons on BTC/ETH; seven markets the idea has never seen are the honest replication"
+   },
+   "H5": {
+    "title": "a slow trend filter for the breakout rule",
+    "rule": "S2+TF: the Donchian breakout rule (S2) exactly as in Sprint 2c \u2014 parameters, grid and brackets \u2014 with new entries allowed only while the market's close is above its 200-day simple moving average (200 days in bars of the timeframe: 1200 at 4H, 800 at 6H; the average needs that much history, so no entry is possible before it). Entries only: an open position is left to the base rule's own exits and stop. The length is fixed and never in a grid.",
+    "candidates": [
+     "S2+TF"
+    ],
+    "markets": [
+     "BTC-USDT",
+     "ETH-USDT",
+     "ADA-USDT",
+     "DOGE-USDT",
+     "TRX-USDT"
+    ],
+    "timeframes": [
+     "4H",
+     "6H"
+    ],
+    "regime_modes": [
+     "none",
+     "gate"
+    ],
+    "comparison": "the same S2 configuration on the same market without the filter (Sprint 2c's stored numbers for BTC/ETH, the replication study's for ADA, DOGE and TRX, reproduced in this run)",
+    "readings": "(a) per configuration, the v1c gates and the holdout rule; (b) the directional reading as for H4 (Calmar beside S2 in at least k of n, k at the 5 % tail); (c) for every S2 configuration that passed walk-forward and was contradicted by the untouched 12 months in Sprint 2c or the replication study (taken from the stored results), whether S2+TF passes walk-forward on that series and, if it does, what its holdout says \u2014 shown with the warning that the base rule's holdout loss in a bear year is already known and a trend filter is expected to sit that year out, so this comparison carries no verdict weight; (d) beside TF alone (H6) on the same series and mode: 'the breakout adds to the filter' where S2+TF's Calmar exceeds TF's",
+    "why": "the breakout family's walk-forward passes were contradicted everywhere by a bear year the volatility gate did not detect; the slow trend is the untested regime definition"
+   },
+   "H6": {
+    "title": "the slow trend filter as the exposure rule",
+    "rule": "TF: long while the close is above its 200-day simple moving average, flat otherwise (Faber 2007's rule on a 24/7 market, evaluated at every bar close); no stop \u2014 the rule's exit is the cross back below the average \u2014 under the same fixed policy sizing, S0 no-trade filter and regime gate as every candidate, and the protocol's exit brackets (none / tp2 / trail1 / time30: without a stop the take-profit and trailing brackets are inert, so the walk-forward's only choice is between no bracket and the 30-day time stop). The average's length is the rule's one parameter, fixed at 200 days and never selected (a single grid value), but perturbed by +-30 % (140 and 260 days) by the protocol's robustness replay like every rule's numeric parameters. The protocol's selection rule (a bracket variant needs 20 train trades) applies unchanged: a window in which no variant reaches 20 trades stays flat, and the report shows how many windows traded.",
+    "candidates": [
+     "TF"
+    ],
+    "markets": [
+     "BTC-USDT",
+     "ETH-USDT",
+     "ADA-USDT",
+     "DOGE-USDT",
+     "TRX-USDT"
+    ],
+    "timeframes": [
+     "4H",
+     "6H"
+    ],
+    "regime_modes": [
+     "none",
+     "gate"
+    ],
+    "comparison": "hold + policy sizing on the same market and timeframe (the control; its one mode is 'none', so TF [gate] is compared with the same control), and S2+TF (H5) on the same series and mode",
+    "readings": "(a) per configuration, the v1c gates and the holdout rule; (b) Sprint 2c's acceptance-clause statistic: TF 'beats hold + policy' on a series when its Calmar exceeds the control's by more than 0.1; (c) the directional reading as for H4, against the control's Calmar",
+    "why": "hold + policy is the product candidate and the strongest control, and it lost on every market's untouched 12 months; the slow trend filter is the standard remedy and the benchmark for H5"
+   }
+  },
+  "protocol": "Sprint 2c's own runner (scripts/run_research_v1c.py loaded as a module, its run_series), unchanged, with Sprint 2c's defaults: the candidates' grids and brackets (none/tp2/trail1/time30), the S0 filter with the FOMC calendar, the fixed policy sizing vt10/30 crash15/90dh ladder (rebalance 0.25, ladder re-arm 30 days), the regime-v2 entry gate (3-state HMM, bear >= 0.5, fitted on every window's train slice; modes none and gate), the walk-forward (train 540 d, purge 7 d, test 180 d, Sharpe with >= 20 train trades, entries then bracket) and the v1c gates \u2014 checked against the stored Sprint 2c run before the study runs; the new rules need no runner change (they use only the market's own candles)",
+  "data": "OKX public 1H and 4H spot candles of the nine markets (4H stored, 6H resampled from 1H), frozen in a study lake at Sprint 2c's data end (bar close <= 2026-10-20T10:00:00+00:00) so the walk-forward and the untouched 12 months (2025-10-20 -> 2026-10-20) are the same calendar window as in Sprint 2c, R12 and R13; Binance public funding and open interest for the S0/S5 machinery as before (the new rules do not use them). The seven replication markets are exactly those the R12 pre-registration fixed (checked against that file); the five trend-filter markets are the Sprint 2c pair plus the three where the breakout rule was contradicted (ADA, DOGE, TRX).",
+  "reproduction": "before any new rule is judged, the same code path re-runs hold, S1 and S2 on every market of the round (4H and 6H, modes none and gate) and must give the stored walk-forward numbers to 6 decimals, the same trade counts, the same most-selected rules and the same gate verdicts \u2014 Sprint 2c's for BTC-USDT and ETH-USDT, the replication study's for the seven other markets; otherwise the study stops",
+  "gates": "the v1c gates unchanged (research/report_v1c.py GATES): PF > 1.2, max DD < 20 %, Sharpe > 0.7, Calmar > 0.5, >= 75 % of rolling 12-month windows positive, no calendar year below -10 %, >= 30 trades, >= 50 % of +-30 % neighbours profitable",
+  "verdicts": "a configuration passes when it passes every gate on the walk-forward; a hypothesis is 'confirmed' when at least one of its configurations passes and is confirmed by its holdout, 'passed walk-forward, contradicted by the holdout' when some pass and none is confirmed, and 'failed walk-forward' when none passes; the directional and pattern readings are reported beside the label and never replace it; every failing hypothesis gets a failure analysis computed from the numbers beside its comparison line",
+  "holdout": "the last 12 months (2025-10-20 -> 2026-10-20), opened once, only for a configuration that passes every walk-forward gate, only by the full pre-registered study (every hypothesis, market, timeframe and mode, with the reproduction, never --quick); the v1c verdict (positive return, PF > 1, >= 10 trades); every opening goes into an append-only ledger the report shows, and beside every opening the report names the earlier look at the same months by the configuration's comparison line (Sprint 2c's or the replication study's stored holdout), because a new rule on a market whose base rule already opened its holdout is a near-second look. CAVEAT, stated before the run: the holdout's falling direction is known for every market (hold + policy lost on all nine over those months, R12 and R5b/R9), every condition here reduces time in the market, and a slow trend filter in particular is expected to sit out a bear year; a confirmation is therefore necessary but not sufficient, and the paper fleet's forward record is the judge",
+  "fleet": "a confirmed configuration is appended to the paper fleet's shortlist as a new account with a source tag (existing entries and running accounts untouched; a walk-forward pass alone adds nothing); the fleet must be able to load the amended shortlist, otherwise the file is restored and the report says so (the R12 rule); S1+VC on a replication market needs only that market's public candles, which the fleet already fetches; TF and S2+TF are registered candidates that use the market's own candles",
+  "no_changes_after_results": "no gate, parameter, condition, market, threshold or verdict rule changes after the results are in; if a gate looks wrong the report says so"
+ },
+ "sha256": "2d3bef36a80193adc323f2e997fe7cf35c883c2610f332db9ab5e520d6c5cce8"
+}

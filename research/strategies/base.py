@@ -60,12 +60,19 @@ class SignalFrame:
 
 
 class ResearchStrategy(ABC):
-    """A candidate strategy family with a default parameter grid."""
+    """A candidate strategy family with a default parameter grid.
+
+    ``warmup_days`` names the longest look-back of a rule when it exceeds the
+    90 days the Sprint 2 rules need (the round-2 slow trend rules look back 200
+    days): a rule has no signal before it, and tests size their synthetic
+    series from it. ``None`` means the Sprint 2 default is enough.
+    """
 
     key: str = "S?"
     label: str = "unnamed"
     default_params: Dict[str, Any] = {}
     grid: Dict[str, List[Any]] = {}
+    warmup_days: Optional[float] = None
 
     @abstractmethod
     def build(self, df: pd.DataFrame, params: Mapping[str, Any], context: FeatureContext) -> SignalFrame:

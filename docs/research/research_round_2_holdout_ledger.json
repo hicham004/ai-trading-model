@@ -1,0 +1,553 @@
+{
+ "note": "Every opening of the untouched 12 months by research round 2 (plan row R16), in order; entries are appended, never edited. The report shows all of them, each beside the earlier look at the same months by its comparison line. The hold + policy control's 12 months are a comparison line, not a configuration under test.",
+ "entries": [
+  {
+   "generated_at": "2026-11-04 21:33 UTC",
+   "started_at": "2026-11-04 21:21 UTC",
+   "preregistration_sha256": "eb017c5b15db266c8da9b0e3d1739e1a4735783fc58dc1d4f5fd903140350fa5",
+   "results_file": "docs/research/research_round_2_results.json",
+   "openings": [
+    {
+     "configuration": "hold BTC-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.042675,
+     "max_drawdown": 0.052232,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S2 BTC-USDT 4H [gate]",
+     "role": "reproduction",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 10,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.048832,
+     "max_drawdown": 0.062951,
+     "profit_factor": 0.282237,
+     "n_trades": 21,
+     "confirmed": false
+    },
+    {
+     "configuration": "hold ETH-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.026336,
+     "max_drawdown": 0.039541,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold XRP-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.02218,
+     "max_drawdown": 0.031312,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.026724,
+     "max_drawdown": 0.030377,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S2 DOGE-USDT 4H [gate]",
+     "role": "reproduction",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.017071,
+     "max_drawdown": 0.020577,
+     "profit_factor": 1.701101,
+     "n_trades": 8,
+     "confirmed": false
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 4H [none]",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 1,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.031127,
+     "max_drawdown": 0.057174,
+     "profit_factor": 0.4325,
+     "n_trades": 27,
+     "confirmed": false
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 4H [gate]",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.017873,
+     "max_drawdown": 0.022949,
+     "profit_factor": 1.645297,
+     "n_trades": 18,
+     "confirmed": true
+    },
+    {
+     "configuration": "hold LINK-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.016992,
+     "max_drawdown": 0.030045,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold TRX-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.00806,
+     "max_drawdown": 0.033053,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S2 TRX-USDT 4H [none]",
+     "role": "reproduction",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.056093,
+     "max_drawdown": 0.075315,
+     "profit_factor": 0.474088,
+     "n_trades": 26,
+     "confirmed": false
+    },
+    {
+     "configuration": "hold ADA-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.029929,
+     "max_drawdown": 0.035659,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold LTC-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.013732,
+     "max_drawdown": 0.028228,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.023046,
+     "max_drawdown": 0.036082,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S1+VC SOL-USDT 4H [none]",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 1,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.023695,
+     "max_drawdown": 0.052139,
+     "profit_factor": 0.56294,
+     "n_trades": 25,
+     "confirmed": false
+    },
+    {
+     "configuration": "hold BTC-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.039948,
+     "max_drawdown": 0.054928,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.029095,
+     "max_drawdown": 0.040396,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold XRP-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.027423,
+     "max_drawdown": 0.039482,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.031414,
+     "max_drawdown": 0.035688,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S2 DOGE-USDT 6H [gate]",
+     "role": "reproduction",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.006412,
+     "max_drawdown": 0.030272,
+     "profit_factor": 0.873957,
+     "n_trades": 10,
+     "confirmed": false
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 6H [gate]",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 1,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.022084,
+     "max_drawdown": 0.05043,
+     "profit_factor": 0.351873,
+     "n_trades": 16,
+     "confirmed": false
+    },
+    {
+     "configuration": "hold LINK-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.017333,
+     "max_drawdown": 0.033962,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold TRX-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.001046,
+     "max_drawdown": 0.033768,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ADA-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.036511,
+     "max_drawdown": 0.04384,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S2 ADA-USDT 6H [none]",
+     "role": "reproduction",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 10,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.04583,
+     "max_drawdown": 0.05406,
+     "profit_factor": 0.279661,
+     "n_trades": 20,
+     "confirmed": false
+    },
+    {
+     "configuration": "S2 ADA-USDT 6H [gate]",
+     "role": "reproduction",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.060051,
+     "max_drawdown": 0.064234,
+     "profit_factor": 0.073559,
+     "n_trades": 20,
+     "confirmed": false
+    },
+    {
+     "configuration": "hold LTC-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.010935,
+     "max_drawdown": 0.026314,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.02537,
+     "max_drawdown": 0.038442,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "role": "reproduction",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "time30"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.095279,
+     "max_drawdown": 0.021302,
+     "profit_factor": 5.485294,
+     "n_trades": 12,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+VC SOL-USDT 6H [none]",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 1,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.016469,
+     "max_drawdown": 0.050519,
+     "profit_factor": 0.682659,
+     "n_trades": 23,
+     "confirmed": false
+    }
+   ],
+   "earlier_looks": [
+    {
+     "configuration": "S1+VC DOGE-USDT 4H [none]",
+     "earlier_configuration": "S1 DOGE-USDT 4H [none]",
+     "earlier_study": "R12 replication",
+     "earlier_opened": false
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 4H [gate]",
+     "earlier_configuration": "S1 DOGE-USDT 4H [gate]",
+     "earlier_study": "R12 replication",
+     "earlier_opened": false
+    },
+    {
+     "configuration": "S1+VC SOL-USDT 4H [none]",
+     "earlier_configuration": "S1 SOL-USDT 4H [none]",
+     "earlier_study": "R12 replication",
+     "earlier_opened": false
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 6H [gate]",
+     "earlier_configuration": "S1 DOGE-USDT 6H [gate]",
+     "earlier_study": "R12 replication",
+     "earlier_opened": false
+    },
+    {
+     "configuration": "S1+VC SOL-USDT 6H [none]",
+     "earlier_configuration": "S1 SOL-USDT 6H [none]",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    }
+   ]
+  }
+ ]
+}

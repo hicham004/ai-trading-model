@@ -203,6 +203,38 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   the runner does not edit it). `tests/test_migrations.py` was tightened (types and server defaults
   compared) and stays green; `app/db/models.py` is identical on `main` and `plan/auto`, so the VPS
   schema equals the baseline and the stamp will match. Nothing to decide.
+- From R16: the one configuration research round 2 confirmed (the round-1 volume confirmation on
+  S1 — new entries only on a 30-day volume z-score above 1 — on DOGE-USDT 4H with the regime gate:
+  walk-forward Calmar 0.83 from 67 trades, +1.8 % with PF 1.65 over the untouched 12 months from 18
+  trades) is row 14 of the fleet shortlist (`c14-s1vc-doge-4h-gate`); the fleet code loads 24
+  accounts. The laptop fleet started on 2026-11-04 has 20 until its checkout is updated and the task
+  restarted (`docs/runbooks/PAPER_FLEET.md`, "Updating the fleet's code"). Recommendation: update and
+  restart it once `plan/auto` has landed and judge the account at G7 with the rest — as a hypothesis,
+  not a result: on the seven replication markets the condition raised Calmar beside plain S1 in 25 of
+  28 configurations (a strong directional replication of round 1, consistent with its gated-4H
+  pattern), but of its 5 walk-forward passers the holdout confirmed only this one and contradicted
+  4, among them SOL-USDT 6H, where plain S1's own holdout had been confirmed (+9.5 %) and the
+  filtered rule lost (-1.6 %).
+- From R16: the two slow-trend hypotheses — the close above its 200-day moving average as an entry
+  filter for the breakout rule (S2+TF) and as the exposure rule itself (TF, Faber's rule with the
+  policy sizing) — could not be judged. The protocol's selection step needs a rule variant with 20
+  train trades in a window, and the slow rules reached that in 53 of 180 and 13 of 180 windows, so
+  they sat flat; where they traded they did not beat their comparison lines (Calmar up in 4 of 20
+  and 3 of 20). Untested rather than refuted. Decision: whether to evaluate slow rules another way —
+  (a) a forward control account "always long above the 200-day average, policy sizing" in the paper
+  fleet beside the hold controls (free, judged forward, a fleet scope change), or (b) a
+  pre-registered protocol variant with a lower qualification threshold for fixed rules (a new
+  research row). Recommendation: (a) after G2, and not (b): a rule that trades a few times a year
+  gives a backtest too few observations to clear gates built for weekly rules, while the fleet
+  already judges hold + policy forward and would show the filter's worth beside it at G7.
+- From R16, for information: nothing credible remains from the R12 and R13 failure analyses for a
+  further round under this protocol — the fast cross-asset trend condition and dual momentum are not
+  worth retesting (R13), the volume confirmation has now been replicated in direction and is in the
+  fleet (c13, c14), the slow trend filter needs a different protocol (above), and the strictness of
+  the volume confirmation stays deferred until the fleet has judged the z > 1 accounts. No gate,
+  parameter or verdict rule changed after the results; all 90 reproductions of the stored Sprint 2c
+  and R12 numbers matched. Recommendation: no further research round now; the next research work
+  waits for the fleet's forward evidence (G7).
 
 ### Decided — the owner, 2026-11-04
 

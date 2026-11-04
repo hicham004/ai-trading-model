@@ -26,7 +26,7 @@ def manifest():
 def test_one_account_per_shortlist_row_control_and_the_two_portfolios(manifest):
     shortlist = json.loads(DEFAULT_SHORTLIST.read_text(encoding="utf-8"))
     ids = [a.account_id for a in manifest.accounts]
-    assert len(ids) == len(shortlist["configurations"]) + len(shortlist["controls"]) + 2 == 23  # 20 from Sprint 2c / R5b, 2 from R12, 1 from R13
+    assert len(ids) == len(shortlist["configurations"]) + len(shortlist["controls"]) + 2 == 24  # 20 from Sprint 2c / R5b, 2 from R12, 1 from R13, 1 from R16
     assert ids[0] == "c01-s1s5-btc-6h-none" and ids[-2:] == ["pf-s1s2s4-btceth-vt15", ALLOCATOR_V2_ACCOUNT]
     roles = {a.role for a in manifest.accounts}
     assert roles == {"candidate", "control", "portfolio"}
@@ -58,8 +58,8 @@ def test_controls_and_the_portfolio(manifest):
     assert (pf.ladder.half_dd, pf.ladder.flat_dd, pf.ladder.recovery_bars) == (0.075, 0.15, 30)
     exp = manifest.account("pf-s1s2s4-btceth-vt15").expectations["walk_forward"]
     assert exp["cagr"] == pytest.approx(0.109314) and exp["max_drawdown"] == pytest.approx(0.131776)
-    assert manifest.series() == [("BTC-USDT", "4H"), ("BTC-USDT", "6H"), ("ETH-USDT", "4H"), ("ETH-USDT", "6H"), ("SOL-USDT", "6H")]
-    assert manifest.instruments() == ["BTC-USDT", "ETH-USDT", "SOL-USDT"]
+    assert manifest.series() == [("BTC-USDT", "4H"), ("BTC-USDT", "6H"), ("DOGE-USDT", "4H"), ("ETH-USDT", "4H"), ("ETH-USDT", "6H"), ("SOL-USDT", "6H")]
+    assert manifest.instruments() == ["BTC-USDT", "DOGE-USDT", "ETH-USDT", "SOL-USDT"]  # DOGE-USDT 4H since plan row R16
 
 
 def test_source_tagged_rows_from_the_replication_study_join_as_new_accounts(manifest, tmp_path):
@@ -242,5 +242,23 @@ def test_the_configuration_confirmed_by_research_round_1_joins_as_account_c13(ma
     assert acc.expectations["passed_walk_forward"] is True and acc.expectations["walk_forward"]["calmar"] == pytest.approx(0.551912)
     assert acc.expectations["holdout_confirmed"] is True and acc.expectations["holdout"]["total_return"] == pytest.approx(0.019813)
     assert manifest.sources["results_r13researchround1"].endswith("docs/research/research_round_1_results.json")
-    assert manifest.instruments() == ["BTC-USDT", "ETH-USDT", "SOL-USDT"]
-    assert [a.account_id for a in manifest.accounts if a.role == "candidate"][-3:] == ["c11-s1s5-sol-6h-none", "c12-s1-sol-6h-none", "c13-s1vc-btc-4h-gate"]
+    assert manifest.instruments() == ["BTC-USDT", "DOGE-USDT", "ETH-USDT", "SOL-USDT"]  # DOGE since plan row R16
+    assert [a.account_id for a in manifest.accounts if a.role == "candidate"][-4:] == ["c11-s1s5-sol-6h-none", "c12-s1-sol-6h-none", "c13-s1vc-btc-4h-gate",
+                                                                                        "c14-s1vc-doge-4h-gate"]
+
+
+def test_the_configuration_confirmed_by_research_round_2_joins_as_account_c14(manifest):
+    """Plan row R16: the one confirmed configuration of research round 2 (the round-1 volume confirmation on S1, DOGE-USDT 4H, regime gate)
+    joins as account c14 with a source tag; DOGE is a replication-study market the fleet already knows, and every existing account is untouched."""
+    acc = manifest.account("c14-s1vc-doge-4h-gate")
+    assert acc.role == "candidate" and acc.shortlist_rank == 14 and acc.sleeve.candidate == "S1+VC"
+    assert acc.instrument == "DOGE-USDT" and acc.timeframe == "4H" and acc.sleeve.regime.mode == "gate" and acc.sleeve.bracket == "none"
+    assert acc.sleeve.sizing.label == "vt10/30 crash15/90dh ladder" and acc.sleeve.rebalance_threshold == 0.25 and not acc.sleeve.uses_positioning
+    assert acc.expectations["source"]["study"] == "R16 research round 2" and acc.expectations["source"]["hypothesis"] == "H4"
+    assert acc.expectations["source"]["results"] == "docs/research/research_round_2_results.json" and "from R16 research round 2" in acc.label
+    assert acc.expectations["passed_walk_forward"] is True and acc.expectations["walk_forward"]["calmar"] == pytest.approx(0.832962)
+    assert acc.expectations["holdout_confirmed"] is True and acc.expectations["holdout"]["total_return"] == pytest.approx(0.017873)
+    assert acc.expectations["holdout"]["n_trades"] == 18
+    assert manifest.sources["results_r16researchround2"].endswith("docs/research/research_round_2_results.json")
+    c13 = manifest.account("c13-s1vc-btc-4h-gate")
+    assert c13.sleeve.candidate == acc.sleeve.candidate and c13.sleeve.params != acc.sleeve.params  # the same condition, the rule each walk-forward selected

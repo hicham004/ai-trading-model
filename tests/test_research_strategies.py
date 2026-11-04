@@ -11,7 +11,7 @@ import pytest
 from app.strategy.base import MarketCandle, SignalAction
 from research.calibration import StrengthCalibrator
 from research.data import frame_from_candles, to_market_candles
-from research.strategies import CANDIDATES, get_candidate
+from research.strategies import CANDIDATES, FIXED_RULES, get_candidate
 from research.strategies.adapters import ResearchStrategyAdapter
 from research.strategies.base import FeatureContext, days_to_bars, state_from_events
 from research.strategies.s0_filters import NoTradeConfig, tradeable_mask
@@ -38,6 +38,18 @@ def df():
 
 
 @pytest.fixture(scope="module")
+def df_long():
+    # 300 days of hourly bars: room for the round-2 slow trend rules (plan row R16), which look back 200 days.
+    return synthetic(n=7200)
+
+
+def _series_for(cand, df: pd.DataFrame, df_long: pd.DataFrame) -> pd.DataFrame:
+    """The default 125-day series, or the long one for a rule whose declared warm-up would leave the default without a signal."""
+    warmup = getattr(cand, "warmup_days", None)
+    return df_long if warmup is not None and warmup > 90 else df
+
+
+@pytest.fixture(scope="module")
 def ctx():
     # A cross-asset context (plan row R13) is a FeatureContext that also carries the other market's candles, which the
     # round-1 rules need; every other candidate ignores the references (tests/test_research_round1.py checks that).
@@ -48,24 +60,31 @@ def ctx():
 
 
 @pytest.mark.parametrize("key", sorted(CANDIDATES))
-def test_every_candidate_builds_a_valid_frame(df, ctx, key):
+def test_every_candidate_builds_a_valid_frame(df, df_long, ctx, key):
     cand = get_candidate(key)
-    frame = cand.build(df, cand.default_params, ctx)
-    assert len(frame.desired) == len(df) and frame.desired.dtype == bool
-    assert len(frame.stop_distance) == len(df) and len(frame.strength) == len(df)
+    series = _series_for(cand, df, df_long)
+    frame = cand.build(series, cand.default_params, ctx)
+    assert len(frame.desired) == len(series) and frame.desired.dtype == bool
+    assert len(frame.stop_distance) == len(series) and len(frame.strength) == len(series)
     assert frame.desired.sum() > 0, f"{key} never wants to be long on the synthetic series"
     assert (frame.stop_distance.dropna() > 0).all()
     # strength is only defined where there is a signal
-    assert frame.strength.notna().sum() <= len(df)
-    assert len(param_grid(cand.grid, base=cand.default_params)) >= 4
+    assert frame.strength.notna().sum() <= len(series)
+    if key in FIXED_RULES:
+        # A pre-registered fixed rule: one parameter set, nothing for the walk-forward to select but the exit bracket.
+        combos = param_grid(cand.grid, base=cand.default_params)
+        assert len(combos) == 1 and all(isinstance(v, (int, float)) for v in combos[0].values()), key
+    else:
+        assert len(param_grid(cand.grid, base=cand.default_params)) >= 4
 
 
 @pytest.mark.parametrize("key", sorted(CANDIDATES))
-def test_no_look_ahead(df, ctx, key):
+def test_no_look_ahead(df, df_long, ctx, key):
     cand = get_candidate(key)
-    cut = 2000
-    base = cand.build(df.iloc[:cut], cand.default_params, ctx)
-    perturbed = df.copy()
+    series = _series_for(cand, df, df_long)
+    cut = len(series) - 1000  # 2000 on the default series; past the slow rules' warm-up on the long one
+    base = cand.build(series.iloc[:cut], cand.default_params, ctx)
+    perturbed = series.copy()
     perturbed.iloc[cut:, :4] *= 1.5  # change the future only
     perturbed.iloc[cut:, 4] *= 3.0
     full = cand.build(perturbed, cand.default_params, ctx)

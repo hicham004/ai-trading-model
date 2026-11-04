@@ -995,6 +995,95 @@
         "hypothesis": "H2"
       },
       "rank": 13
+    },
+    {
+      "holdout": {
+        "total_return": 0.017873,
+        "cagr": 0.017886,
+        "ann_vol": 0.030948,
+        "sharpe": 0.588278,
+        "sortino": 0.909019,
+        "max_drawdown": 0.022949,
+        "calmar": 0.779363,
+        "bars": 2191,
+        "n_trades": 18,
+        "trades_per_year": 18.004108,
+        "win_rate": 0.333333,
+        "profit_factor": 1.645297,
+        "avg_win": 75.952461,
+        "avg_loss": -23.081693,
+        "expectancy": 9.929692,
+        "avg_bars_held": 26.166667,
+        "fees_total": 39.664961,
+        "fees_pct_of_start": 0.003966,
+        "fees_pct_per_year": 0.003967,
+        "turnover_notional": 3.966499,
+        "avg_allocation": 0.019107
+      },
+      "holdout_confirmed": true,
+      "candidate": "S1+VC",
+      "instrument": "DOGE-USDT",
+      "timeframe": "4H",
+      "regime": "hmm3 bear>=0.5 gate",
+      "regime_config": {
+        "mode": "gate",
+        "n_states": 3,
+        "vol_window_days": 7.0,
+        "bear_prob_max": 0.5,
+        "bear_scale": 0.25,
+        "n_iter": 200,
+        "tol": 1e-05,
+        "min_train_bars": 200,
+        "label": "hmm3 bear>=0.5 gate"
+      },
+      "sizing": "vt10/30 crash15/90dh ladder",
+      "sizing_config": {
+        "kind": "vol_target",
+        "fraction": 1.0,
+        "target_vol": 0.1,
+        "vol_lookback": 30,
+        "crash_dd": 0.15,
+        "crash_window_days": 90.0,
+        "crash_mode": "half",
+        "ladder": true,
+        "cap": 1.0,
+        "label": "vt10/30 crash15/90dh ladder"
+      },
+      "bracket": "none",
+      "params": {
+        "lookbacks_days": [
+          7,
+          14,
+          30
+        ],
+        "vote": 2,
+        "atr_window": 14,
+        "atr_mult": 2.0,
+        "vol_window_days": 30,
+        "entry_band": 0.0,
+        "exit_band": 0.0,
+        "bracket": "none"
+      },
+      "cagr": 0.039808,
+      "sharpe": 0.879949,
+      "calmar": 0.832962,
+      "max_drawdown": 0.047791,
+      "profit_factor": 2.244515,
+      "n_trades": 67,
+      "fees_pct_per_year": 0.002778,
+      "rolling_12m_positive_share": 0.857143,
+      "worst_calendar_year_return": -0.00781,
+      "passed": true,
+      "failed_gates": [],
+      "dsr": 0.433107,
+      "source": {
+        "study": "R16 research round 2",
+        "report": "docs/research/RESEARCH_ROUND_2_REPORT.md",
+        "results": "docs/research/research_round_2_results.json",
+        "generated_at": "2026-11-04 21:33 UTC",
+        "hypothesis": "H4"
+      },
+      "rank": 14
     }
   ],
   "controls": [
@@ -1365,6 +1454,13 @@
       "note": "plan row R13: confirmed passers of research round 1 (holdout confirmed)",
       "added": [
         "S1+VC BTC-USDT 4H [gate]"
+      ]
+    },
+    {
+      "added_at": "2026-11-04 21:33 UTC",
+      "note": "plan row R16: confirmed passers of research round 2 (holdout confirmed)",
+      "added": [
+        "S1+VC DOGE-USDT 4H [gate]"
       ]
     }
   ]

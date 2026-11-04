@@ -22,16 +22,24 @@ on top of the unchanged S1 / S2 rules (``research.strategies.round1``):
 legs ``DM-BTC`` / ``DM-ETH`` (one position in the stronger 90-day performer
 while both trends are up). The cross-asset ones need a
 :class:`research.strategies.round1.CrossAssetContext`.
+
+Research round 2 (plan row R16) adds the slow own-market trend filter
+(``research.strategies.round2``): ``S2+TF`` (the breakout rule, entries only
+while the close is above its 200-day moving average) and ``TF`` (that filter as
+the exposure rule itself, no stop). ``TF`` is a fixed rule: its one parameter
+sits in the grid with a single value, so the walk-forward selects only the
+exit bracket (``FIXED_RULES``).
 """
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from research.strategies.base import ResearchStrategy
 from research.strategies.baseline import MovingAverageCrossoverRef
 from research.strategies.hold import AlwaysLong
 from research.strategies.round1 import DualMomentumLeg, ReferenceTrendGated, VolumeConfirmed
+from research.strategies.round2 import SlowTrendExposure, SlowTrendGated
 from research.strategies.s1_tsmom import TimeSeriesMomentum, TimeSeriesMomentumHysteresis
 from research.strategies.s2_breakout import DonchianBreakout
 from research.strategies.s3_meanrev import RangeMeanReversion
@@ -62,6 +70,9 @@ CANDIDATES: Dict[str, ResearchStrategy] = {
     "S1+VC": VolumeConfirmed(TimeSeriesMomentum()),
     "DM-BTC": DualMomentumLeg("BTC-USDT", "ETH-USDT", tie_wins=True),
     "DM-ETH": DualMomentumLeg("ETH-USDT", "BTC-USDT", tie_wins=False),
+    # Research round 2 (plan row R16): the slow own-market trend filter on the unchanged S2 rule, and as the exposure rule itself.
+    "S2+TF": SlowTrendGated(DonchianBreakout()),
+    "TF": SlowTrendExposure(),
 }
 
 REFERENCES: Dict[str, ResearchStrategy] = {
@@ -73,6 +84,11 @@ TURNOVER_VARIANTS: Dict[str, str] = {"S1w": "S1", "S1d": "S1", "S2d": "S2", "S4d
 S5_RETEST_VARIANTS: Dict[str, str] = {"S1+S5s": "S1", "S2+S5s": "S2"}
 #: Research round 1 (plan row R13): each new candidate and the Sprint 2c rule it wraps (the comparison line in its report).
 ROUND1_BASES: Dict[str, str] = {"S1+BT": "S1", "S2+BT": "S2", "S1+VC": "S1", "DM-BTC": "S1", "DM-ETH": "S1"}
+#: Research round 2 (plan row R16): each candidate and its comparison line (``TF`` is compared with the hold + policy control).
+ROUND2_BASES: Dict[str, str] = {"S1+VC": "S1", "S2+TF": "S2", "TF": "hold"}
+#: Pre-registered rules with one fixed parameter set: the grid holds a single value per parameter, so the walk-forward selects
+#: only the exit bracket; the protocol's robustness replay still perturbs the parameters by +-30 %.
+FIXED_RULES: Tuple[str, ...] = ("TF",)
 
 
 def get_candidate(key: str) -> ResearchStrategy:
