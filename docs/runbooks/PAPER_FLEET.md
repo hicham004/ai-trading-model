@@ -162,16 +162,23 @@ Start-ScheduledTask -TaskName 'AI Trading paper fleet'
 ```
 
 `scripts/paper-fleet-task.ps1` runs `run_paper_fleet.py --loop`, appends its
-output to `logs\paper_fleet\console.log` and starts it again a minute after it
-exits (exit code 2, a setup problem, stops the loop instead). Day to day:
+output to `logs\paper_fleet\console.log`, watches for the STOP file, and starts
+the fleet again a minute after it exits (exit code 2, a setup problem, stops the
+loop instead). Day to day:
 
 ```powershell
 Get-ScheduledTask -TaskName 'AI Trading paper fleet' | Select-Object State          # Running
 Get-Content C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\console.log -Tail 20
 C:\Users\Admin\Desktop\ai-trading-fleet\.venv\Scripts\python.exe C:\Users\Admin\Desktop\ai-trading-fleet\scripts\run_paper_fleet.py --status
-Stop-ScheduledTask -TaskName 'AI Trading paper fleet'      # stop at once; Start-ScheduledTask to resume (it catches up)
-New-Item C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\STOP   # or: the wrapper ends the fleet within ~15 s and does not restart it
+New-Item C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\STOP   # STOP: the wrapper ends the fleet within ~15 s and exits (task: Ready)
+Start-ScheduledTask -TaskName 'AI Trading paper fleet'     # run it again; it resumes and catches up
 ```
+
+Use the STOP file to stop, not `Stop-ScheduledTask`: that ends only the wrapper
+script, and Windows leaves the fleet process itself running (verified
+2026-11-04). It does no harm (the fleet keeps working on its own), and the next
+`Start-ScheduledTask` first ends such a leftover process and starts fresh; but
+to stop everything right now, use STOP.
 
 Reports: `C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\reports\weekly-YYYY-Www.md`.
 The laptop does not sleep while plugged in; if it sleeps or reboots anyway,

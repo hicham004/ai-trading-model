@@ -8,11 +8,15 @@ output to logs\paper_fleet\console.log, watches it, and starts it again a minute
 exits by itself after 10 failed cycles in a row; systemd would restart it the same way on the VPS).
 Public market data only; no keys; nothing here can place an order.
 
-Stop it: Stop-ScheduledTask -TaskName 'AI Trading paper fleet' ends this process tree at once; or create
-the file logs\paper_fleet\STOP, and within about -PollSeconds this script ends the fleet process and exits
-without starting it again. Both are safe: a cycle that could not be saved is redone from the last saved
-state when the fleet next runs (Start-ScheduledTask). This script always exits with code 0 so the task
-scheduler never restarts it in a loop; the reasons are in console.log.
+Stopping. Create the file logs\paper_fleet\STOP: within about -PollSeconds this script ends the fleet
+process and exits without starting it again (the task then shows Ready; Start-ScheduledTask resumes the
+fleet, which catches up). Stop-ScheduledTask ends only this wrapper: Windows does not end the fleet
+process with it, so the fleet keeps running on its own until the next start of this script, which first
+ends such a leftover fleet process (only one fleet may run on the folder) and then starts fresh. Both
+stops are safe: a cycle that could not be saved is redone from the last saved state.
+
+This script always exits with code 0 so the task scheduler never restarts it in a loop; the reasons are
+in console.log.
 
 .EXAMPLE
 .\scripts\paper-fleet-task.ps1                 # run in this window
@@ -37,12 +41,35 @@ $env:PYTHONUNBUFFERED = '1'
 $env:PYTHONUTF8 = '1'
 Set-Location $repo
 
+# Appends one line even while the fleet process holds the same file open for its own output.
 function Write-Console([string]$Message) {
-    [IO.File]::AppendAllText($console, ('{0:yyyy-MM-dd HH:mm:ss}  {1}' -f (Get-Date), $Message) + "`r`n")
+    $line = ('{0:yyyy-MM-dd HH:mm:ss}  {1}' -f (Get-Date), $Message) + "`r`n"
+    try {
+        $stream = New-Object IO.FileStream($console, [IO.FileMode]::Append, [IO.FileAccess]::Write, [IO.FileShare]::ReadWrite)
+        try {
+            $bytes = [Text.Encoding]::UTF8.GetBytes($line)
+            $stream.Write($bytes, 0, $bytes.Length)
+        }
+        finally { $stream.Dispose() }
+    }
+    catch { }
 }
 
-function Stop-Tree([Diagnostics.Process]$Process) {
-    if (-not $Process.HasExited) { & taskkill.exe /PID $Process.Id /T /F | Out-Null }
+function Stop-Tree([int]$ProcessId) {
+    & taskkill.exe /PID $ProcessId /T /F 2>&1 | Out-Null
+}
+
+# A fleet process left over from a wrapper that was ended by Stop-ScheduledTask: end it, so the new start
+# does not fail on the folder lock. Only processes running this repository's fleet script are touched.
+function Stop-LeftoverFleet {
+    $pattern = [regex]::Escape((Join-Path $repo 'scripts\run_paper_fleet.py'))
+    $leftovers = @(Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -and ($_.CommandLine -match 'run_paper_fleet\.py') -and ($_.ExecutablePath -like ($repo + '\*') -or $_.CommandLine -match $pattern) })
+    foreach ($proc in $leftovers) {
+        Write-Console ('ending a leftover fleet process {0} from an earlier wrapper' -f $proc.ProcessId)
+        Stop-Tree ([int]$proc.ProcessId)
+    }
+    if ($leftovers.Count -gt 0) { Start-Sleep -Seconds 3 }
 }
 
 $mode = '--loop'
@@ -53,6 +80,7 @@ while ($true) {
         Write-Console 'STOP file found: not starting the fleet again.'
         break
     }
+    Stop-LeftoverFleet
     Write-Console ('starting: .venv\Scripts\python.exe scripts\run_paper_fleet.py {0} --log-level INFO' -f $mode)
     # cmd.exe does the redirection so Python's stderr (its log lines) lands in the file unchanged.
     $startInfo = New-Object Diagnostics.ProcessStartInfo
@@ -65,7 +93,7 @@ while ($true) {
     $stopped = $false
     while (-not $process.HasExited) {
         if (Test-Path $stopFile) {
-            Stop-Tree $process
+            Stop-Tree $process.Id
             $stopped = $true
             break
         }
