@@ -6,6 +6,7 @@ Everything is offline (fake HTTP). No LLM is involved anywhere in this package.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -62,6 +63,23 @@ def test_canonicalize_url_strips_tracking_fragments_and_case():
     assert canonicalize_url("https://example.com/") == "https://example.com/"
     assert canonicalize_url("https://example.com:443/a/") == "https://example.com/a"
     assert canonicalize_url("mailto:x@y") == "mailto:x@y" and canonicalize_url("") == ""
+
+
+def test_canonicalize_url_skips_and_logs_a_malformed_link(caplog):
+    """Plan row R4e: a link the parser cannot read is skipped ("") and logged, never raised."""
+    bad_links = ("https://[::1/x", "https://example.com:99999/x", "https://example.com:abc/x", "HTTPS://[::1]:70000/x")
+    with caplog.at_level(logging.WARNING, logger="app.news.items"):
+        for bad in bad_links:
+            assert canonicalize_url(bad) == "", bad
+        assert canonicalize_url("https://[::1/" + "x" * 500) == ""
+    skipped = [r for r in caplog.records if r.getMessage() == "news item link skipped: malformed URL"]
+    assert len(skipped) == 5 and all(r.levelno == logging.WARNING for r in skipped)
+    assert skipped[0].url == "https://[::1/x" and skipped[0].error.startswith("ValueError:")
+    assert skipped[1].error == "ValueError: Port out of range 0-65535"
+    assert len(skipped[-1].url) == 200  # the logged link is clipped
+    # The item keeps the link as delivered and goes on without a canonical one.
+    raw = RawItem("t", "brokenlinks.example", "", "https://[::1/x", "Wallet drained", "", NOW)
+    assert raw.canonical_url == "" and raw.to_dict()["url"] == "https://[::1/x" and raw.to_dict()["canonical_url"] == ""
 
 
 def test_registrable_domain_maps_subdomains_to_their_site_and_keeps_look_alikes_apart():
@@ -272,10 +290,11 @@ def test_the_parsers_tier_each_aggregator_article_by_its_own_url():
     ]})
     items = parse_gdelt(payload, GDELT_SOURCE, NOW)
     assert [i.source_tier for i in items] == ["HIGH", "MEDIUM", "MEDIUM", "MEDIUM"]
-    # The tier travels in the stored record to what the classifier and the rules read
-    # (the malformed fourth URL is left out: canonicalize_url cannot parse it).
-    refs = [SourceItemRef.from_record(sanitize.sanitize_item(i)) for i in items[:3]]
-    assert [r.tier for r in refs] == [SourceTier.HIGH, SourceTier.MEDIUM, SourceTier.MEDIUM]
+    # The tier travels in the stored record to what the classifier and the rules read; the
+    # malformed fourth link is skipped (R4e): no link, no site, MEDIUM, and the record is kept.
+    refs = [SourceItemRef.from_record(sanitize.sanitize_item(i)) for i in items]
+    assert [r.tier for r in refs] == [SourceTier.HIGH, SourceTier.MEDIUM, SourceTier.MEDIUM, SourceTier.MEDIUM]
+    assert refs[3].canonical_url == "" and registrable_domain(refs[3].canonical_url) == ""
     news = json.dumps({"articles": {"results": [
         {"uri": "1", "url": "https://www.ft.com/content/x", "title": "Exchange halts withdrawals", "source": {"uri": "ft.com", "title": "Financial Times"}},
         {"uri": "2", "url": "https://www.marketwatch.com/story/y", "title": "Exchange hacked", "source": {"uri": "marketwatch.com", "title": "MarketWatch"}},
@@ -366,6 +385,41 @@ def test_run_once_writes_raw_quarantine_fetch_log_and_dedups(tmp_path: Path):
     second = run_once(sources, fetcher, store, now=NOW)
     assert second.items_new == 0 and second.items_duplicate == 2
     assert len(store.raw_file(NOW.date()).read_text().splitlines()) == 1
+
+
+def test_run_once_keeps_the_round_when_one_link_is_malformed(tmp_path: Path, caplog):
+    """Plan row R4e. Before it, one unreadable link raised out of run_once after the
+    round's earlier items had been marked seen in memory but before anything was
+    written, so the news shadow (which keeps one SeenStore for its lifetime) lost
+    them until a restart, and every round failed while the feed listed the link."""
+    payload = json.dumps({"articles": [
+        {"url": "https://www.reuters.com/markets/a", "title": "Exchange halts withdrawals", "seendate": "20261020T113000Z", "domain": "reuters.com"},
+        {"url": "https://[::1/b", "title": "Wallet drained, site says", "seendate": "20261020T113500Z", "domain": "brokenlinks.example"},
+        {"url": "https://www.coindesk.com:99999/c", "title": "Exchange confirms hack", "seendate": "20261020T114000Z", "domain": "coindesk.com"},
+        {"url": "https://theblock.co/d", "title": "Withdrawals paused at exchange", "seendate": "20261020T114500Z", "domain": "theblock.co"},
+    ]})
+    http = FakeHttp({GDELT_SOURCE.url: (200, payload)})
+    store = NewsStore(tmp_path / "news")
+    seen = dedup.SeenStore(store.seen_file)  # long-lived, as in the shadow runner
+    fetcher = NewsFetcher(http, now=lambda: NOW, sleep=lambda s: None, clock=lambda: 0.0)
+    with caplog.at_level(logging.WARNING, logger="app.news.items"):
+        summary = run_once([GDELT_SOURCE], fetcher, store, seen, now=NOW)
+        assert summary.sources_ok == 1 and summary.items_fetched == 4 and summary.items_new == 4 and not summary.errors
+        records = [json.loads(line) for line in store.raw_file(NOW.date()).read_text(encoding="utf-8").splitlines()]
+        assert [r["canonical_url"] for r in records] == ["https://www.reuters.com/markets/a", "", "", "https://theblock.co/d"]
+        assert [r["url"] for r in records[1:3]] == ["https://[::1/b", "https://www.coindesk.com:99999/c"]  # as delivered
+        assert [r["source_tier"] for r in records] == ["HIGH", "MEDIUM", "MEDIUM", "MEDIUM"]
+        # Without a link an item is keyed by publisher and title and is still one article...
+        assert records[1]["content_key"] == dedup.content_key("", "brokenlinks.example", "Wallet drained, site says")
+        assert len({r["content_key"] for r in records}) == 4
+        # ...the seen-set was saved with all four, and the next round sees nothing new.
+        assert store.seen_file.exists() and len(dedup.SeenStore(store.seen_file)) == 4
+        second = run_once([GDELT_SOURCE], fetcher, store, seen, now=NOW)
+        assert second.items_new == 0 and second.items_duplicate == 4 and not second.errors
+    assert sum(r.getMessage() == "news item link skipped: malformed URL" for r in caplog.records) == 4  # 2 links x 2 rounds
+    # What the rules see for the link-less item: no site, so no outlet family and never HIGH.
+    ref = SourceItemRef.from_record(records[1])
+    assert ref.canonical_url == "" and ref.tier is SourceTier.MEDIUM and registrable_domain(ref.canonical_url) == ""
 
 
 def test_run_once_dry_run_writes_nothing(tmp_path: Path):

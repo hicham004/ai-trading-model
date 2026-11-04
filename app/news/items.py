@@ -7,20 +7,40 @@ from datetime import datetime
 from typing import Optional, Tuple
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from app.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 _TRACKING_PREFIXES = ("utm_",)
 _TRACKING_PARAMS = {"fbclid", "gclid", "igshid", "mkt_tok", "mc_cid", "mc_eid", "ref", "ref_src", "cmpid"}
 
 
 def canonicalize_url(url: str) -> str:
-    """Lower-case scheme/host, drop fragments, tracking params and trailing slashes."""
+    """Lower-case scheme/host, drop fragments, tracking params and trailing slashes.
+
+    A link the parser cannot read (an unbalanced IPv6 bracket such as
+    ``https://[::1/x``, a port that is not a number from 0 to 65535) is skipped:
+    logged and returned as "" (plan row R4e), so one bad link in a feed never
+    fails the whole collection round and the round's other items are kept. The
+    item itself goes on without a link: de-duplicated by publisher and title
+    (``dedup.content_key``) and, having no site (``registrable_domain``), never
+    HIGH tier and never standing for an outlet.
+    """
     url = (url or "").strip()
     if not url:
         return ""
-    parts = urlsplit(url)
-    if parts.scheme.lower() not in ("http", "https"):
-        return url
-    host = (parts.hostname or "").lower()
-    port = parts.port
+    try:
+        parts = urlsplit(url)
+        if parts.scheme.lower() not in ("http", "https"):
+            return url
+        host = (parts.hostname or "").lower()
+        port = parts.port  # raises ValueError for a port that is not a number in range
+    except ValueError as exc:
+        logger.warning(
+            "news item link skipped: malformed URL",
+            extra={"url": url[:200], "error": f"{type(exc).__name__}: {exc}"[:200]},
+        )
+        return ""
     if port and not ((parts.scheme == "http" and port == 80) or (parts.scheme == "https" and port == 443)):
         host = f"{host}:{port}"
     query = [

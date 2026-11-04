@@ -12,15 +12,17 @@ really comes from, and only distinct families count.
   "screenshot", "Telegram channel") are one family: the post.
 - Outlets with the same known owner are one family.
 - Articles carrying the same headline are copies of the earliest one.
-- Recognitions added later (owner decisions of 2026-10-21) let an article also
-  stand for a wire or owner group it is linked to: credits to "the Associated
-  Press" and "Agence France-Presse" in any capitalisation, and Dow Jones's four
-  brands (The Wall Street Journal, Dow Jones Newswires, Barron's, MarketWatch) by
-  site and by credit, which never count as two sources. The count is the fewest
-  families that every counted article can stand for: never more than the rules
-  above give, two sources that each published the story are never merged because
-  a third article names both, and an official source or a wire's own article is
-  never given a link.
+- Recognitions added later (owner decisions of 2026-10-21 and 2026-11-04) let an
+  article also stand for a wire or outlet it is linked to: credits to "the
+  Associated Press" and "Agence France-Presse" in any capitalisation, Dow Jones's
+  four brands (The Wall Street Journal, Dow Jones Newswires, Barron's, MarketWatch)
+  by site and by credit, which never count as two sources, and the Financial Times
+  by site (ft.com) and by credit ("the Financial Times reported", "according to
+  the FT"), so its own article and the copies crediting it are one family. The
+  count is the fewest families that every counted article can stand for: never
+  more than the rules above give, two sources that each published the story are
+  never merged because a third article names both, and an official source or a
+  wire's own article is never given a link.
 - LOW and UNKNOWN tiers never count (their v1 weight is zero), nor do
   quarantined items. The classifier may *narrow* the counted set (it lists the
   sources it believes independent) but can never add to it, and its
@@ -85,9 +87,11 @@ _WIRE_ATTRIBUTION: Tuple[Tuple[str, re.Pattern], ...] = (
     ("bloomberg", re.compile(r"\bbloomberg\b", re.I)),
     ("dowjones", re.compile(r"\bdow jones newswires?\b", re.I)),
 )
-# Recognitions added later (owner decisions of 2026-10-21, plan row R4d). They never
-# replace the family the rules above give an article: they name further families it
-# may stand for instead (``family_links``); ``assess`` counts the fewest families.
+# Recognitions added later (owner decisions of 2026-10-21, plan row R4d, and of
+# 2026-11-04, plan row R4e). They never replace the family the rules above give an
+# article: they name further families it may stand for instead (``family_links``);
+# ``assess`` counts the fewest families. A later outlet is always added here as a
+# link, never to the wire tables above, so the count can only go down.
 # Between words: spaces, hyphens, dashes or a minus sign, or nothing (the sanitizer
 # deletes a soft hyphen, leaving "FrancePresse").
 _SEP = r"[\s\-\u2010-\u2015\u2212]*"
@@ -98,6 +102,9 @@ _LINKED_SITES: Mapping[str, str] = {
     "wsj.com": "dowjones",
     "barrons.com": "dowjones",
     "marketwatch.com": "dowjones",
+    # The Financial Times (R4e): its own article and a copy crediting it are one
+    # family, as the Dow Jones precedent needed both the site and the credit.
+    "ft.com": "ft",
 }
 _LINKED_CREDITS: Tuple[Tuple[str, re.Pattern], ...] = (
     # The wires' full names in any capitalisation (the rules above match them in lower case only).
@@ -111,6 +118,10 @@ _LINKED_CREDITS: Tuple[Tuple[str, re.Pattern], ...] = (
             re.I,
         ),
     ),
+    # The Financial Times: its full name in any capitalisation ("the Financial Times
+    # reported"), or "FT" in capitals only ("FT reported", "according to the FT");
+    # lower-case "ft" is feet, and "FTX", "FTSE" or "NFT" never match.
+    ("ft", re.compile(rf"(?i:\bfinancial{_SEP}times\b)|\bFT\b")),
 )
 _SOCIAL_PATTERNS: Tuple[re.Pattern, ...] = (
     re.compile(

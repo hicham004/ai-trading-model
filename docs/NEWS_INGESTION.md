@@ -77,7 +77,15 @@ names the risk actions). Severe flags (`prompt_injection_suspect`,
 ## Dedup (`app/news/dedup.py`)
 
 `content_key` = SHA-256 of the canonical URL (tracking parameters and
-fragments removed), else publisher + normalized title. `story_key` = normalized
+fragments removed), else publisher + normalized title. A link the URL parser
+cannot read (an unbalanced IPv6 bracket such as `https://[::1/x`, a port outside
+0–65535) is skipped and logged by `canonicalize_url` (plan row R4e, 2026-11-04)
+instead of failing the whole collection round: the record keeps the link as
+delivered in `url`, has an empty `canonical_url`, is keyed by publisher + title,
+and has no site, so it is never HIGH tier and never stands for an outlet; the
+round's other items are processed and the seen-set is saved as usual (before
+R4e the round raised, and the shadow's long-lived seen-set had already marked the
+round's earlier items as seen, so they were lost until a restart). `story_key` = normalized
 title + UTC day, a crude same-story bucket; the classifier refines it by
 linking an item to an existing event (`same_story_as`), and source families
 are judged in `corroborate.py`. `event_id` (Sprint 4a) names one story: a hash
@@ -105,7 +113,7 @@ calls to the Anthropic API, which happen only when `ANTHROPIC_API_KEY` is set.
 |---|---|
 | `app/news/schema.py` | The design's `NewsEvent` (§4) with exactly its enums, strict validation (no unknown fields, finite 0–1 numbers, UTC timestamps, `expires_at > first_seen_at`, NO_EFFECT forced for SINGLE_SOURCE / CONFLICTED / REJECTED / EXPIRED, short clean summary); the two LLM output models `TriageVerdict` and `ClassifierVerdict`; `SourceItemRef` built from ingestion records. |
 | `app/news/classifier.py` | Stage 1: Claude Haiku 5.5 triage per item (effort `low`). Stage 2: Claude Opus 5.5 classification per story (effort `high`) with the item set, existing event candidates and public market context. Structured outputs (`output_config.format`, schema from the Pydantic models), frozen system prompt (the §9 draft verbatim + a reference appendix, `phase6b-classifier-v1`) with a 1-hour prompt-cache marker; strict Pydantic validation of the reply. No key, SDK error, refusal, truncation, invalid JSON, schema violation, an action outside the vocabulary, or an invented source/event id all give `ok=False` = NO_EFFECT. Items with severe sanitization flags (or spoofed publisher names) are never sent. The API host is pinned to `https://api.anthropic.com`. |
-| `app/news/corroborate.py` | Independence: articles map to source *families* (wire copies, social-post relays, same owner, identical headlines collapse; the recognitions added in R4d let an article also stand for a wire or owner group — credits to "the Associated Press" and "Agence France-Presse" in any capitalisation, and Dow Jones's four brands (The Wall Street Journal, Dow Jones Newswires, Barron's, MarketWatch) by site and by credit — and the count is the fewest families that every counted article can stand for: never more than without them, two outlets that each published the story never merge through a third, and no link is given to an official source or to a wire's own article; LOW/UNKNOWN tiers and quarantined items never count; the model may narrow the set, never widen it; its CONFLICTED/REJECTED/EXPIRED are respected). Price/volume confirmation: move ≥ 0.5 × ATR and reaction volume ≥ 1.5 × the rolling average in the expected direction, from public candles **closed before the decision time** only. |
+| `app/news/corroborate.py` | Independence: articles map to source *families* (wire copies, social-post relays, same owner, identical headlines collapse; the recognitions added in R4d and R4e let an article also stand for a wire or outlet — credits to "the Associated Press" and "Agence France-Presse" in any capitalisation, Dow Jones's four brands (The Wall Street Journal, Dow Jones Newswires, Barron's, MarketWatch) by site and by credit, and the Financial Times by site (`ft.com`) and by credit ("the Financial Times reported", "according to the FT") — and the count is the fewest families that every counted article can stand for: never more than without them, two outlets that each published the story never merge through a third, and no link is given to an official source or to a wire's own article; LOW/UNKNOWN tiers and quarantined items never count; the model may narrow the set, never widen it; its CONFLICTED/REJECTED/EXPIRED are respected). Price/volume confirmation: move ≥ 0.5 × ATR and reaction volume ≥ 1.5 × the rolling average in the expected direction, from public candles **closed before the decision time** only. |
 | `app/news/decay.py` | §6 TTL table, linear (default) or exponential decay that never rises and is zero from `expires_at`, source weights (OFFICIAL 1.0, HIGH 0.9, MEDIUM 0.65, LOW/UNKNOWN 0), thresholds (< 0.35 none; 0.35–0.55 ×0.75; 0.55–0.70 ×0.50; ≥ 0.70 block, or ×0.25 where a category may not block), the effective signal and the most-conservative combination (no compounding). `build_event` turns a verdict into an event: id, timestamps, TTL and status are deterministic and the model's proposed action is only a ceiling. `merge_event`: a repeat of the same story keeps its id and TTL; only new independent evidence can strengthen an event. Policy version `phase6b-decay-v1`. |
 | `app/news/overlay.py` | `evaluate_new_long_entry`: a pure function over a snapshot of one candidate NEW long entry and the current events. It can keep, shrink or block that entry; it never allows what the baseline blocked, never raises a size, and has no input that represents exits, stops, cancels, the kill switch or reconciliation. Unhealthy news state is NO_EFFECT. |
 | `app/news/store.py` | `NewsShadowLog`: append-only `logs/news_shadow/events-YYYY-MM-DD.jsonl` and `decisions-YYYY-MM-DD.jsonl` (design §11 record kinds), secret-looking keys and values redacted. Override the directory with `NEWS_SHADOW_LOG_DIR`. |
@@ -176,7 +184,8 @@ path, `feedparser` would fetch or open it.
 ## Not in scope here
 
 Corroboration through the API's web-search/web-fetch tools (master plan §5.2,
-not built); Batch-API re-scoring; recognising credits to non-wire outlets such
-as "the Financial Times reported" (see `docs/NEWS_AGENT.md`); and any connection to the risk
+not built); Batch-API re-scoring; recognising credits to non-wire outlets other
+than the Financial Times (CNBC, CoinDesk, ...; the FT's site and credits to it became
+one family in plan row R4e, see `docs/NEWS_AGENT.md`); and any connection to the risk
 manager or the demo runtime, which needs a separate owner decision. See
 `docs/PHASE6B_DESIGN.md` and the master plan Sprint 4.

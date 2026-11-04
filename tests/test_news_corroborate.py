@@ -117,11 +117,58 @@ def test_dow_jones_brands_never_count_as_two_sources():
     assert assess([sites[0], item(31, title="Exchange confirms the breach")]).status is S.INDEPENDENT_SOURCE_CONFIRMED
 
 
+def test_relays_crediting_the_financial_times_are_one_source():
+    """Plan row R4e (owner go of 2026-11-04), eval story syn-ft-attribution: the FT's own
+    article and the copies crediting it are one family, by site and by credit, and the
+    recognition is a link (never a wire), so it can only lower the count."""
+    original = item(1, url="https://www.ft.com/content/quorvex", tier=SourceTier.HIGH,
+                    title="Crypto exchange Quorvex halts withdrawals after suspected hot-wallet breach")
+    relay = item(2, url="https://coinledgerdaily.com/quorvex", title="Quorvex freezes withdrawals after breach, the Financial Times reported")
+    relay_short = item(3, url="https://blockwirenow.com/quorvex", title="Quorvex halts withdrawals, according to the FT")
+    assert source_family(original) == "domain:ft.com" and family_links(original) == {"wire:ft"}
+    assert family_links(item(4, url="https://markets.ft.com/data/x")) == {"wire:ft"}  # a subdomain is the site
+    # The pair FT original + a crediting outlet...
+    result = assess([original, relay])
+    assert result.status is S.SINGLE_SOURCE and result.independent_source_count == 1 and result.tier is SourceTier.HIGH
+    assert set(result.families) == {"wire:ft"}
+    # ...and the pair of two outlets both crediting the FT, with no FT article at all.
+    both = assess([relay, relay_short])
+    assert both.status is S.SINGLE_SOURCE and both.independent_source_count == 1 and set(both.families) == {"wire:ft"}
+    assert assess([original, relay, relay_short]).independent_source_count == 1
+    # Every form of the credit, through the real sanitizer (a soft hyphen is deleted: "FinancialTimes").
+    for n, credit in enumerate(("the Financial Times reported", "FINANCIAL TIMES says", "Financial-Times reports",
+                                "the Financial\u00adTimes said", "FT reported", "according to the FT", "per the FT", "FT:"), start=10):
+        text = sanitize_text(f"Quorvex halts withdrawals, {credit}", max_chars=200).text
+        assert linked_credits(text) == {"ft"}, credit
+        assert assess([original, item(n, title=text)]).status is S.SINGLE_SOURCE, credit
+    # Not a credit: feet, FTX, the FTSE, NFTs, Fort.
+    for n, text in enumerate(("Waves of 20 ft hit the harbour", "FTX creditors to be repaid", "FTSE 100 falls 2%",
+                              "NFT sales slump", "Ft. Lauderdale conference opens"), start=20):
+        assert not linked_credits(text), text
+        assert not family_links(item(n, title=text)), text
+    # Independence is kept where it exists: an independent outlet; a wire's own article that
+    # mentions the FT (a wire's article is never given a link); and the FT crediting a wire
+    # is that wire's copy.
+    independent = item(30, url="https://www.coindesk.com/quorvex", title="Quorvex confirms the breach in a statement")
+    assert assess([original, independent]).independent_source_count == 2
+    reuters = item(31, url="https://www.reuters.com/quorvex", tier=SourceTier.HIGH, title="Quorvex hacked",
+                   excerpt="The Financial Times first reported the breach.")
+    assert not family_links(reuters) and assess([reuters, original]).independent_source_count == 2
+    ft_crediting_reuters = item(32, url="https://www.ft.com/content/port", tier=SourceTier.HIGH, title="Explosions near port, Reuters reports")
+    assert source_family(ft_crediting_reuters) == "wire:reuters" and family_links(ft_crediting_reuters) == {"wire:ft"}
+    reuters_port = item(33, url="https://www.reuters.com/port", tier=SourceTier.HIGH, title="Blasts near port")
+    assert assess([ft_crediting_reuters, reuters_port]).independent_source_count == 1
+    # The FT is a link, not a wire: the first-match rules are unchanged by R4e.
+    assert wire_attribution("the Financial Times reported") is None
+    assert source_family(relay) == "domain:coinledgerdaily.com"
+
+
 def test_look_alike_sites_are_not_the_outlet():
     assert source_family(item(1, url="https://uk.reuters.com/x")) == "wire:reuters"
     assert family_links(item(2, url="https://www.wsj.com/x")) == {"wire:dowjones"}
     for n, url in enumerate(("https://reuters.com.evil.example/x", "https://evilreuters.com/x", "https://reut\u0435rs.com/x",
-                             "https://wsj.com.evil.example/x"), start=3):
+                             "https://wsj.com.evil.example/x", "https://ft.com.cn/x", "https://aft.com/x",
+                             "https://ft.com.evil.example/x"), start=3):
         look_alike = item(n, url=url)
         assert not source_family(look_alike).startswith("wire:") and not family_links(look_alike), url
 
@@ -178,7 +225,8 @@ def test_the_count_is_never_above_the_original_rules():
              "https://www.wsj.com", "https://www.marketwatch.com", "https://www.barrons.com", "https://www.dowjones.com",
              "https://www.ft.com", "https://www.coindesk.com", "https://blog.example", "https://www.sec.gov"]
     credits = ["", "(AP)", "the Associated Press reported", "AGENCE FRANCE-PRESSE said", "Reuters reported", "the WSJ said",
-               "Barron's reports", "MarketWatch says", "according to Bloomberg", "said in a post on X", "AFP"]
+               "Barron's reports", "MarketWatch says", "according to Bloomberg", "said in a post on X", "AFP",
+               "the Financial Times reported", "according to the FT"]
     titles = ["Exchange halts withdrawals", "Hackers drain exchange", "Exchange confirms breach"]
     tiers = [SourceTier.HIGH, SourceTier.MEDIUM, SourceTier.MEDIUM, SourceTier.LOW, SourceTier.OFFICIAL]
     for case in range(400):
@@ -202,7 +250,7 @@ def test_the_fewest_families_are_a_true_minimum(monkeypatch):
     for case in range(300):
         items = [item(case * 10 + k) for k in range(rng.randint(1, 6))]
         own = {i.item_id: rng.choice(["domain:a", "domain:b", "domain:c", "wire:ap", "social:post"]) for i in items}
-        links = {i.item_id: frozenset(rng.sample(["wire:ap", "wire:afp", "wire:dowjones"], rng.randint(0, 2))) for i in items}
+        links = {i.item_id: frozenset(rng.sample(["wire:ap", "wire:afp", "wire:dowjones", "wire:ft"], rng.randint(0, 2))) for i in items}
         monkeypatch.setattr(corroborate_module, "family_links", lambda it: links[it.item_id])
         official = {"domain:c"} if rng.random() < 0.3 else set()
         chosen = corroborate_module._fewest_families(list(reversed(items)), own, official)

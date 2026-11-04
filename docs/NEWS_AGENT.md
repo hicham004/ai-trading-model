@@ -1,8 +1,11 @@
 # The news agent, in plain words
 
-Status (October 21, 2026): built and tested offline, including the 30-day test runner
-("news shadow", below) and your two news-rule fixes of October 21 (plan row R4d);
-**not yet run against the real AI model** and not yet running anywhere. Phase 6b is authorized for **log-only**
+Status (November 4, 2026): built and tested offline, including the 30-day test runner
+("news shadow", below), your two news-rule fixes of October 21 (plan row R4d) and the
+two follow-up fixes covered by your go of November 4 (plan row R4e: credits to the
+Financial Times count like the wire credits, and a broken link no longer costs a
+collection round); **not yet run against the real AI model** and not yet running
+anywhere. Phase 6b is authorized for **log-only**
 operation (owner, June 30, 2026, GitHub issue #12; reconfirmed October 20, 2026).
 Using news to change what the demo or a live system trades is **not** authorized.
 
@@ -55,9 +58,9 @@ switch or reconciliation, and in log-only mode even a "block" is only written do
      sponsored or partner pages those sites also host; every other outlet GDELT
      finds is medium quality. The Wall Street Journal, Dow Jones Newswires,
      Barron's and MarketWatch have one owner and always count as one source. A
-     site that only repeats what Reuters, the Associated Press, AFP, Bloomberg or
-     one of those four brands reported counts as that one source, whatever
-     capitalisation it uses for the name;
+     site that only repeats what Reuters, the Associated Press, AFP, Bloomberg,
+     the Financial Times or one of those four brands reported counts as that one
+     source, whatever capitalisation it uses for the name;
    - every effect fades over a few hours and then stops completely;
    - the AI's proposal is only a ceiling: the rules can lower it, never raise it.
 6. **Log** the result. Any failure — no key, AI unavailable, a malformed reply —
@@ -65,7 +68,7 @@ switch or reconciliation, and in log-only mode even a "block" is only written do
 
 ## How we test it: the eval
 
-Before the agent runs for real, it has to pass a test set ("eval") of **134 made-up
+Before the agent runs for real, it has to pass a test set ("eval") of **135 made-up
 news stories**, each with the answer a careful analyst would give. Every headline is
 invented (fictional exchanges such as "Kryvex" or "Meridex") and none reports a
 real current event; a few real past events (FTX 2022, Terra 2022, ...) appear on
@@ -76,7 +79,7 @@ purpose, as old news being recirculated. The stories cover 13 situations:
 | Real-looking risk events confirmed by two or more sources | 25 | reduce or block |
 | One source plus a confirming market move (and cases where the market did *not* confirm) | 9 | reduce, or nothing |
 | Confirmed but harmless news (decisions as expected, good news) | 10 | nothing |
-| One wire story copied many times | 12 | nothing |
+| One wire story copied many times | 13 | nothing |
 | Single-source rumors | 12 | nothing |
 | Satire and parody | 8 | nothing |
 | Old news recirculating (FTX 2022, Terra 2022, ...) | 9 | nothing |
@@ -87,7 +90,7 @@ purpose, as old news being recirculated. The stories cover 13 situations:
 | Claims contradicted by a denial or a correction | 5 | nothing |
 | Repeats and new developments of a known story | 6 | depends |
 
-So 35 stories need a restriction, 98 need `NO_EFFECT`, and one (a bullish headline
+So 35 stories need a restriction, 99 need `NO_EFFECT`, and one (a bullish headline
 during a price spike) accepts either. A system that always answered `NO_EFFECT`
 would get 74 % right while being useless, so the report shows missed events and
 false alarms separately.
@@ -148,7 +151,7 @@ python scripts/eval_news_classifier.py --replay artifacts/news_eval/<run>/record
 
 ## What a pass means — and what it does not
 
-A pass shows the agent and its rules behave safely on these 134 made-up stories.
+A pass shows the agent and its rules behave safely on these 135 made-up stories.
 It does **not** show that the agent catches real events in time, that it would
 have saved money, or that it is ready to influence trading. That evidence can only
 come from the 30-day forward shadow (design section 11), and any use of news to
@@ -200,24 +203,27 @@ separate decision.
   explain all the articles. Two outlets that each published the story stay two,
   even when a third article names both, and a wire's own report always counts as
   that wire, whatever other outlet it mentions.
-- **Credits to other outlets.** The rules recognise credits only to the wires
-  (Reuters, AP, AFP, Bloomberg) and to Dow Jones's four brands, and not in every
-  short form ("AP reported" without brackets, "Wall St. Journal"). A small site that
-  writes "the Financial Times reported" (or credits CNBC, CoinDesk, ...) still looks
-  like a second, independent source next to the original article; only the AI's
-  judgment collapses it. Since the Financial Times now counts as high quality, such a
-  pair weighs more than before. The other way round, a passing mention counts as a
-  credit: an article that merely mentions "Barron's" may be counted together with a
-  Wall Street Journal article (fewer sources, never more). See "What you need to
-  decide".
-- **One malformed link can cost a whole collection round** (found while reviewing
-  R4d; older than it, not yet fixed). If a news feed delivers a link the URL
-  cleaner cannot read (a broken address or an impossible port number), the
-  5-minute round of collecting fails, and so does every round while the feed still
-  lists that link (up to an hour for GDELT). The shadow keeps running and reports
-  itself unhealthy, but articles from feeds read earlier in a failed round are
-  marked as seen without being processed, so they are lost until a restart. A
-  small fix in `app/news/items.py`; see "What you need to decide".
+- **Credits to other outlets — the Financial Times added on November 4 (plan row
+  R4e).** A site that writes "the Financial Times reported", "FT reported" or
+  "according to the FT" now counts as the FT, together with the FT's own article, the
+  way the wire credits work (test story `syn-ft-attribution`); "FT" counts only in
+  capitals, so feet, FTX, the FTSE and NFTs never match. Like every newer recognition
+  it can never add a source. Still not recognised: credits to other outlets (CNBC,
+  CoinDesk, The Block, ...) and some short forms ("AP reported" without brackets,
+  "Wall St. Journal"); such a copy still looks like a second, independent source next
+  to the original article, and only the AI's judgment collapses it. The other way
+  round, a passing mention counts as a credit: an article that merely mentions
+  "Barron's" or "the FT" may be counted together with a Wall Street Journal or
+  Financial Times article (fewer sources, never more). See "What you need to decide".
+- **One malformed link can cost a whole collection round — fixed on November 4 (plan
+  row R4e).** If a news feed delivered a link the URL cleaner could not read (a broken
+  address or an impossible port number), the 5-minute round of collecting failed, and
+  so did every round while the feed still listed that link (up to an hour for GDELT);
+  articles from feeds read earlier in a failed round were marked as seen without being
+  processed, so they were lost until a restart. Now the unreadable link is skipped and
+  written to the service log, the article keeps its headline and goes on without a
+  link (it is recognised again by its publisher and headline, and without a site it
+  can never count as a high-quality outlet), and the round completes.
 - **A weak repeat could switch off a live event — closed in the news shadow.** The
   rules for a repeated story used to judge the evidence on the new articles alone, so
   one outlet repeating a confirmed story made it "single source" again. The news
@@ -232,7 +238,7 @@ separate decision.
   small sites, satire rewritten as news, and old news with a fresh date all look
   like separate sources to the rules, because the rules cannot tell those sites
   apart: every outlet outside the high-quality list is medium quality to them. In 16
-  of the 72 single-source stories only the AI's skepticism stands between the rumor
+  of the 73 single-source stories only the AI's skepticism stands between the rumor
   and an effect (17 before the October 21 fix). The single-source gate measures
   exactly this.
 - **"Volatility only".** If the AI says a story should cause volatility in either
@@ -257,8 +263,8 @@ separate decision.
   moved to made-up names, and site names that gave the answer away). No person has
   reviewed them yet; a reviewer should spot-check about twenty (each story
   explains its answer in its `why` field).
-- **One run is a first look.** With 134 stories, one run pins overall accuracy down
-  to about ±7 percentage points, and "zero single-source effects in 72 stories" still
+- **One run is a first look.** With 135 stories, one run pins overall accuracy down
+  to about ±7 percentage points, and "zero single-source effects in 73 stories" still
   allows a true rate of a few percent. `--reps 3` repeats every story three times for
   a firmer answer at three times the cost.
 
@@ -268,13 +274,11 @@ separate decision.
   Anthropic API key from step G5 and costs about $4–10 per run.
   Recommendation: yes. Run it once before starting the shadow and after every
   prompt or model change, and treat a FAIL as a reason not to start.
-- **Add the Financial Times to the credit list** (gap "Credits to other outlets"
-  above). Recommendation: yes, as a small log-only follow-up before the 30 days
-  start; like every newer recognition it can never add a source, so it can only make
-  the rules more careful.
-- **Fix the malformed-link gap** (gap "One malformed link can cost a whole
-  collection round" above). Recommendation: yes, in the same small follow-up before
-  the 30 days start.
+- **Recognise credits to other named outlets** (CNBC, CoinDesk, The Block,
+  Cointelegraph, ...) the way the wires and the Financial Times are recognised (gap
+  "Credits to other outlets" above). Recommendation: not now. Let the 30-day news
+  shadow's logs show which credits actually appear in the watched feeds, then add
+  only those, each as a recognition that can only lower the source count.
 - **The news shadow's monthly AI budget** (default $40, with a $50 limit on the key's
   workspace in the Anthropic console). Recommendation: keep $40 for the first month
   and look at the report's spend line after a week.
@@ -283,4 +287,6 @@ separate decision.
 
 Decided on October 21, 2026 and built in R4d: the wire-credit fix, and the
 high-quality outlets (Reuters, AP, Bloomberg, Dow Jones/WSJ as one owner family,
-the Financial Times).
+the Financial Times). Covered by your go of November 4, 2026 and built in R4e:
+credits to the Financial Times count like the wire credits, and a broken link no
+longer costs a collection round.

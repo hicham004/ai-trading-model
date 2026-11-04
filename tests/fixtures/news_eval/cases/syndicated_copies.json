@@ -40,6 +40,18 @@
       "why": "One AP report and two attributed relays. The deterministic rules recognise the credit 'the Associated Press' in any capitalisation, so the three articles are one family whatever the classifier lists (before R4d they matched it only in lower case and counted three)."
     },
     {
+      "id": "syn-ft-attribution",
+      "summary": "A Financial Times report relayed by two crypto sites crediting 'the Financial Times' and 'the FT'.",
+      "now": "2026-11-09T07:40:00Z",
+      "items": [
+        {"key": "a", "publisher": "ft.com", "published": "-23m", "observed": "-20m", "title": "Crypto exchange Quorvex halts withdrawals after suspected hot-wallet breach"},
+        {"key": "b", "publisher": "coinledgerdaily.com", "published": "-16m", "observed": "-13m", "title": "Quorvex freezes withdrawals after breach, the Financial Times reported"},
+        {"key": "c", "publisher": "blockwirenow.com", "published": "-11m", "observed": "-8m", "title": "Quorvex halts withdrawals, according to the FT"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "single_source": true, "independent": ["a"], "signs": ["COPIED_WIRE_STORY"]},
+      "why": "One Financial Times report (HIGH tier, on ft.com) and two relays crediting it. Since R4e the deterministic rules treat a credit to the Financial Times ('the Financial Times reported', 'according to the FT') like the wire credits: the FT's own article and both relays stand for one family, so the story is one source whatever the classifier lists. One source and a calm market: no effect."
+    },
+    {
       "id": "syn-social-post-explicit",
       "summary": "Three outlets relay one post on X by an exchange CEO.",
       "now": "2026-11-10T23:35:00Z",

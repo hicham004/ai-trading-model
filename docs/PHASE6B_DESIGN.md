@@ -1072,8 +1072,11 @@ Operator questions before implementation:
   never more than before them, and two outlets that each published the story
   never count as one because a third article names both. Other shared
   ownership counts once only when the feed or an operator override names the
-  owner, and credits to non-wire outlets (for example "the Financial Times
-  reported") are not yet recognised (`app/news/corroborate.py`).
+  owner. Credits to the Financial Times ("the Financial Times reported",
+  "according to the FT") and its site `ft.com` are one family since plan row
+  R4e (owner go of November 4, 2026), as a recognition that can only lower the
+  count; credits to other non-wire outlets (CNBC, CoinDesk, ...) are not yet
+  recognised (`app/news/corroborate.py`).
 - Should v1 store events only in JSONL, or add database tables despite the
   current `create_all` / no-migrations limitation?
 - What source outage threshold should alert the operator?

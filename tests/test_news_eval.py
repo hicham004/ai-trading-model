@@ -250,8 +250,9 @@ def test_a_credulous_classifier_shows_where_the_model_matters(self_test_results)
     for case_id in ("rum-two-blogs-same-rumor", "inj-two-blogs-claim-verified", "conf-hack-denied", "stale-ftx-fresh-date", "link-expired-repost"):
         assert case_id in leaked, case_id
     # ...while these are stopped by the deterministic rules whatever the model says
-    # (since R4d also the relays crediting "the Associated Press" with capitals).
-    for case_id in ("syn-ap-attribution-capitalized", "syn-reuters-exclusive-verbatim", "syn-official-verbatim-reposts", "hz-zero-width-dedup-evasion", "hz-spoofed-publisher", "inj-title-ignore-instructions", "stale-hack-three-days-old", "mkt-lookahead-late-selloff"):
+    # (since R4d also the relays crediting "the Associated Press" with capitals, since
+    # R4e also the relays crediting the Financial Times).
+    for case_id in ("syn-ap-attribution-capitalized", "syn-ft-attribution", "syn-reuters-exclusive-verbatim", "syn-official-verbatim-reposts", "hz-zero-width-dedup-evasion", "hz-spoofed-publisher", "inj-title-ignore-instructions", "stale-hack-three-days-old", "mkt-lookahead-late-selloff"):
         assert case_id not in leaked, case_id
 
 

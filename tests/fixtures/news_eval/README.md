@@ -46,6 +46,12 @@ Three explanations were brought up to date (the `corroborated` description,
 `corr-hack-kryvex` and `syn-ap-attribution-capitalized`, which the rules now
 collapse to one source without the classifier's help).
 
+Plan row R4e (November 4, 2026: credits to the Financial Times count like the wire
+credits, by its site and by credit) added one story, `syn-ft-attribution`, and
+changed no label: the three existing stories with an article on ft.com
+(`corr-geo-taiwan`, `mkt-raid-dip-low-volume`, `off-nvidia-chip`) have no second
+article linked to the FT, so no story's count of independent sources moved.
+
 Effect labels backed only by MEDIUM-tier outlets sit near the thresholds: the
 final action depends on the confidence, impact and horizon the model gives (for
 example `corr-liq-below-67k` or `corr-incident-stakewell`), so a missed effect
@@ -55,7 +61,7 @@ high-impact; its label accepts that.
 
 ## Layout
 
-- `cases/<kind>.json` — one file per case kind (13 kinds, 134 cases): the seven
+- `cases/<kind>.json` — one file per case kind (13 kinds, 135 cases): the seven
   the plan row names (`corroborated`, `syndicated_copies`, `single_source_rumor`,
   `satire`, `stale_repost`, `prompt_injection`, `homoglyph_zero_width`) and six
   that cover the other direction and the design's edge cases

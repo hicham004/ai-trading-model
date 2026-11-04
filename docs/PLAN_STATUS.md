@@ -73,6 +73,12 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   (b) making the URL cleaner (`app/news/items.py`, `canonicalize_url`) skip a malformed link
   instead of failing the whole collection round (details: `docs/NEWS_AGENT.md`, known gaps).
   Recommendation: yes to both; each can only make the news log more careful or more complete.
+  Covered by the owner's 2026-11-04 go and built in row R4e.
+- From R4e: whether to recognise credits to other named outlets (CNBC, CoinDesk, The Block,
+  Cointelegraph, ...) the way the wires and the Financial Times are, so a copy crediting them
+  counts as one source with the original. Recommendation: not now; let the 30-day news shadow's
+  logs (G5) show which credits actually appear in the watched feeds, then add only those, each
+  as a recognition that can only lower the source count.
 - From R5b: the jointly sized portfolio's untouched last 12 months, opened for the first time as allocator v2's paired
   reference, lost 15.0 % (allocator v2: −9.2 %) in the 2025–26 bear market (BTC −26 %, ETH −39 %; the always-long
   controls lost 3–4 %, the confirmed S1+S5 BTC 6H sleeve made +2.3 %; `docs/research/ALLOCATOR_V2_REPORT.md`). Should
