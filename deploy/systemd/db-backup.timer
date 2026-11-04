@@ -1,0 +1,19 @@
+# Starts db-backup.service every night at 02:30 UTC (05:30 Beirut in summer, 04:30 in winter),
+# well before the 07:00 Beirut ops digest (docs/runbooks/DB_MIGRATIONS.md). Persistent=true:
+# a night missed while the server was off runs once when it is back.
+#
+# Install: copy to /etc/systemd/system/ next to db-backup.service, then
+#   sudo systemctl daemon-reload && sudo systemctl enable --now db-backup.timer
+
+[Unit]
+Description=Nightly database backup at 02:30 UTC
+Documentation=file:///path/to/ai-trading-model/docs/runbooks/DB_MIGRATIONS.md
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=db-backup.service
+
+[Install]
+WantedBy=timers.target

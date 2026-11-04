@@ -10,7 +10,7 @@ Never paste a key, a token or a chat id into a chat, a screenshot or the repo.
 |---|---|---|---|
 | 1 | Move the VPS shadow run off port 8443 (new account name) | 15 min (+ up to 3 days of waiting) | The demo shadow run keeps its eyes when OKX switches 8443 off |
 | 2 | Change one GitHub setting, open and merge the `plan/auto` pull request | 20 min | Five months of work reaches `main`; the VPS can be updated; CI protects it |
-| 3 | Update the VPS checkout, stamp the database | 10 min | The VPS runs the merged code (port-less defaults, Alembic) |
+| 3 | Update the VPS checkout, install the nightly database backup, stamp the database | 25 min | The VPS runs the merged code (port-less defaults, Alembic); a backup every night, with a proven restore |
 | 4 | Copy the July to October shadow reports off the VPS | 10 min | The evidence summary (plan row R11) can be written |
 | 5 | Demo stop drills on a new demo account, with the shadow run stopped | 2 h + a 2-week demo run | The exchange-side stop, the hard blocker for any live phase |
 | 6 | Rotate the Telegram bot token | 10 min | Notifications you can trust (the old token was seen on screen) |
@@ -78,14 +78,19 @@ its current name, `tests`.
    review (Codex or a fresh Claude review) and after step 5 below. Its
    runbook is on that branch.
 
-## 3. Update the VPS checkout
+## 3. Update the VPS checkout, install the backup, stamp the database
 
 **Why.** After step 2 the VPS can run the merged code. Its database must be
-stamped once so Alembic knows the existing tables.
+stamped once so Alembic knows the existing tables, and until then nothing backs
+that database up: the nightly `pg_dump` the plan assumed was never installed.
 
 **Do.** `docs/runbooks/VPS_8443_UPDATE.md`, section "After the Sprint 0 pull
-request is merged": `git pull`, reinstall the hashed requirements,
-`alembic stamp head`, gate check, restart. While there, install the daily ops
+request is merged": `git pull`, reinstall the hashed requirements. Then
+`docs/runbooks/DB_MIGRATIONS.md`, steps 1 to 3 in that order: install the
+nightly backup timer and take the first backup, run the restore drill (it
+restores the backup into a scratch database, compares it with the live one and
+drops it again), then `alembic stamp head` and `alembic check`. Then gate check
+and restart as the 8443 runbook says. While there, install the daily ops
 digest and the OKX changelog watcher (`docs/runbooks/OPS_DIGEST.md`, about 15
 minutes, free) after step 6: they are the early warning for the next 8443-type
 change and the daily check while you are away.

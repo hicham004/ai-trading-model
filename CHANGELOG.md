@@ -4,6 +4,62 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — R15: reviewed migration workflow and database backups, tooling only (plan row R15)
+
+Tooling and documentation only. No schema change; nothing under `app/`, `config/`, `migrations/` or
+`alembic.ini` changed; `app/execution`, `app/risk`, `app/exchange` and `app/shadow` are untouched. The
+trading safety contract is unchanged. Nothing here was run on the VPS (agents cannot reach it): the
+runbook gives the owner the exact steps.
+
+### Added
+- `scripts/db_backup.sh`: `backup` (a `pg_dump --format=custom` archive written to a temporary file, read
+  back with `pg_restore --list` before it counts, renamed atomically, SHA-256 checksum next to it, then
+  retention: dumps older than `DB_BACKUP_RETENTION_DAYS` (14) are removed, never the newest
+  `DB_BACKUP_KEEP_MIN` (7), never after a failure, never a file the script did not write); `verify`
+  (checksum + archive listing); `restore-drill` (restores a dump into a NEW scratch database, compares every
+  table's row count with the live database — which it reads only, inside a read-only transaction — prints
+  the Alembic revision inside the dump and drops the scratch database; `--keep` leaves it); `list`. The
+  password inside `DATABASE_URL` is moved into `PGPASSWORD` so it is on no command line, and every printed
+  tool message passes a redaction filter. `latest.json` and `history.jsonl` record each run. Exit codes:
+  0 ok, 1 the dump/verification/drill failed (the timer retries the next night), 2 a setup problem.
+- `deploy/systemd/db-backup.service`, `db-backup.timer` (02:30 UTC nightly, `Persistent=true`),
+  `db-backup.env.example`: a confined oneshot in the repository's existing pattern (`StateDirectory`
+  `/var/lib/ai-trading/db-backups` the only writable place, the checkout's `.env` unreachable, no
+  capabilities, nice/idle I/O) with its own root-owned environment file holding the one secret.
+- `tests/test_db_backup.py`: the script under bash with stub `pg_dump`/`pg_restore`/`psql` placed first on
+  PATH (the dump, checksum and status files; the password on no command line and in no printed line; a
+  failed or unreadable dump discarded with nothing pruned; the retention rules; libpq-variable mode; verify
+  against a changed file; the drill's statements — `CREATE`/`DROP DATABASE` only on the scratch name,
+  `SELECT count(*)` read-only on the live one — `--keep` and the failure paths), the units' confinement, the
+  env example, and the runbook's contents. Skipped where bash is missing; CI (Ubuntu) runs them.
+
+### Changed
+- `tests/test_migrations.py` (tightened, not rebuilt): the SQLite comparison now also compares column types
+  and server defaults (`compare_type=True`, `compare_server_default=True`; both green on the baseline). New
+  tests: `alembic check` is clean after an upgrade and raises on a drifted database; the owner path is
+  rehearsed (`create_all` database → `stamp head` → `check` clean → `upgrade head` a no-op); the runbook names
+  this guard.
+- `docs/runbooks/DB_MIGRATIONS.md` rewritten as the owner runbook: what the VPS runs on (`create_all` at every
+  start; `main` at `57f89c0` has no Alembic, so its database has no `alembic_version` table and revision 0001
+  is not stamped; `app/db/models.py` is identical on `main` and `plan/auto`, so the stamp will match), the
+  two guards (`tests/test_migrations.py` and `alembic check`), the backup install, the restore drill, the
+  stamp, the procedure for every future revision (backup and drill first, flat if possible, `alembic check`
+  and `--gate-check` after), rollback and disaster restore with the reconciliation consequence
+  (`POSITION_PERSISTENCE.md`, scenario 16), day-to-day checks, off-host copy options, troubleshooting.
+- `docs/runbooks/VPS_8443_UPDATE.md` (post-merge step 3) and `docs/OWNER_CHECKLIST.md` (item 3) now point
+  to that runbook: back up and drill before the stamp, `alembic check` after it.
+
+### Verified (2026-11-04, throwaway PostgreSQL 16.15 container, the major version Ubuntu 24.04 ships)
+- `alembic upgrade head` then `alembic check`: clean. A database built by `create_all`, then `stamp head`,
+  then `check`: clean (`check` before the stamp says "Target database is not up to date").
+- The script against the real server: backup (241 archive entries), verify, list, restore drill (24 tables,
+  1,000 inserted candles counted on both sides, scratch database dropped), files mode 600, also as a
+  non-root user; a percent-encoded password (`p%40ss%3Aw%2Frd`) authenticates through `PGPASSWORD`; a wrong
+  password fails with a redacted message, `"status":"failed"` and nothing pruned; retention removed six
+  twenty-day-old dumps and kept the newest two with `DB_BACKUP_KEEP_MIN=2`.
+- Both units pass `systemd-analyze verify` on systemd 255 (Ubuntu 24.04); the calendar expression
+  normalizes to `*-*-* 02:30:00 UTC`.
+
 ## Unreleased — R13: research round 1, three pre-registered entry conditions on the unchanged Sprint 2c rules (plan row R13)
 
 Research only, public data only, pre-registered before the first run. Nothing under `app/`, `config/`,

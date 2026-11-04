@@ -178,14 +178,17 @@ URLs. Two consequences you should know:
    .venv/bin/pip install -r requirements.txt && .venv/bin/pip install -e .
    ```
 
-3. One-time: bring the existing database under Alembic without changing it
-   (the tables already exist from `create_all`; see
-   `docs/runbooks/DB_MIGRATIONS.md`).
+3. One-time: install the nightly database backup, take the first one and run
+   the restore drill, then bring the existing database under Alembic without
+   changing it (the tables already exist from `create_all`, so it is stamped,
+   never upgraded): `docs/runbooks/DB_MIGRATIONS.md`, steps 1 to 3. The stamp
+   itself, after the backup:
 
    ```bash
    .venv/bin/alembic current          # expect: no revision yet
    .venv/bin/alembic stamp head
    .venv/bin/alembic current          # expect: 0001 (head)
+   .venv/bin/alembic check            # expect: No new upgrade operations detected.
    ```
 
 4. `--gate-check`, restart, and verify exactly as in steps 5 and 6. The `.env`

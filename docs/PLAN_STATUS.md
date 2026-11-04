@@ -186,6 +186,23 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   the real clock and began failing on its own on 2026-10-29 (when the oldest flagged entry left the
   30-day first-run window), which would have stopped every runner chat at its full-suite check. Fixed in this session (the script's clock can be pinned by tests). No decision
   needed; recorded so nobody hunts for a code regression.
+- From R15: the nightly backup, the restore drill and the Alembic stamp are owner steps on the VPS
+  (`docs/runbooks/DB_MIGRATIONS.md`, steps 1–3, about 25 minutes, free; `docs/OWNER_CHECKLIST.md`
+  item 3). Recommendation: do them right after G2 and the checkout update, in that order — backup
+  and drill first, the stamp last — and before any future `alembic upgrade` (Sprint 3's revision
+  0002 will be the first). Until step 1 is done nothing backs the VPS database up.
+- From R15: a one-line section for the nightly backup in the daily ops digest (reading
+  `latest.json`: last status, age, dumps kept). It is a small `app/ops` change, outside R15's
+  "nothing under `app/`" scope, observability only. Recommendation: yes, as a small follow-up row.
+- From R15: an off-host copy of the backups (today they live on the same disk as the database).
+  Options: DigitalOcean's paid droplet backups, or the free weekly `rsync` to the laptop shown in
+  the runbook. Recommendation: the free copy when convenient; the paid option before any live phase.
+- From R15, for information: CLAUDE.md open item 7 ("no production migration workflow") describes
+  the VPS correctly until the owner has installed the backup and stamped the database; after that
+  the item's wording should change in a reviewed doc edit (CLAUDE.md is a phase-gate document, so
+  the runner does not edit it). `tests/test_migrations.py` was tightened (types and server defaults
+  compared) and stays green; `app/db/models.py` is identical on `main` and `plan/auto`, so the VPS
+  schema equals the baseline and the stamp will match. Nothing to decide.
 
 ### Decided — the owner, 2026-11-04
 
