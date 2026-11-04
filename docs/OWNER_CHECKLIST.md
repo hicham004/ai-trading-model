@@ -197,6 +197,13 @@ step 2 so the VPS has the R4d news rules.
   `C:\Users\Admin\Desktop\ai-trading-fleet`. Free, no keys, nothing can
   trade. Weekly report: `C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\reports\`.
   It needs about 60 days before the numbers mean anything (plan row G7).
+  Plan row R12 (2026-11-04) added two accounts to the shortlist (S1 and S1+S5
+  on SOL-USDT 6H, the only configurations confirmed on a market the rules were
+  never tuned on); the running fleet takes them only after you update its
+  checkout and restart the task — `docs/runbooks/PAPER_FLEET.md`, "Updating
+  the fleet's code" (STOP file, `git pull` in the fleet checkout, `--dry-run`,
+  `Start-ScheduledTask`). Optional, free, and the 20 existing accounts continue
+  unchanged either way.
 - The laptop must stay on and plugged in (it does not sleep on power; keep
   the lid open, closing it may put it to sleep). After a sleep both tasks
   simply continue and the fleet catches up bar by bar. After a reboot both

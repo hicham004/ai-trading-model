@@ -58,7 +58,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.datalake.layout import LAKE_DIR_ENV, LakeLayout  # noqa: E402
 from app.logging_config import configure_logging  # noqa: E402
-from research.paper_fleet.config import DEFAULT_RESULTS, DEFAULT_SHORTLIST, INSTRUMENTS, load_manifest  # noqa: E402
+from research.paper_fleet.config import DEFAULT_RESULTS, DEFAULT_SHORTLIST, load_manifest  # noqa: E402
 from research.paper_fleet.data import POSITIONING_SOURCES, FleetLake, MarketData, OkxPublicFeed  # noqa: E402
 from research.paper_fleet.replay import run_dry  # noqa: E402
 from research.paper_fleet.report import ReportScheduler, iso_week, write_week  # noqa: E402
@@ -202,7 +202,7 @@ def build_fleet(args: argparse.Namespace, env: Mapping[str, str]) -> PaperFleet:
     manifest = load_manifest(args.shortlist, args.results)
     paths = FleetPaths(_fleet_dir(args, env))
     settings = FleetSettings()
-    market = MarketData(FleetLake(paths.lake), OkxPublicFeed(), instruments=INSTRUMENTS, history_days=settings.history_days,
+    market = MarketData(FleetLake(paths.lake), OkxPublicFeed(), instruments=manifest.instruments(), history_days=settings.history_days,
                         positioning=args.positioning_source)
     lake = _lake(args, env)
     return PaperFleet(manifest, paths, market, settings=settings, seed_lake=lake if lake.root.exists() else None,

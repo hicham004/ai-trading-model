@@ -15,6 +15,7 @@ from app.datalake.layout import LakeLayout
 from app.datalake.parquet_store import read_candles
 from app.strategy.base import MarketCandle
 from app.strategy.timeframes import parse_timeframe
+from research.markets import RESEARCH_SYMBOL_FOR_INSTRUMENT
 from research.resample import resample_ohlcv
 from research.strategies.base import FeatureContext
 
@@ -131,6 +132,13 @@ def positioning_context(layout: LakeLayout, instrument: str, timeframe: str, *, 
     Binance is the long-history source (funding since 2019, open interest since
     2020-09 for BTC / 2021-12 for ETH); OKX keeps months and is collected for
     the forward period. Both are research features only.
+
+    BTC/ETH map through the app's symbol table exactly as in Sprint 2b/2c. The
+    replication study's markets (plan row R12, ``research.markets``) are looked
+    up only when the app's table does not know the instrument, so nothing
+    changes for the Sprint 2c series; their funding comes from the research
+    collector (``research.replication_data``) and they have no open-interest
+    history (that leg of the S5 filter passes, as it does wherever data is missing).
     """
     if source not in POSITIONING_SOURCES:
         raise ValueError(f"positioning source must be one of {POSITIONING_SOURCES}")
@@ -141,6 +149,8 @@ def positioning_context(layout: LakeLayout, instrument: str, timeframe: str, *, 
         ctx.open_interest = load_okx_series(layout, "open_interest", swap, "1H", ["oi_usd"])
     elif source == "binance":
         symbol = SYMBOL_FOR_INSTRUMENT.get(instrument)
+        if symbol is None:
+            symbol = RESEARCH_SYMBOL_FOR_INSTRUMENT.get(instrument)
         if symbol is not None:
             ctx.funding = load_external_series(layout, "binance", "funding_rate", symbol, BINANCE_FUNDING_PERIOD, ["funding_rate"])
             ctx.open_interest = load_external_series(layout, "binance", "metrics", symbol, BINANCE_METRICS_PERIOD, ["oi_usd"])

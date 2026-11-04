@@ -25,6 +25,15 @@ Plan row R5b adds a second portfolio account on the same six sleeves,
 brakes fixed before the first run) with its expectations from
 ``docs/research/allocator_v2_results.json``. A portfolio spec without an
 allocator is allocator v1 and keeps exactly the rules (and fingerprint) it had.
+
+Plan row R12 (the replication study) may append configurations confirmed on
+other OKX spot markets to the shortlist, each with a ``source`` tag naming the
+study and its results file (``docs/research/replication_v1d_results.json``);
+such a row is validated against that file exactly as a Sprint 2c row is
+against ``ensemble_v1c_results.json``, and becomes one more sleeve account.
+Existing accounts, the fleet's shared rules and their fingerprints do not
+change; the fleet fetches public data for the markets its accounts need
+(:meth:`FleetManifest.instruments`).
 """
 
 from __future__ import annotations
@@ -40,6 +49,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from research.allocator import DEFAULT_ALLOCATOR_V2, AllocatorV2Config
 from research.engine import Costs
+from research.markets import REPLICATION_CANDIDATES
 from research.regime_v2 import RegimeV2Config
 from research.sizing import LadderConfig, SizingSpec
 from research.strategies import get_candidate
@@ -52,7 +62,10 @@ DEFAULT_RESULTS = ROOT / "docs" / "research" / "ensemble_v1c_results.json"
 DEFAULT_ALLOCATOR_RESULTS = ROOT / "docs" / "research" / "allocator_v2_results.json"
 SHORTLIST_STATUS = "forward evidence only; nothing approved"
 
-INSTRUMENTS: Tuple[str, ...] = ("BTC-USDT", "ETH-USDT")
+INSTRUMENTS: Tuple[str, ...] = ("BTC-USDT", "ETH-USDT")  # the Sprint 2c markets: the controls and the portfolio live here
+#: Markets an account may trade: the Sprint 2c pair plus the replication study's markets (plan row R12), whose public candle
+#: path and swap names the fleet knows. This never widens the app's ``ALLOWED_INSTRUMENTS`` (demo and paper trading).
+ALLOWED_INSTRUMENTS: Tuple[str, ...] = INSTRUMENTS + tuple(sorted(REPLICATION_CANDIDATES))
 TIMEFRAMES: Tuple[str, ...] = ("4H", "6H")
 SOURCE_TIMEFRAME = "1H"
 
@@ -130,8 +143,8 @@ class SleeveSpec:
         get_candidate(self.candidate)  # unknown candidate -> ValueError
         if self.candidate in OWN_EXIT_CANDIDATES:
             raise ValueError(f"{self.candidate} brings its own exits (time stop / target), which the fleet's decisions do not carry")
-        if self.instrument not in INSTRUMENTS:
-            raise ValueError(f"instrument {self.instrument!r} is not in the fleet ({INSTRUMENTS})")
+        if self.instrument not in ALLOWED_INSTRUMENTS:
+            raise ValueError(f"instrument {self.instrument!r} is not in the fleet's allowed markets ({ALLOWED_INSTRUMENTS})")
         if self.timeframe not in TIMEFRAMES:
             raise ValueError(f"timeframe {self.timeframe!r} is not in the fleet ({TIMEFRAMES})")
 
@@ -263,6 +276,10 @@ class FleetManifest:
                     out.append(p)
         return sorted(out)
 
+    def instruments(self) -> List[str]:
+        """Every market the fleet needs public data for (the instruments of :meth:`series`)."""
+        return sorted({inst for inst, _ in self.series()})
+
     def fleet_rules(self) -> Dict[str, Any]:
         """Rules every account shares (costs, starting cash, the S0 filter, the regime geometry)."""
         return _canonical({
@@ -314,6 +331,31 @@ def _result_for(results: Sequence[Mapping[str, Any]], candidate: str, instrument
     return found[0]
 
 
+def _flat_results(doc: Mapping[str, Any]) -> List[Mapping[str, Any]]:
+    """Sprint 2c's results file holds one flat ``results`` list; a study file (plan row R12) holds one list per series."""
+    if isinstance(doc.get("results"), list):
+        return list(doc["results"])
+    return [r for s in doc.get("series", []) for r in s.get("results", [])]
+
+
+def _source_results(source: Any, cache: Dict[Path, List[Mapping[str, Any]]]) -> Tuple[Path, List[Mapping[str, Any]]]:
+    """The results of the study a ``source``-tagged shortlist row points at (a path relative to the repository root), read once.
+
+    The study must have run Sprint 2c's protocol (its results carry the protocol check); anything else is refused, so a row can
+    never bring rules the fleet does not share."""
+    rel = source.get("results") if isinstance(source, Mapping) else None
+    if not rel:
+        raise ValueError("a source-tagged shortlist row needs its study's results file")
+    path = Path(rel) if Path(rel).is_absolute() else ROOT / rel
+    if path not in cache:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        check = (doc.get("meta") or {}).get("protocol_check")
+        if check is not None and not check.get("ok"):
+            raise ValueError(f"{rel}: the study did not run Sprint 2c's protocol ({check.get('mismatches')})")
+        cache[path] = _flat_results(doc)
+    return path, cache[path]
+
+
 _WF_KEYS = ("cagr", "ann_vol", "sharpe", "sortino", "max_drawdown", "calmar", "profit_factor", "n_trades", "trades_per_year",
             "win_rate", "exposure", "avg_allocation", "fees_pct_per_year", "bars", "total_return")
 _HOLDOUT_KEYS = ("total_return", "cagr", "ann_vol", "sharpe", "max_drawdown", "calmar", "profit_factor", "n_trades",
@@ -349,10 +391,18 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
     if meta.get("rebalance_threshold") not in (None, REBALANCE_THRESHOLD):
         raise ValueError("the research rebalance threshold differs from the fleet's")
     accounts: List[AccountSpec] = []
+    source_docs: Dict[Path, List[Mapping[str, Any]]] = {}
+    source_files: Dict[str, Path] = {}
 
     for row in shortlist["configurations"]:
         regime = _regime(row["regime_config"])
-        result = _result_for(results, row["candidate"], row["instrument"], row["timeframe"], regime.mode)
+        src = row.get("source")
+        if src:
+            path, pool = _source_results(src, source_docs)
+            source_files[_slug(str(src.get("study") or "source"))] = path
+        else:
+            pool = results
+        result = _result_for(pool, row["candidate"], row["instrument"], row["timeframe"], regime.mode)
         params = _params(row["params"])
         if _params(result["selected_params"]) != params or not math.isclose(float(result["oos"]["cagr"]), float(row["cagr"]), abs_tol=1e-9):
             raise ValueError(f"shortlist row {row['rank']} does not match the results file")
@@ -361,8 +411,11 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
         aid = f"c{int(row['rank']):02d}-{_slug(row['candidate'])}-{_inst(row['instrument'])}-{row['timeframe'].lower()}-{regime.mode}"
         exp = _expectations(result, row["timeframe"])
         exp["holdout_confirmed"] = row.get("holdout_confirmed")
-        accounts.append(AccountSpec(aid, "candidate", "sleeve", f"{row['candidate']} {row['instrument']} {row['timeframe']} ({regime.label})",
-                                    sleeve=sleeve, instrument=row["instrument"], timeframe=row["timeframe"],
+        label = f"{row['candidate']} {row['instrument']} {row['timeframe']} ({regime.label})"
+        if src:
+            exp["source"] = dict(src)
+            label += f" — from {src.get('study')}"
+        accounts.append(AccountSpec(aid, "candidate", "sleeve", label, sleeve=sleeve, instrument=row["instrument"], timeframe=row["timeframe"],
                                     shortlist_rank=int(row["rank"]), expectations=exp))
 
     for row in shortlist["controls"]:
@@ -386,6 +439,9 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
     sources = {"shortlist": str(Path(shortlist_path).as_posix()), "shortlist_sha256": _sha256(shortlist_path),
                "results": str(Path(results_path).as_posix()), "results_sha256": _sha256(results_path),
                "shortlist_generated_at": shortlist.get("generated_at"), "positioning_source_research": meta.get("positioning_source")}
+    for slug, path in sorted(source_files.items()):
+        sources[f"results_{slug}"] = str(path.as_posix())
+        sources[f"results_{slug}_sha256"] = _sha256(path)
     if portfolio is not None:
         spec, exp = portfolio
         accounts.append(AccountSpec(PORTFOLIO_ACCOUNT, "portfolio", "portfolio", PORTFOLIO_NAME, portfolio=spec, expectations=exp))

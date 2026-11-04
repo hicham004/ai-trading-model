@@ -409,3 +409,76 @@ opened (pre-registered caveat), so the confirmation is weak.
   show for OKX.
 - Positions are small at the policy sizing (10 % vol target), so returns are small in absolute
   terms on both sides of the comparison.
+
+## Replication v1d — the Sprint 2c rule families on markets they were never tuned on (plan row R12)
+
+The question: do the Sprint 2c rules hold on other large OKX spot USDT markets, or are they
+BTC-specific? Research only, public data only, pre-registered; nothing under `app/` or `config/`
+changed, and the app's instrument allowlist (`ALLOWED_INSTRUMENTS` in `app/okx/client.py`, which
+also bounds demo and paper trading) was not widened. Report:
+`docs/research/REPLICATION_V1D_REPORT.md` (numbers in `docs/research/replication_v1d_results.json`;
+the market snapshot in `docs/research/replication_v1d_preregistration.json`; every holdout opening
+in `docs/research/replication_v1d_holdout_ledger.json`). Simulation only.
+
+| Module | Purpose |
+|---|---|
+| `research/markets.py` | Tables only: the candidate markets (public 1H history from before 2020-01-01, plus SOL-USDT), the Binance perpetual symbol of each (the research-side counterpart of the app's BTC/ETH-only table) and its OKX swap. |
+| `research/replication_data.py` | Two bounded, resumable, GET-only collectors: OKX 1H and 4H spot candles through the lake's public client into `candles/<inst>/<bar>` (4H stored and 6H resampled from 1H, exactly Sprint 2c's data path for BTC/ETH), and Binance public funding for the markets' perpetuals into the same external layout through the app's writer (the app's collector stays BTC/ETH-only). `candle_history_start` probes the history condition with one GET. |
+| `research/data.py` | `positioning_context` looks a market up in the research symbol table only when the app's table does not know it, so nothing changes for BTC/ETH (the reproduction proves it). |
+| `research/replication.py` | The pre-registration (`PREREGISTRATION`, hashed with the market snapshot and the configuration), the ranked market selection, the frozen study lake (every candle series cut at Sprint 2c's data end, so the untouched 12 months are the same calendar window), the Sprint 2c runner loaded as a module (`load_v1c_runner`; its `run_series` runs every market — nothing is copied), the protocol check of its defaults against the stored Sprint 2c run, the BTC/ETH reproduction check (6 decimals, trade counts, selected rules, gate verdicts), the pre-registered verdict rules (the three BTC passers replicated, family labels, the overall label), the holdout ledger and the fleet shortlist additions with a `source` tag. |
+| `research/report_replication.py` | The report; every plain-English sentence is computed from the run. |
+| `scripts/run_replication_v1d.py` | `--preregister` (once), `--collect` (resumable), `--freeze`, the study (`--evaluate-holdout` only for the full pre-registered study), `--render-from-json`. A shortlist amendment the paper fleet cannot load is rolled back. |
+
+### Running
+
+```bash
+python scripts/run_replication_v1d.py --preregister                    # once: the public ticker snapshot fixes the markets
+python scripts/run_replication_v1d.py --collect                        # ~45 min, resumable: 7 markets x (1H, 4H, funding)
+python scripts/run_replication_v1d.py --freeze                         # the study lake, cut at Sprint 2c's data end
+python scripts/run_replication_v1d.py --evaluate-holdout --workers 8   # the study (BTC/ETH reproduction first; stops on any difference)
+python scripts/run_replication_v1d.py --quick --markets XRP-USDT --timeframes 4H --families S1 --skip-reproduction --holdout-ledger - --shortlist - --report - --json -   # smoke run
+python scripts/run_replication_v1d.py --render-from-json docs/research/replication_v1d_results.json
+```
+
+The holdout is opened only by the full pre-registered study (every chosen market, family,
+timeframe and mode, the control, never with `--quick` or `--skip-reproduction`), and every opening
+is appended to the ledger, which the report shows.
+
+### Result (2026-11-04)
+
+Markets, fixed from one public ticker snapshot (16:32 UTC) before any candle was collected:
+XRP, DOGE, LINK, TRX, ADA, LTC (the top 6 of the eleven pre-2020 candidates by 24-hour quote
+volume) and SOL. Data: OKX 1H and 4H candles from 2019-11-28 (SOL: 2020-09-30) cut at Sprint 2c's
+data end, Binance funding per market; DOGE's funding covers 89.5 % of its in-sample bars, under
+the 90 % threshold, so its 8 S5 configurations were reported as "run without S5" and not judged.
+All 36 BTC/ETH reproductions matched Sprint 2c's stored numbers (largest difference 5e-7, every
+trade count, rule and verdict the same). **Verdict: fragile.** 10 of 104 judged configurations
+passed every gate on a new market — S2 (Donchian breakout) on DOGE (4H and 6H, gated), TRX (4H,
+S2 and S2+S5) and ADA (6H, all four S2 variants), S1 and S1+S5 on SOL 6H without the gate — and
+none of the three BTC passers of Sprint 2c replicated (S2 4H gate on 1 of 7 markets, S2+S5 4H gate
+on 0 of 6, S1+S5 6H on 1 of 6; replication needed 4). The untouched 12 months confirmed the two SOL
+configurations (+9.5 %, PF 5.5, 12 trades; the S5 filter changed nothing there), contradicted
+seven (TRX and ADA lost 4.6–6.0 % with PF 0.07–0.47; DOGE 6H −0.6 %) and left DOGE S2 4H gate
+unconfirmed for lack of trades (+1.7 % from 8 trades). Median Calmar on the new markets stayed
+below BTC's for every family (S1 0.15 vs 0.29, S1+S5 0.19 vs 0.41, S2 0.23 vs 0.25, S2+S5 0.16 vs
+0.29); LTC was negative for every rule. The best rule beat hold + policy sizing by more than 0.1
+Calmar on 4 of 14 series (Sprint 2c: 4 of 4), and hold + policy itself lost 0.1–3.7 % on every
+market's untouched 12 months. The two SOL accounts (`c11-s1s5-sol-6h-none`, `c12-s1-sol-6h-none`)
+were appended to the fleet shortlist with a `source` tag; the fleet loads 22 accounts.
+
+### Reading the R12 report honestly
+
+- Ten passes out of 104 is about the Sprint 2c pass rate (4 of 108): a few passes among many
+  comparisons are expected by chance, which is why the primary test asked for replication on half
+  the markets and why the holdout, not the pass count, carries the verdict.
+- The two confirmations are one signal: S1 and S1+S5 on SOL 6H traded identically over the 12
+  months (the funding filter removed no entry), and SOL has the shortest history (first test
+  window 2022-03), so fewer walk-forward windows judged it. Forward evidence in the fleet is the
+  right next test, which is why they join it.
+- The 12 months were a losing period for simply holding every one of the seven markets, as for
+  BTC and ETH in Sprint 2c; a long-only rule that stayed mostly out was the only way to confirm.
+- The S2 family passed walk-forward on three new markets and failed its holdout on all of them:
+  the breakout rule's 2021–2025 out-of-sample edge did not carry into 2025–26 anywhere, which is
+  the failure analysis plan rows R13 and R16 should start from.
+- The hold + policy control is evaluated on every market's holdout as the comparison line (Sprint
+  2c's practice); its openings are in the ledger too. Nothing here authorizes trading.

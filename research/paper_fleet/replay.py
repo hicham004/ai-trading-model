@@ -15,7 +15,7 @@ from __future__ import annotations
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -79,14 +79,21 @@ class ReplayFeed:
                  "oi_usd": float(v)} for ts, v in zip(df.index[::-1], df["oi_usd"].to_numpy()[::-1])]
 
 
-def synthetic_market(days: int = 1000, *, end: Optional[pd.Timestamp] = None, seed: int = 20261021) -> Tuple[Dict[str, pd.DataFrame], Dict[str, pd.DataFrame], Dict[str, pd.DataFrame]]:
-    """Deterministic synthetic 1H candles (crypto-like volatility, trends and calm spells) plus funding and open interest."""
+SYNTHETIC_PRICE = {"BTC-USDT": 60_000.0, "ETH-USDT": 3_000.0, "SOL-USDT": 150.0}  # any other market starts at 100
+
+
+def synthetic_market(days: int = 1000, *, end: Optional[pd.Timestamp] = None, seed: int = 20261021,
+                     instruments: Sequence[str] = INSTRUMENTS) -> Tuple[Dict[str, pd.DataFrame], Dict[str, pd.DataFrame], Dict[str, pd.DataFrame]]:
+    """Deterministic synthetic 1H candles (crypto-like volatility, trends and calm spells) plus funding and open interest.
+
+    The markets are drawn in the given order, so the Sprint 2c pair's series are the same whether or not a third market follows."""
     rng = np.random.default_rng(seed)
     end = pd.Timestamp(end or "2026-10-20 00:00", tz="UTC") if (end is None or pd.Timestamp(end).tzinfo is None) else pd.Timestamp(end)
     n = int(days * 24)
     idx = pd.date_range(end - pd.Timedelta(hours=n), periods=n, freq="h", tz="UTC", name="open_time")
     candles, funding, oi = {}, {}, {}
-    for k, (inst, p0) in enumerate((("BTC-USDT", 60_000.0), ("ETH-USDT", 3_000.0))):
+    for k, inst in enumerate(instruments):
+        p0 = SYNTHETIC_PRICE.get(inst, 100.0)
         regime = np.repeat(rng.normal(0.0, 0.0006, n // 500 + 1), 500)[:n]
         vol = np.repeat(rng.uniform(0.004, 0.012, n // 300 + 1), 300)[:n]
         r = rng.normal(regime, vol)
@@ -104,9 +111,9 @@ def synthetic_market(days: int = 1000, *, end: Optional[pd.Timestamp] = None, se
     return candles, funding, oi
 
 
-def lake_market(layout: LakeLayout) -> Optional[Tuple[Dict[str, pd.DataFrame], Dict[str, pd.DataFrame], Dict[str, pd.DataFrame]]]:
+def lake_market(layout: LakeLayout, instruments: Sequence[str] = INSTRUMENTS) -> Optional[Tuple[Dict[str, pd.DataFrame], Dict[str, pd.DataFrame], Dict[str, pd.DataFrame]]]:
     candles, funding, oi = {}, {}, {}
-    for inst in INSTRUMENTS:
+    for inst in instruments:
         df = load_candles(layout, inst, SOURCE_BAR)
         if df.empty:
             return None
@@ -153,17 +160,18 @@ def run_dry(
     if out.exists() and any(out.iterdir()):
         raise ValueError(f"dry-run output directory {out} must be new or empty")
     out.mkdir(parents=True, exist_ok=True)
-    data = market_data if market_data is not None else (None if synthetic or lake is None else lake_market(lake))
+    manifest = manifest or load_manifest()
+    instruments = manifest.instruments()  # the markets the accounts need, the Sprint 2c pair or more (plan row R12)
+    data = market_data if market_data is not None else (None if synthetic or lake is None else lake_market(lake, instruments))
     source = ("given market data" if market_data is not None else
               "research lake (recorded public OKX data)" if data is not None else "synthetic market (deterministic)")
-    candles, funding, oi = data if data is not None else synthetic_market(int(settings.history_days + days + 60))
+    candles, funding, oi = data if data is not None else synthetic_market(int(settings.history_days + days + 60), instruments=instruments)
     end = min(df.index[-1] for df in candles.values()) + HOUR
     start = end - pd.Timedelta(days=float(days))
     feed = ReplayFeed(candles, funding, oi)
     feed.now = start
-    manifest = manifest or load_manifest()
     paths = FleetPaths(out)
-    market = MarketData(FleetLake(paths.lake), feed, instruments=INSTRUMENTS, history_days=settings.history_days)
+    market = MarketData(FleetLake(paths.lake), feed, instruments=instruments, history_days=settings.history_days)
     fleet = PaperFleet(manifest, paths, market, settings=settings, report_writer=ReportScheduler(paths, every_minutes=24 * 60))
     if not fleet.acquire():
         raise RuntimeError("could not lock the dry-run directory")

@@ -172,6 +172,26 @@ source="binance")` builds the S5 feature context (funding z-score, 1-day
 open-interest change) from these series; `source="okx"` uses the OKX series
 (short history, kept collecting for the forward period).
 
+Replication study (plan row R12, research only): the markets of
+`research/markets.py` (XRP, DOGE, LINK, TRX, ADA, LTC, SOL and the other
+pre-2020 candidates) get their funding history from the same public endpoint
+through `research/replication_data.py` (`collect_research_funding`), stored in
+the same layout (`external/binance/funding_rate/<SYMBOL>/8H`, state
+`_state/external__binance__funding_rate__<SYMBOL>.json`). The app's collector
+stays bounded to BTCUSDT/ETHUSDT (`SYMBOLS`); `positioning_context` looks a
+market up in the research table only when the app's table does not know it, so
+nothing changes for BTC/ETH. Those markets have no open-interest history (the
+metrics bulk files are not collected for them), so that leg of the S5 filter
+passes there. Their OKX 1H and 4H spot candles are collected by
+`collect_spot_candles` in the same module through the GET-only public client
+into `candles/<inst>/<bar>` (state `_state/candles__<inst>__<bar>.json`); the
+app's `ALLOWED_INSTRUMENTS` (which also bounds demo and paper trading) is not
+widened. The study itself reads a frozen copy of these inputs
+(`data/lake_replication_v1d`, every candle series cut at Sprint 2c's data end)
+so its untouched 12 months are the same calendar window as Sprint 2c's.
+`scripts/run_replication_v1d.py --collect` runs both collectors for the
+pre-registered markets (resumable).
+
 Evidence — first live collection (2026-10-20, local machine, public endpoints,
 `scripts/collect_binance_positioning.py`):
 

@@ -101,6 +101,8 @@ WATCH_ITEMS: Tuple[WatchItem, ...] = (
     # -- REST endpoints: public market data ----------------------------------------------------------------
     _rest("GET", "/api/v5/market/candles", "order-book-trading-market-data-get-candlesticks", "candles, news shadow, paper accounts"),
     _rest("GET", "/api/v5/market/history-candles", "order-book-trading-market-data-get-candlesticks-history", "history backfill, paper accounts"),
+    _rest("GET", "/api/v5/market/tickers", "order-book-trading-market-data-get-tickers",
+          "research: the replication study's one-off market snapshot (plan row R12; anchor checked 2026-11-04)"),
     _rest("GET", "/api/v5/public/time", "public-data-rest-api-get-system-time", "demo clock check, news shadow clock check"),
     _rest("GET", "/api/v5/public/instruments", "public-data-rest-api-get-instruments", "demo lot and tick sizes"),
     _rest("GET", "/api/v5/public/funding-rate", "public-data-rest-api-get-funding-rate", "research: positioning data"),

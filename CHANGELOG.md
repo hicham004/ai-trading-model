@@ -4,6 +4,72 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — R12: replication of the Sprint 2c rule families on markets they were never tuned on (plan row R12)
+
+Research only, public data only, pre-registered. Nothing under `app/`, `config/`, `app/execution`,
+`app/risk`, `app/exchange` or `app/shadow` changed; the app's instrument allowlist (which also bounds
+demo and paper trading) was not widened. The trading safety contract is unchanged.
+
+### Added
+- `research/markets.py`: the candidate markets (public 1H history from before 2020-01-01, plus
+  SOL-USDT), their Binance perpetual symbols and OKX swaps — tables only.
+- `research/replication_data.py`: two bounded, resumable, GET-only collectors through the lake's
+  public clients — OKX 1H and 4H spot candles for the markets (into `candles/<inst>/<bar>`) and
+  Binance public funding for their perpetuals (into the existing external layout); a one-GET
+  history probe; funding coverage.
+- `research/replication.py`: the pre-registration (hashed with the market snapshot and the
+  configuration), the ranked market selection from one public ticker snapshot, the frozen study
+  lake (every candle series cut at Sprint 2c's data end so the untouched 12 months are the same
+  calendar window), the Sprint 2c runner loaded as a module (its own `run_series` runs every
+  market; nothing is copied), the protocol check of its defaults against the stored Sprint 2c
+  run, the BTC/ETH reproduction check (6 decimals, trade counts, selected rules, gate verdicts),
+  the pre-registered verdict rules, the append-only holdout ledger, and the fleet shortlist
+  additions with a `source` tag.
+- `research/report_replication.py`: the report; every plain-English sentence is computed from the run.
+- `scripts/run_replication_v1d.py`: `--preregister` (once), `--collect`, `--freeze`, the study
+  (`--evaluate-holdout` only for the full pre-registered study), `--render-from-json`,
+  `--apply-shortlist-from-json`; a shortlist amendment the paper fleet cannot load is rolled back.
+- `docs/research/replication_v1d_preregistration.json` (the snapshot of 2026-11-04 16:32 UTC and
+  the chosen markets, hashed), `docs/research/REPLICATION_V1D_REPORT.md`,
+  `docs/research/replication_v1d_results.json`, `docs/research/replication_v1d_holdout_ledger.json`.
+- `tests/test_research_replication.py` (selection rule, collectors with fake GET-only sessions,
+  the frozen lake, the loaded runner and its protocol check, an end-to-end quick run on a
+  synthetic lake, the verdict rules, the ledger, the shortlist additions and rollback, the report,
+  the CLI); a boundary test for the study's files; fleet tests for the source-tagged rows and a
+  third market.
+
+### Changed
+- `research/data.py`: `positioning_context` looks a market up in the research symbol table only
+  when the app's table does not know it (nothing changes for BTC/ETH; the reproduction proves it).
+- Paper fleet (`research/paper_fleet/config.py`, `data.py`, `replay.py`, `scripts/run_paper_fleet.py`):
+  a shortlist row with a `source` tag is validated against that study's results file and becomes
+  one more sleeve account; the fleet's allowed markets include the study's markets (the app's
+  `ALLOWED_INSTRUMENTS` is untouched); their OKX swaps feed the S5 filter; market data is fetched
+  for the markets the accounts need instead of a fixed pair; the dry run's synthetic market covers
+  every such market. Existing accounts, the fleet's shared rules and every fingerprint are unchanged
+  (tested), so a running fleet resumes and takes the new accounts at its next restart.
+- `docs/research/paper_fleet_shortlist_v1c.json`: rows 11 and 12 — S1+S5 and S1 on SOL-USDT 6H
+  (no regime gate), the two configurations the study confirmed — with a `source` tag and an
+  `amendments` record; rows 1–10 and the controls are byte-for-byte what they were.
+- `docs/RESEARCH_LAB.md` (the R12 section), `docs/DATA_LAKE.md` (the research-side collectors),
+  `docs/runbooks/PAPER_FLEET.md` (22 accounts; how a confirmed configuration joins), `docs/PLAN_STATUS.md`,
+  `docs/OWNER_CHECKLIST.md` (the laptop fleet takes the two accounts after a pull and restart).
+- `app/ops/okx_usage.py` (the changelog watcher's watch list, plan row R6): one entry for the public
+  `GET /api/v5/market/tickers` endpoint the pre-registration snapshot used, so the watcher flags
+  changelog entries about it (the watcher's own test requires every OKX path in the code to be listed).
+  No other file under `app/` changed.
+
+### Result (simulation)
+- Markets fixed before any result: XRP, DOGE, LINK, TRX, ADA, LTC (top 6 of eleven pre-2020
+  candidates by 24-hour quote volume) and SOL. All 36 BTC/ETH reproductions matched Sprint 2c.
+- **Fragile.** 10 of 104 judged configurations passed every Sprint 2c gate on a new market; none of
+  the three BTC passers of Sprint 2c replicated (needed 4 of 7 markets). The untouched 12 months
+  confirmed 2 (S1 and S1+S5 on SOL 6H: +9.5 %, PF 5.5, 12 trades — the same trades), contradicted 7
+  (TRX, ADA, DOGE 6H) and left DOGE S2 4H gate unconfirmed for lack of trades (+1.7 %, 8 trades).
+  Median Calmar on the new markets stayed below BTC's for every family; LTC was negative for every
+  rule; hold + policy sizing lost on every market's 12 months. DOGE's funding coverage (89.5 %) fell
+  under the Sprint 2b threshold, so its S5 configurations were reported as run without S5.
+
 ## Unreleased — Second plan run on Fable 5.1, paper fleet started, 8443 runbook corrected (2026-11-04)
 
 At the owner's go ("do the next appropriate steps without the need of my decisions ... all on

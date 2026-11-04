@@ -23,9 +23,13 @@ OKX prices, each as its own pretend account with 10,000 virtual USDT:
   difference between the two accounts shows whether the brakes help,
 - 8 controls: *always long with the policy sizing* (`ctl-hold-…`, the same
   volatility target, crash filter and drawdown ladder, no timing) and *plain
-  buy-and-hold* (`ctl-bh-…`) on BTC and ETH, 4H and 6H.
+  buy-and-hold* (`ctl-bh-…`) on BTC and ETH, 4H and 6H,
+- since plan row R12 (2026-11-04), the two configurations the replication study
+  confirmed on a market the rules were never tuned on: S1+S5 and S1 on SOL-USDT
+  6H without the regime gate (`c11-s1s5-sol-6h-none`, `c12-s1-sol-6h-none`;
+  see "A configuration confirmed on another market" below).
 
-20 accounts in all. Each one follows exactly the research rules — the same
+22 accounts in all (20 before R12). Each one follows exactly the research rules — the same
 entry rules, filters, sizing, stops, fees (0.10 %) and slippage (0.05 %) — and
 writes every decision and every pretend fill into its own journal. Once a week
 a report compares what each account did with what the backtest said it should
@@ -203,7 +207,7 @@ there. The fleet resumes from the copied state; the laptop task stays stopped
 
 ```bash
 journalctl -u paper-fleet.service -n 30 --no-pager      # VPS; option B: the PowerShell window; B2: logs\paper_fleet\console.log
-# expect "paper fleet created: …/logs/paper_fleet (20 accounts, …)" and, once a 4H or 6H bar closes
+# expect "paper fleet created: …/logs/paper_fleet (22 accounts, …)" (20 on code from before plan row R12) and, once a 4H or 6H bar closes
 # (00, 04, 08, 12, 16, 20 h UTC), a line "cycle N: bars {…} …"
 .venv/bin/python scripts/run_paper_fleet.py --status
 # every account with its equity (10,000.00 at the start), "flat"/"long", data "fresh"
@@ -298,6 +302,36 @@ writes keep saying "FOMC calendar runs out".
 A fleet started after R7 needs nothing until late 2027, when the 2028 dates are
 added and the service restarted the same way (the report starts warning 60 days
 before 2027-12-08; how to add them: `tests/fixtures/fomc_calendar/README.md`).
+
+### A configuration confirmed on another market (plan row R12)
+
+The replication study (`docs/research/REPLICATION_V1D_REPORT.md`) runs the Sprint 2c rules on
+OKX spot markets they were never tuned on (XRP, DOGE, LINK, TRX, ADA, LTC, SOL). A configuration
+reaches the fleet only when it passes every walk-forward gate on its market **and** that
+market's untouched 12 months confirm it; the study then appends it to the shortlist file with a
+`source` tag (`"study": "R12 replication"`), ranks continuing after the Sprint 2c rows, and
+proves the fleet can still load its manifest — otherwise the file is put back untouched and the
+report says so. A running fleet takes such an account at its next restart from an updated
+checkout, exactly as the allocator-v2 account joined after plan row R5b ("Updating the fleet's
+code" above: stop, `git pull`, `--dry-run`, start): the new account starts flat with 10,000
+virtual USDT at the first bar that closes after the restart, existing accounts and their journals
+are untouched, and the fleet's shared rules (its fleet fingerprint) do not change. A walk-forward
+pass alone adds nothing. The fleet's public data path is not bound to BTC/ETH through
+`app/okx/client.py` (it uses the lake's GET-only public client), so a new market needs no change
+there; the fleet knows the study's markets and their OKX swaps (for the S5 funding feed) and
+fetches public data only for the markets its accounts need.
+
+**Outcome of the first study (2026-11-04):** two configurations were confirmed, both on
+SOL-USDT 6H without the regime gate — S1 (`c12-s1-sol-6h-none`) and S1+S5
+(`c11-s1s5-sol-6h-none`); they are rows 11 and 12 of the shortlist and the fleet now loads 22
+accounts. The fleet running on the laptop since 2026-11-04 still has 20 until its checkout is
+updated and the task restarted ("Updating the fleet's code" above); at that restart the two SOL
+accounts start flat and the report's first SOL verdicts come 30 days later. They have no SOL
+control account: the "vs its control" column stays empty for them, and their yardstick is the
+backtest bands and the BTC/ETH controls. Their research: `docs/research/REPLICATION_V1D_REPORT.md`
+(a fragile picture overall — 10 of 104 configurations passed walk-forward on the new markets, 8 of
+those failed their holdout; the two SOL rows are one signal, S1 and S1+S5 traded identically over
+the untouched 12 months).
 
 ## Troubleshooting
 

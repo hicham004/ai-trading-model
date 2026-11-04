@@ -726,6 +726,186 @@
       ],
       "dsr": 0.25518,
       "rank": 10
+    },
+    {
+      "holdout": {
+        "total_return": 0.095279,
+        "cagr": 0.095347,
+        "ann_vol": 0.050085,
+        "sharpe": 1.843307,
+        "sortino": 3.817014,
+        "max_drawdown": 0.021302,
+        "calmar": 4.476022,
+        "bars": 1461,
+        "n_trades": 12,
+        "trades_per_year": 12.0,
+        "win_rate": 0.5,
+        "profit_factor": 5.485294,
+        "avg_win": 194.201566,
+        "avg_loss": -35.404038,
+        "expectancy": 79.398764,
+        "avg_bars_held": 20.833333,
+        "fees_total": 56.808894,
+        "fees_pct_of_start": 0.005681,
+        "fees_pct_per_year": 0.005681,
+        "turnover_notional": 5.719048,
+        "avg_allocation": 0.030158
+      },
+      "holdout_confirmed": true,
+      "candidate": "S1+S5",
+      "instrument": "SOL-USDT",
+      "timeframe": "6H",
+      "regime": "no regime gate",
+      "regime_config": {
+        "mode": "none",
+        "n_states": 3,
+        "vol_window_days": 7.0,
+        "bear_prob_max": 0.5,
+        "bear_scale": 0.25,
+        "n_iter": 200,
+        "tol": 1e-05,
+        "min_train_bars": 200,
+        "label": "no regime gate"
+      },
+      "sizing": "vt10/30 crash15/90dh ladder",
+      "sizing_config": {
+        "kind": "vol_target",
+        "fraction": 1.0,
+        "target_vol": 0.1,
+        "vol_lookback": 30,
+        "crash_dd": 0.15,
+        "crash_window_days": 90.0,
+        "crash_mode": "half",
+        "ladder": true,
+        "cap": 1.0,
+        "label": "vt10/30 crash15/90dh ladder"
+      },
+      "bracket": "none",
+      "params": {
+        "lookbacks_days": [
+          14,
+          30,
+          60
+        ],
+        "vote": 3,
+        "atr_window": 14,
+        "atr_mult": 4.0,
+        "vol_window_days": 30,
+        "entry_band": 0.0,
+        "exit_band": 0.0,
+        "funding_z_max": 1.5,
+        "funding_z_window": 90,
+        "oi_change_max": 0.15,
+        "oi_change_window_days": 1,
+        "bracket": "none"
+      },
+      "cagr": 0.074907,
+      "sharpe": 1.319852,
+      "calmar": 1.395655,
+      "max_drawdown": 0.053671,
+      "profit_factor": 2.684685,
+      "n_trades": 101,
+      "fees_pct_per_year": 0.005713,
+      "rolling_12m_positive_share": 0.9,
+      "worst_calendar_year_return": -0.017421,
+      "passed": true,
+      "failed_gates": [],
+      "dsr": 0.876485,
+      "source": {
+        "study": "R12 replication",
+        "report": "docs/research/REPLICATION_V1D_REPORT.md",
+        "results": "docs/research/replication_v1d_results.json",
+        "generated_at": "2026-11-04 17:33 UTC"
+      },
+      "rank": 11
+    },
+    {
+      "holdout": {
+        "total_return": 0.095279,
+        "cagr": 0.095347,
+        "ann_vol": 0.050085,
+        "sharpe": 1.843307,
+        "sortino": 3.817014,
+        "max_drawdown": 0.021302,
+        "calmar": 4.476022,
+        "bars": 1461,
+        "n_trades": 12,
+        "trades_per_year": 12.0,
+        "win_rate": 0.5,
+        "profit_factor": 5.485294,
+        "avg_win": 194.201566,
+        "avg_loss": -35.404038,
+        "expectancy": 79.398764,
+        "avg_bars_held": 20.833333,
+        "fees_total": 56.808894,
+        "fees_pct_of_start": 0.005681,
+        "fees_pct_per_year": 0.005681,
+        "turnover_notional": 5.719048,
+        "avg_allocation": 0.030158
+      },
+      "holdout_confirmed": true,
+      "candidate": "S1",
+      "instrument": "SOL-USDT",
+      "timeframe": "6H",
+      "regime": "no regime gate",
+      "regime_config": {
+        "mode": "none",
+        "n_states": 3,
+        "vol_window_days": 7.0,
+        "bear_prob_max": 0.5,
+        "bear_scale": 0.25,
+        "n_iter": 200,
+        "tol": 1e-05,
+        "min_train_bars": 200,
+        "label": "no regime gate"
+      },
+      "sizing": "vt10/30 crash15/90dh ladder",
+      "sizing_config": {
+        "kind": "vol_target",
+        "fraction": 1.0,
+        "target_vol": 0.1,
+        "vol_lookback": 30,
+        "crash_dd": 0.15,
+        "crash_window_days": 90.0,
+        "crash_mode": "half",
+        "ladder": true,
+        "cap": 1.0,
+        "label": "vt10/30 crash15/90dh ladder"
+      },
+      "bracket": "time30",
+      "params": {
+        "lookbacks_days": [
+          14,
+          30,
+          60
+        ],
+        "vote": 3,
+        "atr_window": 14,
+        "atr_mult": 4.0,
+        "vol_window_days": 30,
+        "entry_band": 0.0,
+        "exit_band": 0.0,
+        "bracket": "time30"
+      },
+      "cagr": 0.059993,
+      "sharpe": 1.079467,
+      "calmar": 1.06373,
+      "max_drawdown": 0.056399,
+      "profit_factor": 2.084726,
+      "n_trades": 107,
+      "fees_pct_per_year": 0.005817,
+      "rolling_12m_positive_share": 0.9,
+      "worst_calendar_year_return": -0.017421,
+      "passed": true,
+      "failed_gates": [],
+      "dsr": 0.515251,
+      "source": {
+        "study": "R12 replication",
+        "report": "docs/research/REPLICATION_V1D_REPORT.md",
+        "results": "docs/research/replication_v1d_results.json",
+        "generated_at": "2026-11-04 17:33 UTC"
+      },
+      "rank": 12
     }
   ],
   "controls": [
@@ -1080,6 +1260,16 @@
       "calmar": 0.219229,
       "max_drawdown": 0.80448,
       "total_return": 1.005594
+    }
+  ],
+  "amendments": [
+    {
+      "added_at": "2026-11-04 17:40 UTC",
+      "note": "plan row R12: confirmed passers of the replication study (holdout confirmed)",
+      "added": [
+        "S1+S5 SOL-USDT 6H [none]",
+        "S1 SOL-USDT 6H [none]"
+      ]
     }
   ]
 }

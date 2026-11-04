@@ -622,6 +622,23 @@ def test_an_account_waits_for_a_late_candle_in_an_earlier_bar_before_it_joins(tm
     assert a[1]["sleeves"]["S2/BTC/4H"]["last_bar"] == "2026-10-17T08:00:00Z" and a == b  # nothing missing: as if the candle had been on time
 
 
+def test_the_dry_run_runs_a_third_market_from_the_replication_study(tmp_path):
+    """Plan row R12: an account on SOL-USDT (confirmed by the replication study) runs beside the Sprint 2c pair; the dry run's
+    synthetic market and the fleet's data refresh cover every market the accounts need, and nothing else changes."""
+    from research.paper_fleet.replay import run_dry
+
+    manifest = _subset(LIGHT + ("c12-s1-sol-6h-none",))
+    assert manifest.instruments() == ["BTC-USDT", "ETH-USDT", "SOL-USDT"]
+    result = run_dry(tmp_path / "dry", days=1.5, synthetic=True, manifest=manifest, settings=FleetSettings(window_days=90.0, history_days=400.0))
+    assert result.ok, result.checks
+    assert result.summary["c12-s1-sol-6h-none"]["bars"] > 0 and result.summary["c01-s1s5-btc-6h-none"]["bars"] > 0
+    pair = synthetic_market(days=30, end=pd.Timestamp("2026-10-19 00:00", tz="UTC"))[0]
+    trio = synthetic_market(days=30, end=pd.Timestamp("2026-10-19 00:00", tz="UTC"), instruments=("BTC-USDT", "ETH-USDT", "SOL-USDT"))[0]
+    pd.testing.assert_frame_equal(pair["BTC-USDT"], trio["BTC-USDT"])  # the pair's series do not change when a third market follows
+    pd.testing.assert_frame_equal(pair["ETH-USDT"], trio["ETH-USDT"])
+    assert "SOL-USDT" in trio and "SOL-USDT" not in pair
+
+
 def test_the_dry_run_starts_later_when_its_first_hour_is_not_ready(tmp_path):
     from research.paper_fleet.replay import run_dry
 

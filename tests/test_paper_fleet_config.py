@@ -26,7 +26,7 @@ def manifest():
 def test_one_account_per_shortlist_row_control_and_the_two_portfolios(manifest):
     shortlist = json.loads(DEFAULT_SHORTLIST.read_text(encoding="utf-8"))
     ids = [a.account_id for a in manifest.accounts]
-    assert len(ids) == len(shortlist["configurations"]) + len(shortlist["controls"]) + 2 == 20
+    assert len(ids) == len(shortlist["configurations"]) + len(shortlist["controls"]) + 2 == 22  # 20 from Sprint 2c / R5b, 2 from R12
     assert ids[0] == "c01-s1s5-btc-6h-none" and ids[-2:] == ["pf-s1s2s4-btceth-vt15", ALLOCATOR_V2_ACCOUNT]
     roles = {a.role for a in manifest.accounts}
     assert roles == {"candidate", "control", "portfolio"}
@@ -58,7 +58,51 @@ def test_controls_and_the_portfolio(manifest):
     assert (pf.ladder.half_dd, pf.ladder.flat_dd, pf.ladder.recovery_bars) == (0.075, 0.15, 30)
     exp = manifest.account("pf-s1s2s4-btceth-vt15").expectations["walk_forward"]
     assert exp["cagr"] == pytest.approx(0.109314) and exp["max_drawdown"] == pytest.approx(0.131776)
-    assert manifest.series() == [("BTC-USDT", "4H"), ("BTC-USDT", "6H"), ("ETH-USDT", "4H"), ("ETH-USDT", "6H")]
+    assert manifest.series() == [("BTC-USDT", "4H"), ("BTC-USDT", "6H"), ("ETH-USDT", "4H"), ("ETH-USDT", "6H"), ("SOL-USDT", "6H")]
+    assert manifest.instruments() == ["BTC-USDT", "ETH-USDT", "SOL-USDT"]
+
+
+def test_source_tagged_rows_from_the_replication_study_join_as_new_accounts(manifest, tmp_path):
+    """Plan row R12: the two configurations confirmed on SOL-USDT join as accounts c11 and c12; the Sprint 2c accounts, the fleet's
+    shared rules and every existing fingerprint are untouched; the rows are validated against the study's own results file."""
+    from research.paper_fleet.config import ALLOWED_INSTRUMENTS, INSTRUMENTS, SleeveSpec
+
+    assert INSTRUMENTS == ("BTC-USDT", "ETH-USDT") and "SOL-USDT" in ALLOWED_INSTRUMENTS and "BTC-USDT" in ALLOWED_INSTRUMENTS
+    sol = [a for a in manifest.accounts if a.instrument == "SOL-USDT"]
+    assert [a.account_id for a in sol] == ["c11-s1s5-sol-6h-none", "c12-s1-sol-6h-none"]
+    for a in sol:
+        assert a.role == "candidate" and a.timeframe == "6H" and a.sleeve.regime.mode == "none" and a.sleeve.sizing.label == "vt10/30 crash15/90dh ladder"
+        assert a.expectations["source"]["study"] == "R12 replication" and a.expectations["source"]["results"] == "docs/research/replication_v1d_results.json"
+        assert a.expectations["holdout_confirmed"] is True and a.expectations["holdout"]["total_return"] == pytest.approx(0.095279)
+        assert a.expectations["passed_walk_forward"] is True and "from R12 replication" in a.label
+    assert manifest.sources["results_r12replication"].endswith("docs/research/replication_v1d_results.json")
+    with pytest.raises(ValueError, match="allowed markets"):
+        SleeveSpec("S1", "XYZ-USDT", "6H", {"bracket": "none"})
+    # A source row whose study lacks the configuration, or whose file is missing, is refused.
+    shortlist = json.loads(DEFAULT_SHORTLIST.read_text(encoding="utf-8"))
+    row = next(c for c in shortlist["configurations"] if c.get("source"))
+    sl = tmp_path / "sl.json"
+    bad = json.loads(json.dumps(shortlist))
+    next(c for c in bad["configurations"] if c.get("source"))["candidate"] = "S4"  # the study never ran S4
+    sl.write_text(json.dumps(bad), encoding="utf-8")
+    with pytest.raises(ValueError, match="expected one research result"):
+        load_manifest(sl, DEFAULT_RESULTS)
+    other = json.loads(json.dumps(shortlist))
+    next(c for c in other["configurations"] if c.get("source"))["timeframe"] = "4H"  # a real SOL 4H result, but other rules and numbers
+    sl.write_text(json.dumps(other), encoding="utf-8")
+    with pytest.raises(ValueError, match="does not match"):
+        load_manifest(sl, DEFAULT_RESULTS)
+    missing = json.loads(json.dumps(shortlist))
+    next(c for c in missing["configurations"] if c.get("source"))["source"]["results"] = "docs/research/does_not_exist.json"
+    sl.write_text(json.dumps(missing), encoding="utf-8")
+    with pytest.raises(OSError):
+        load_manifest(sl, DEFAULT_RESULTS)
+    untagged = json.loads(json.dumps(shortlist))
+    del next(c for c in untagged["configurations"] if c.get("source"))["source"]  # without its tag the row is checked against Sprint 2c's file
+    sl.write_text(json.dumps(untagged), encoding="utf-8")
+    with pytest.raises(ValueError, match="expected one research result"):
+        load_manifest(sl, DEFAULT_RESULTS)
+    assert row["rank"] == 11
 
 
 def test_fingerprint_covers_the_rules_not_the_expectations(tmp_path, manifest):

@@ -130,6 +130,19 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   retirement entry was last updated 2026-10-22 and port 8443 still answered on 2026-11-04 with a
   retirement notice. Recommendation: nothing to build; the changelog watcher (R6, to be installed on
   the VPS) flags the next step of either change.
+- From R12: the two configurations the replication study confirmed (S1 and S1+S5 on SOL-USDT 6H, no
+  regime gate: +9.5 % with PF 5.5 over the untouched 12 months, the same 12 trades) are rows 11 and 12
+  of the fleet shortlist; the fleet code loads 22 accounts. The laptop fleet started on 2026-11-04 has
+  20 until its checkout is updated and the task restarted (`docs/runbooks/PAPER_FLEET.md`, "Updating
+  the fleet's code"). Recommendation: update and restart it once `plan/auto` has landed; let the two
+  SOL accounts run and judge them at G7 with the rest — they are one signal (the funding filter
+  changed nothing on SOL) from the market with the shortest history.
+- From R12, for information: the Sprint 2c families are fragile across markets — 10 of 104
+  configurations passed walk-forward on the seven new markets, none of the three BTC passers
+  replicated, and the holdout rejected 8 of the 10 (7 clearly; DOGE S2 4H gate was positive from 8
+  trades, fewer than the 10 the v1c verdict asks for). Hold + policy sizing lost on every market's
+  12 months, as on BTC/ETH. No gate changed after the results; the S2 family's three contradicted
+  markets are the failure analysis rows R13 and R16 should start from. Nothing to decide.
 - From 2026-11-04: one test in `tests/test_okx_changelog.py` compared the fixture's entry dates with
   the real clock and began failing on its own on 2026-10-29 (when the oldest flagged entry left the
   30-day first-run window), which would have stopped every runner chat at its full-suite check. Fixed in this session (the script's clock can be pinned by tests). No decision

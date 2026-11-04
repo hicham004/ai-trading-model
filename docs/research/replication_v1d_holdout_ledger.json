@@ -1,0 +1,477 @@
+{
+ "note": "Every opening of a new market's 12-month holdout by the replication study (plan row R12), in order; entries are appended, never edited. The report shows all of them. The hold + policy control's 12 months are a comparison line, not a configuration under test.",
+ "entries": [
+  {
+   "generated_at": "2026-11-04 17:33 UTC",
+   "started_at": "2026-11-04 17:19 UTC",
+   "preregistration_sha256": "baa51d87330156224444bde22e782f1a5c6e9b58253153fd1b0c3db53ee404a0",
+   "results_file": "docs/research/replication_v1d_results.json",
+   "openings": [
+    {
+     "configuration": "hold XRP-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.02218,
+     "max_drawdown": 0.031312,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold XRP-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.027423,
+     "max_drawdown": 0.039482,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.026724,
+     "max_drawdown": 0.030377,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S2 DOGE-USDT 4H [gate]",
+     "role": "configuration",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.017071,
+     "max_drawdown": 0.020577,
+     "profit_factor": 1.701101,
+     "n_trades": 8,
+     "confirmed": false
+    },
+    {
+     "configuration": "S2+S5 DOGE-USDT 4H [gate]",
+     "role": "configuration",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.017071,
+     "max_drawdown": 0.020577,
+     "profit_factor": 1.701101,
+     "n_trades": 8,
+     "confirmed": false
+    },
+    {
+     "configuration": "hold DOGE-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.031414,
+     "max_drawdown": 0.035688,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S2 DOGE-USDT 6H [gate]",
+     "role": "configuration",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.006412,
+     "max_drawdown": 0.030272,
+     "profit_factor": 0.873957,
+     "n_trades": 10,
+     "confirmed": false
+    },
+    {
+     "configuration": "S2+S5 DOGE-USDT 6H [gate]",
+     "role": "configuration",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.006281,
+     "max_drawdown": 0.030272,
+     "profit_factor": 0.876229,
+     "n_trades": 10,
+     "confirmed": false
+    },
+    {
+     "configuration": "hold LINK-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.016992,
+     "max_drawdown": 0.030045,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold LINK-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.017333,
+     "max_drawdown": 0.033962,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold TRX-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.00806,
+     "max_drawdown": 0.033053,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S2 TRX-USDT 4H [none]",
+     "role": "configuration",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.056093,
+     "max_drawdown": 0.075315,
+     "profit_factor": 0.474088,
+     "n_trades": 26,
+     "confirmed": false
+    },
+    {
+     "configuration": "S2+S5 TRX-USDT 4H [none]",
+     "role": "configuration",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "funding_z_max": 2.0,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.056093,
+     "max_drawdown": 0.075315,
+     "profit_factor": 0.474088,
+     "n_trades": 26,
+     "confirmed": false
+    },
+    {
+     "configuration": "hold TRX-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.001046,
+     "max_drawdown": 0.033768,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ADA-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.029929,
+     "max_drawdown": 0.035659,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ADA-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.036511,
+     "max_drawdown": 0.04384,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S2 ADA-USDT 6H [none]",
+     "role": "configuration",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 10,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.04583,
+     "max_drawdown": 0.05406,
+     "profit_factor": 0.279661,
+     "n_trades": 20,
+     "confirmed": false
+    },
+    {
+     "configuration": "S2 ADA-USDT 6H [gate]",
+     "role": "configuration",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.060051,
+     "max_drawdown": 0.064234,
+     "profit_factor": 0.073559,
+     "n_trades": 20,
+     "confirmed": false
+    },
+    {
+     "configuration": "S2+S5 ADA-USDT 6H [none]",
+     "role": "configuration",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 10,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.04583,
+     "max_drawdown": 0.05406,
+     "profit_factor": 0.279661,
+     "n_trades": 20,
+     "confirmed": false
+    },
+    {
+     "configuration": "S2+S5 ADA-USDT 6H [gate]",
+     "role": "configuration",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 5,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.060051,
+     "max_drawdown": 0.064234,
+     "profit_factor": 0.073559,
+     "n_trades": 20,
+     "confirmed": false
+    },
+    {
+     "configuration": "hold LTC-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.013732,
+     "max_drawdown": 0.028228,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold LTC-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.010935,
+     "max_drawdown": 0.026314,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.023046,
+     "max_drawdown": 0.036082,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.02537,
+     "max_drawdown": 0.038442,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "time30"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.095279,
+     "max_drawdown": 0.021302,
+     "profit_factor": 5.485294,
+     "n_trades": 12,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.095279,
+     "max_drawdown": 0.021302,
+     "profit_factor": 5.485294,
+     "n_trades": 12,
+     "confirmed": true
+    }
+   ]
+  }
+ ]
+}

@@ -46,6 +46,7 @@ from app.datalake.layout import LakeLayout
 from app.datalake.okx_public_rest import OKXPublicRest, PublicRestError
 from app.datalake.parquet_store import CANDLE_SCHEMA, TS_TYPE, read_candles, write_partitioned
 from research.data import bars_per_year, load_okx_series
+from research.markets import RESEARCH_SWAP_FOR
 from research.resample import OHLCV, resample_ohlcv
 from research.strategies.base import FeatureContext
 
@@ -55,7 +56,9 @@ SOURCE_BAR = "1H"
 HOUR_MS = 3_600_000
 NEWEST_LIMIT = 300
 HISTORY_LIMIT = 100
-SWAP_FOR = {"BTC-USDT": "BTC-USDT-SWAP", "ETH-USDT": "ETH-USDT-SWAP"}
+# The OKX perpetual swap whose public funding / open interest feed the S5 filter of each market: the Sprint 2c pair, plus the
+# replication study's markets (plan row R12, ``research.markets``) so a configuration confirmed there can join the fleet.
+SWAP_FOR = {"BTC-USDT": "BTC-USDT-SWAP", "ETH-USDT": "ETH-USDT-SWAP", **RESEARCH_SWAP_FOR}
 OI_PERIOD = "1H"
 POSITIONING_SOURCES = ("okx", "none")
 

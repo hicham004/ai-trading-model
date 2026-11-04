@@ -1,0 +1,132 @@
+{
+ "note": "Plan row R12. The markets of the replication study, fixed from one public snapshot BEFORE any candle of a new market was collected. Never edited.",
+ "snapshot_at": "2026-11-04T16:32:33+00:00",
+ "tickers_endpoint": "/api/v5/market/tickers?instType=SPOT",
+ "volume_field": "volCcy24h (24-hour volume in the quote currency, USDT)",
+ "history_condition": "a public 1H candle before 2020-01-01 (probed with /api/v5/market/history-candles, one GET per candidate)",
+ "rule": "the top 6 eligible candidates by 24-hour quote volume plus SOL-USDT",
+ "data_end": "2026-10-20T10:00:00+00:00",
+ "chosen": [
+  "XRP-USDT",
+  "DOGE-USDT",
+  "LINK-USDT",
+  "TRX-USDT",
+  "ADA-USDT",
+  "LTC-USDT",
+  "SOL-USDT"
+ ],
+ "picks": [
+  {
+   "instrument": "XRP-USDT",
+   "quote_volume_24h": 47390897.22302799,
+   "history_before_cutoff": "2019-12-31 23:00",
+   "rank": 1,
+   "chosen": true,
+   "reason": "rank 1 of 11 by 24-hour quote volume"
+  },
+  {
+   "instrument": "DOGE-USDT",
+   "quote_volume_24h": 40771591.91074124,
+   "history_before_cutoff": "2019-12-31 23:00",
+   "rank": 2,
+   "chosen": true,
+   "reason": "rank 2 of 11 by 24-hour quote volume"
+  },
+  {
+   "instrument": "LINK-USDT",
+   "quote_volume_24h": 8603222.609505503,
+   "history_before_cutoff": "2019-12-31 23:00",
+   "rank": 3,
+   "chosen": true,
+   "reason": "rank 3 of 11 by 24-hour quote volume"
+  },
+  {
+   "instrument": "TRX-USDT",
+   "quote_volume_24h": 7901982.926231413,
+   "history_before_cutoff": "2019-12-31 23:00",
+   "rank": 4,
+   "chosen": true,
+   "reason": "rank 4 of 11 by 24-hour quote volume"
+  },
+  {
+   "instrument": "ADA-USDT",
+   "quote_volume_24h": 7668297.57048392,
+   "history_before_cutoff": "2019-12-31 23:00",
+   "rank": 5,
+   "chosen": true,
+   "reason": "rank 5 of 11 by 24-hour quote volume"
+  },
+  {
+   "instrument": "LTC-USDT",
+   "quote_volume_24h": 6216974.07858077,
+   "history_before_cutoff": "2019-12-31 23:00",
+   "rank": 6,
+   "chosen": true,
+   "reason": "rank 6 of 11 by 24-hour quote volume"
+  },
+  {
+   "instrument": "XLM-USDT",
+   "quote_volume_24h": 5875744.39951831,
+   "history_before_cutoff": "2019-12-31 23:00",
+   "rank": 7,
+   "chosen": false,
+   "reason": "rank 7 of 11 by 24-hour quote volume (not in the top 6)"
+  },
+  {
+   "instrument": "BCH-USDT",
+   "quote_volume_24h": 4701698.59726134,
+   "history_before_cutoff": "2019-12-31 23:00",
+   "rank": 8,
+   "chosen": false,
+   "reason": "rank 8 of 11 by 24-hour quote volume (not in the top 6)"
+  },
+  {
+   "instrument": "ETC-USDT",
+   "quote_volume_24h": 1519652.893017807,
+   "history_before_cutoff": "2019-12-31 23:00",
+   "rank": 9,
+   "chosen": false,
+   "reason": "rank 9 of 11 by 24-hour quote volume (not in the top 6)"
+  },
+  {
+   "instrument": "ATOM-USDT",
+   "quote_volume_24h": 1026677.034827288,
+   "history_before_cutoff": "2019-12-31 23:00",
+   "rank": 10,
+   "chosen": false,
+   "reason": "rank 10 of 11 by 24-hour quote volume (not in the top 6)"
+  },
+  {
+   "instrument": "ALGO-USDT",
+   "quote_volume_24h": 767719.264839977,
+   "history_before_cutoff": "2019-12-31 23:00",
+   "rank": 11,
+   "chosen": false,
+   "reason": "rank 11 of 11 by 24-hour quote volume (not in the top 6)"
+  },
+  {
+   "instrument": "SOL-USDT",
+   "quote_volume_24h": 99051049.82411435,
+   "history_before_cutoff": null,
+   "rank": null,
+   "chosen": true,
+   "reason": "always included (history from 2020-09-29; the largest pair after BTC/ETH that is not a stablecoin)"
+  }
+ ],
+ "preregistration": {
+  "fixed_on": "2026-11-04, before any candle of a new market was collected (plan row R12)",
+  "question": "Do the Sprint 2c rule families hold on large OKX spot USDT markets they were never tuned on, or are they BTC-specific?",
+  "markets": "the top 6 of the candidates with public 1H candles from before 2020-01-01 (XRP, LTC, ADA, LINK, BCH, DOGE, TRX, ETC, XLM, ATOM, ALGO), ranked by public 24-hour quote volume (OKX /api/v5/market/tickers, SPOT, volCcy24h) at one snapshot taken before any collection, plus SOL-USDT; the snapshot, the ranking and the chosen list are stored in docs/research/replication_v1d_preregistration.json",
+  "configurations": "exactly Sprint 2c's: S1, S1+S5, S2, S2+S5 x 4H/6H x regime none/gate = 16 judged configurations per market; hold + policy sizing and plain buy-and-hold as the controls (never judged, as in Sprint 2c); parameters, grids, brackets (none/tp2/trail1/time30; none for the S5 families), the S0 filter with the FOMC calendar, the fixed policy sizing vt10/30 crash15/90dh ladder (rebalance 0.25, ladder re-arm 30 days), the regime-v2 entry gate (3-state HMM on returns and 7-day vol, bear >= 0.5, fitted on every window's train slice), the walk-forward (train 540 d, purge 7 d, test 180 d, Sharpe with >= 20 train trades, entries then bracket) and the v1c gates \u2014 run by scripts/run_research_v1c.py's own run_series, not by a copy of it",
+  "data": "OKX public 1H and 4H spot candles through the GET-only lake client (4H stored, 6H resampled from 1H, as Sprint 2c's BTC/ETH data); every market's candles end where Sprint 2c's did (bar close <= 2026-10-20T10:00:00+00:00), so the untouched 12 months are the same calendar window, 2025-10-20 -> 2026-10-20; Binance public funding of the market's USDT perpetual as the S5 feature, through the research symbol table; the new markets have no open-interest history, so that leg of the S5 filter passes (as it does wherever data is missing); a market whose funding covers less than 90 % of its in-sample bars (Sprint 2b item 6) has its S5 configurations reported as 'run without S5' and never counted for the S1+S5 / S2+S5 families",
+  "reproduction": "before any new market is judged, the same code path re-runs BTC-USDT and ETH-USDT (the 16 configurations and the hold control) and must give Sprint 2c's stored walk-forward numbers to 6 decimals, the same trade counts, the same most-selected rules and the same gate verdicts; otherwise the study stops",
+  "primary_test": "the configurations that passed every gate on BTC-USDT in Sprint 2c (taken from the stored results: S2 4H gate, S2+S5 4H gate, S1+S5 6H none) run unchanged on every new market; a configuration 'replicates' when it passes all v1c gates on at least half of the new markets",
+  "family_verdicts": "per family (S1, S1+S5, S2, S2+S5), a market counts when any of the family's four configurations passes all gates there: 'robust across markets' = at least half of the new markets; 'fragile' = at least one but fewer than half; 'BTC-specific' = none, for a family that passed on BTC in Sprint 2c; 'fails everywhere' = none, and it did not pass on BTC either",
+  "overall_verdict": "'robust across markets' if any family is robust; 'fragile' if some configuration passes on a new market but no family is robust; 'BTC-specific' if no configuration passes on any new market",
+  "holdout": "each new market's last 12 months (2025-10-20 -> 2026-10-20), opened once, only for a configuration that passes every walk-forward gate on that market, and only by the full pre-registered study (every chosen market, family, timeframe and mode, no --quick); the v1c verdict (positive return, PF > 1, >= 10 trades); the hold + policy control's 12 months are evaluated on every market as the comparison line, as Sprint 2c did (a reference, not a configuration under test); every opening goes into an append-only ledger the report shows; the new markets' price moves over those months were not looked at before the run",
+  "gates": "the v1c gates unchanged (research/report_v1c.py GATES)",
+  "fleet": "a configuration confirmed by its holdout on a new market is added to the paper fleet's shortlist as a new account with a source tag (existing entries and running accounts untouched); a walk-forward pass alone adds nothing",
+  "no_changes_after_results": "no gate, parameter, market, threshold or verdict rule changes after the results are in; if a gate looks wrong the report says so"
+ },
+ "sha256": "262461247068aaeae8a1aa5d5f029ec7a3ca835eda87142eb4d067a1f52eee8b"
+}
