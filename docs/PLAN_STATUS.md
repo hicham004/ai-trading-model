@@ -143,6 +143,22 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   trades, fewer than the 10 the v1c verdict asks for). Hold + policy sizing lost on every market's
   12 months, as on BTC/ETH. No gate changed after the results; the S2 family's three contradicted
   markets are the failure analysis rows R13 and R16 should start from. Nothing to decide.
+- From R13: the one configuration research round 1 confirmed (S1 with new entries only on a 30-day
+  volume z-score above 1, on BTC-USDT 4H with the regime gate: walk-forward Calmar 0.55 / Sharpe 0.71,
+  +2.0 % with PF 1.41 over the untouched 12 months from 25 trades) is row 13 of the fleet shortlist
+  (`c13-s1vc-btc-4h-gate`); the fleet code loads 23 accounts. The laptop fleet started on 2026-11-04
+  has 20 until its checkout is updated and the task restarted (`docs/runbooks/PAPER_FLEET.md`,
+  "Updating the fleet's code"). Recommendation: update and restart it once `plan/auto` has landed and
+  judge the account at G7 with the rest — it is one pass among 20 comparisons that clears two gates by
+  a hair, its rule was selected in only 2 of 9 windows, and the holdout's falling direction was known
+  beforehand, so read it as a hypothesis under forward test, not a result.
+- From R13, for information: H1 (ETH's rules only while BTC's trend is up) changed little beside the
+  base rules (median Calmar 0.36 → 0.30; the HMM gate already stands aside in most of those bars) and
+  H3 (dual momentum between BTC and ETH) churned (57 trades a year against 35, Calmar 0.11 against
+  0.31 for plain S1); neither is worth a retest in this form. The volume confirmation gained most
+  where the base rule was weakest (the gated 4H rules) and lost on 6H; a candidate for R16 is its
+  strictness or the attention idea on R12's markets, pre-registered and fixed a priori, never swept.
+  No gate changed after the results. Nothing to decide.
 - From 2026-11-04: one test in `tests/test_okx_changelog.py` compared the fixture's entry dates with
   the real clock and began failing on its own on 2026-10-29 (when the oldest flagged entry left the
   30-day first-run window), which would have stopped every runner chat at its full-suite check. Fixed in this session (the script's clock can be pinned by tests). No decision

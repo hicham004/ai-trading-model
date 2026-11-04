@@ -26,7 +26,7 @@ def manifest():
 def test_one_account_per_shortlist_row_control_and_the_two_portfolios(manifest):
     shortlist = json.loads(DEFAULT_SHORTLIST.read_text(encoding="utf-8"))
     ids = [a.account_id for a in manifest.accounts]
-    assert len(ids) == len(shortlist["configurations"]) + len(shortlist["controls"]) + 2 == 22  # 20 from Sprint 2c / R5b, 2 from R12
+    assert len(ids) == len(shortlist["configurations"]) + len(shortlist["controls"]) + 2 == 23  # 20 from Sprint 2c / R5b, 2 from R12, 1 from R13
     assert ids[0] == "c01-s1s5-btc-6h-none" and ids[-2:] == ["pf-s1s2s4-btceth-vt15", ALLOCATOR_V2_ACCOUNT]
     roles = {a.role for a in manifest.accounts}
     assert roles == {"candidate", "control", "portfolio"}
@@ -148,8 +148,13 @@ def test_candidates_with_their_own_exits_are_refused_and_no_fleet_candidate_has_
 
     with pytest.raises(ValueError, match="own exits"):
         SleeveSpec("S3", "BTC-USDT", "4H", {"bracket": "none"})
+    from research.strategies.round1 import CrossAssetContext
+
     df = synthetic_4h(900, seed=2)
-    ctx = FeatureContext("4H", 2191.5)
+    other = synthetic_4h(900, seed=3)
+    # The round-1 cross-asset rules (plan row R13) need the other market's candles; the plain context serves every other candidate.
+    ctx = CrossAssetContext("4H", 2191.5, references={"BTC-USDT": other, "ETH-USDT": other})
+    assert isinstance(ctx, FeatureContext)
     for key in ALL_KEYS:
         if key in OWN_EXIT_CANDIDATES:
             continue
@@ -223,3 +228,19 @@ def test_allocator_results_that_do_not_describe_the_account_are_refused(tmp_path
         path.write_text(json.dumps(doc), encoding="utf-8")
         with pytest.raises(ValueError, match=message):
             load_manifest(DEFAULT_SHORTLIST, DEFAULT_RESULTS, path)
+
+
+def test_the_configuration_confirmed_by_research_round_1_joins_as_account_c13(manifest):
+    """Plan row R13: the one confirmed configuration of research round 1 (S1 with a volume confirmation of entries, BTC-USDT 4H, regime
+    gate) joins as account c13 with a source tag; it needs no new market and no new data path, and every existing account is untouched."""
+    acc = manifest.account("c13-s1vc-btc-4h-gate")
+    assert acc.role == "candidate" and acc.shortlist_rank == 13 and acc.sleeve.candidate == "S1+VC"
+    assert acc.instrument == "BTC-USDT" and acc.timeframe == "4H" and acc.sleeve.regime.mode == "gate" and acc.sleeve.bracket == "none"
+    assert acc.sleeve.sizing.label == "vt10/30 crash15/90dh ladder" and acc.sleeve.rebalance_threshold == 0.25 and not acc.sleeve.uses_positioning
+    assert acc.expectations["source"]["study"] == "R13 research round 1" and acc.expectations["source"]["hypothesis"] == "H2"
+    assert acc.expectations["source"]["results"] == "docs/research/research_round_1_results.json" and "from R13 research round 1" in acc.label
+    assert acc.expectations["passed_walk_forward"] is True and acc.expectations["walk_forward"]["calmar"] == pytest.approx(0.551912)
+    assert acc.expectations["holdout_confirmed"] is True and acc.expectations["holdout"]["total_return"] == pytest.approx(0.019813)
+    assert manifest.sources["results_r13researchround1"].endswith("docs/research/research_round_1_results.json")
+    assert manifest.instruments() == ["BTC-USDT", "ETH-USDT", "SOL-USDT"]
+    assert [a.account_id for a in manifest.accounts if a.role == "candidate"][-3:] == ["c11-s1s5-sol-6h-none", "c12-s1-sol-6h-none", "c13-s1vc-btc-4h-gate"]

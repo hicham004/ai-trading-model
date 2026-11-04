@@ -4,6 +4,62 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — R13: research round 1, three pre-registered entry conditions on the unchanged Sprint 2c rules (plan row R13)
+
+Research only, public data only, pre-registered before the first run. Nothing under `app/`, `config/`,
+`app/execution`, `app/risk`, `app/exchange` or `app/shadow` changed; the existing strategies' parameters,
+grids and brackets are untouched. The trading safety contract is unchanged.
+
+### Added
+- `research/strategies/round1.py`: the three rules — H1 `S1+BT` / `S2+BT` (ETH's S1 / S2, new entries
+  only while BTC's S1 trend is up), H2 `S1+VC` (S1, new entries only on a 30-day volume z-score above 1),
+  H3 `DM-BTC` / `DM-ETH` (dual-momentum legs: long their own market only while both S1 trends are up and
+  it is the stronger 90-day performer; mutually exclusive by construction) — all entries-only conditions
+  with fixed, never-gridded parameters; `CrossAssetContext`, a feature context that carries the other
+  market's candles, aligned by exact timestamp, failing closed where a bar is missing and raising when
+  the reference is absent. Registered in `research/strategies/__init__.py` with `ROUND1_BASES`.
+- `research/round1.py`: the pre-registration (hashed file, checked against the module's text at every
+  run), the Sprint 2c runner loaded as a module with its feature context replaced by the cross-asset one
+  (nothing else copied), the protocol check, one process-pool job per series and strategy group, the
+  hold/S1/S2 reproduction through the patched context, the H3 combination (legs' returns multiplied bar
+  by bar, pooled trades, the smaller robustness share), the legs' holdout simulated as the runner does it
+  (checked against the runner in the tests), the comparison of every new configuration with its base
+  rule, the pre-registered verdict labels and failure facts, the append-only ledger and the fleet
+  shortlist additions (a confirmed H3 adds both legs, together one position).
+- `research/report_round1.py`: the report; every sentence, including each failure analysis's reading, is
+  computed from the numbers.
+- `scripts/run_research_round_1.py`: `--preregister` (once), the study (`--evaluate-holdout` only for the
+  full pre-registered study), `--render-from-json`, `--apply-shortlist-from-json`; a shortlist amendment
+  the paper fleet cannot load is rolled back.
+- `docs/research/research_round_1_preregistration.json` (written 2026-11-04 18:37 UTC, before the first
+  run), `docs/research/RESEARCH_ROUND_1_REPORT.md`, `docs/research/research_round_1_results.json`,
+  `docs/research/research_round_1_holdout_ledger.json`.
+- `tests/test_research_round1.py` (the rules' entries-only and fail-closed behaviour, the legs' mutual
+  exclusion, the Sprint 2c rules unchanged under the cross-asset context, the patched runner and protocol
+  check, the combination, the leg holdout against the runner's own, an end-to-end quick study on a
+  synthetic two-market lake, the pre-registration file, the verdict rules, the ledger, the shortlist
+  additions and rollback, the report's sentences, the CLI); a boundary test for the round-1 files.
+
+### Result
+Official run 2026-11-04 18:50 UTC (4.4 min on 12 workers; a holdout-free dry run minutes earlier gave
+identical walk-forward numbers for all 48 configurations and legs). The hold/S1/S2 reproduction through
+the cross-asset context matched Sprint 2c's stored numbers in 20 of 20 configurations. 20 configurations
+judged. **H1** (ETH's S1/S2 only while BTC's S1 trend is up): failed walk-forward, 0 of 8 — beside the
+base rules the condition changed little (median Calmar 0.36 → 0.30, a median 19 % of trades removed;
+the HMM gate already does most of what a BTC-trend condition does). **H2** (S1 with new entries only
+on a 30-day volume z-score above 1): 1 of 8 passed — S1+VC BTC-USDT 4H with the regime gate, Calmar
+0.55, Sharpe 0.71, +4.3 %/yr at a 7.8 % drawdown, 83 trades, 82.9 % of rolling 12-month windows
+positive, robust to ±30 % parameter changes — and the untouched 12 months confirmed it (+2.0 %, PF
+1.41, 25 trades); the condition raised Calmar in 6 of 8 configurations (median 0.29 → 0.33) and
+removed a median 46 % of S1's trades, but on 6H and on ETH it did not pass. **H3** (dual momentum
+between BTC and ETH, judged as the one-position curve): failed walk-forward, 0 of 4 — median Calmar
+0.11 against 0.31 for the better plain S1 rule, 57 trades a year against 35; the switches added
+trades and fees without return. The confirmed configuration joins the paper fleet's shortlist as
+row 13 (`c13-s1vc-btc-4h-gate`, source tag `R13 research round 1`); the fleet loads 23 accounts
+(tested), existing accounts and fingerprints unchanged. Caveats, in the report: one pass among 20
+comparisons, just above two gates, a rule selected in 2 of 9 windows, and a holdout whose falling
+direction was known before the study — the forward fleet is the judge. Nothing authorizes trading.
+
 ## Unreleased — R12: replication of the Sprint 2c rule families on markets they were never tuned on (plan row R12)
 
 Research only, public data only, pre-registered. Nothing under `app/`, `config/`, `app/execution`,

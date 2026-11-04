@@ -1,0 +1,110 @@
+{
+ "note": "Every opening of the untouched 12 months by research round 1 (plan row R13), in order; entries are appended, never edited. The report shows all of them. The hold + policy control's 12 months are a comparison line, not a configuration under test.",
+ "entries": [
+  {
+   "generated_at": "2026-11-04 18:50 UTC",
+   "started_at": "2026-11-04 18:46 UTC",
+   "preregistration_sha256": "b8d5f8ba5caa61c199e8bb8507653891af62e6beeb4ac2c2b4f00c9caa9a5eab",
+   "results_file": "docs/research/research_round_1_results.json",
+   "openings": [
+    {
+     "configuration": "hold BTC-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.042675,
+     "max_drawdown": 0.052232,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "S2 BTC-USDT 4H [gate]",
+     "role": "reproduction",
+     "selected_params": {
+      "entry_days": 10,
+      "exit_days": 10,
+      "vol_mult": 1.0,
+      "volume_window": 20,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "atr_pct_max": 0.9,
+      "atr_pct_days": 90,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.048832,
+     "max_drawdown": 0.062951,
+     "profit_factor": 0.282237,
+     "n_trades": 21,
+     "confirmed": false
+    },
+    {
+     "configuration": "S1+VC BTC-USDT 4H [gate]",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 1,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.019813,
+     "max_drawdown": 0.043534,
+     "profit_factor": 1.40848,
+     "n_trades": 25,
+     "confirmed": true
+    },
+    {
+     "configuration": "hold ETH-USDT 4H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.026336,
+     "max_drawdown": 0.039541,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.039948,
+     "max_drawdown": 0.054928,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 6H [none]",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.029095,
+     "max_drawdown": 0.040396,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    }
+   ]
+  }
+ ]
+}

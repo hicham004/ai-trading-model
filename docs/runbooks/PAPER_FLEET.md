@@ -27,9 +27,13 @@ OKX prices, each as its own pretend account with 10,000 virtual USDT:
 - since plan row R12 (2026-11-04), the two configurations the replication study
   confirmed on a market the rules were never tuned on: S1+S5 and S1 on SOL-USDT
   6H without the regime gate (`c11-s1s5-sol-6h-none`, `c12-s1-sol-6h-none`;
-  see "A configuration confirmed on another market" below).
+  see "A configuration confirmed on another market" below),
+- since plan row R13 (2026-11-04), the one configuration research round 1
+  confirmed: S1 with new entries only on bars whose 30-day volume z-score is
+  above 1, on BTC-USDT 4H with the regime gate (`c13-s1vc-btc-4h-gate`; see
+  "A configuration confirmed by research round 1" below).
 
-22 accounts in all (20 before R12). Each one follows exactly the research rules — the same
+23 accounts in all (20 before R12, 22 before R13). Each one follows exactly the research rules — the same
 entry rules, filters, sizing, stops, fees (0.10 %) and slippage (0.05 %) — and
 writes every decision and every pretend fill into its own journal. Once a week
 a report compares what each account did with what the backtest said it should
@@ -207,7 +211,7 @@ there. The fleet resumes from the copied state; the laptop task stays stopped
 
 ```bash
 journalctl -u paper-fleet.service -n 30 --no-pager      # VPS; option B: the PowerShell window; B2: logs\paper_fleet\console.log
-# expect "paper fleet created: …/logs/paper_fleet (22 accounts, …)" (20 on code from before plan row R12) and, once a 4H or 6H bar closes
+# expect "paper fleet created: …/logs/paper_fleet (23 accounts, …)" (20 on code from before plan row R12, 22 before R13) and, once a 4H or 6H bar closes
 # (00, 04, 08, 12, 16, 20 h UTC), a line "cycle N: bars {…} …"
 .venv/bin/python scripts/run_paper_fleet.py --status
 # every account with its equity (10,000.00 at the start), "flat"/"long", data "fresh"
@@ -332,6 +336,29 @@ backtest bands and the BTC/ETH controls. Their research: `docs/research/REPLICAT
 (a fragile picture overall — 10 of 104 configurations passed walk-forward on the new markets, 8 of
 those failed their holdout; the two SOL rows are one signal, S1 and S1+S5 traded identically over
 the untouched 12 months).
+
+### A configuration confirmed by research round 1 (plan row R13)
+
+Research round 1 (`docs/research/RESEARCH_ROUND_1_REPORT.md`) tested three pre-registered entry
+conditions on the unchanged Sprint 2c rules on BTC-USDT and ETH-USDT. The R12 rule applies
+unchanged: a configuration reaches the fleet only when it passes every walk-forward gate **and**
+the untouched 12 months confirm it; the study appends it to the shortlist file with a `source` tag
+(`"study": "R13 research round 1"`), ranks continuing, and proves the fleet can still load its
+manifest (otherwise the file is put back and the report says so).
+
+**Outcome (2026-11-04):** one configuration — S1 with new entries only on bars whose 30-day volume
+z-score is above 1 (`S1+VC`), on BTC-USDT 4H with the regime gate — is row 13
+(`c13-s1vc-btc-4h-gate`); the fleet now loads 23 accounts. It needs nothing the fleet does not
+already have: one market, the volume of its own bars, the same sizing, filters and regime gate as
+the other gated BTC 4H accounts. The laptop fleet started on 2026-11-04 has 20 accounts until its
+checkout is updated and the task restarted ("Updating the fleet's code" above); at that restart the
+account starts flat and its first verdict comes 30 days later, judged against its own backtest bands
+and the BTC 4H controls. Read it as a hypothesis under forward test, not a result: it was one pass
+among 20 comparisons, just above two gates (Calmar 0.55 against 0.5, Sharpe 0.71 against 0.7), its
+rule was selected in only 2 of 9 walk-forward windows, and it was confirmed on a holdout whose
+falling direction was known beforehand (+2.0 %, PF 1.41, 25 trades). The other two hypotheses — a
+BTC-trend condition for ETH entries and dual momentum between BTC and ETH — failed walk-forward and
+add nothing.
 
 ## Troubleshooting
 

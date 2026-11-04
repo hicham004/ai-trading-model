@@ -39,7 +39,12 @@ def df():
 
 @pytest.fixture(scope="module")
 def ctx():
-    return FeatureContext(timeframe="1H", periods_per_year=PPY)
+    # A cross-asset context (plan row R13) is a FeatureContext that also carries the other market's candles, which the
+    # round-1 rules need; every other candidate ignores the references (tests/test_research_round1.py checks that).
+    from research.strategies.round1 import CrossAssetContext
+
+    other = synthetic(seed=4)
+    return CrossAssetContext(timeframe="1H", periods_per_year=PPY, references={"BTC-USDT": other, "ETH-USDT": other})
 
 
 @pytest.mark.parametrize("key", sorted(CANDIDATES))
