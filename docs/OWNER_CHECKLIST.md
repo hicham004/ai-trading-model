@@ -227,8 +227,10 @@ and the Trader version of each is recorded for the paper fleet; plan row R18b
 adds those accounts beside the existing ones (the fleet's loader has to learn
 the tier-tagged rows first). Nothing moves to the demo account without your
 separate go. Your "do what you recommend" of 2026-11-05 settled this: the Trader
-tier runs beside the Reference accounts (seven accounts since the 19:05 UTC
-restart, two more coming from plan row R23), the Aggressive tier does not. If you
+tier runs beside the Reference accounts (the seven R18b accounts since the 19:05 UTC
+restart and the two R23 accounts — the S8 forward control and S1 BTC-USDT 6H, both
+at the Trader tier — since the 21:17 UTC restart, both on 2026-11-05), the
+Aggressive tier does not. If you
 ever want to watch the Aggressive tier too (it passed on all five, at about 1.2
 times the Trader drawdowns), say so in one line; otherwise nothing is needed.
 
@@ -270,7 +272,7 @@ Until both are done, no demo evidence is being produced.
   it runs again and then stops at R10 once more. Progress: `docs/PLAN_STATUS.md`, section 0; details:
   `artifacts/plan-runner/summary.md`. Stop it after the current step by
   creating the file `artifacts\plan-runner\STOP`.
-- **The paper fleet** (Windows task "AI Trading paper fleet") runs 31 pretend
+- **The paper fleet** (Windows task "AI Trading paper fleet") runs 33 pretend
   accounts forward on live public prices from its own checkout at
   `C:\Users\Admin\Desktop\ai-trading-fleet`. Free, no keys, nothing can
   trade. Weekly report: `C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\reports\`.
