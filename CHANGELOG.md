@@ -4,6 +4,42 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — Trader Plan: a research-backed strategy and risk plan, plan rows R17–R22 (2026-11-05)
+
+Documentation only: nothing under `app/`, `config/`, `migrations/`, `research/` or `scripts/` changed.
+The trading safety contract is unchanged; the demo shadow run and its caps are untouched.
+
+### Added
+- `docs/TRADER_PLAN_2026-11-05.md`: the owner's request ("profit when right, a slight loss when wrong;
+  real-trader risk, not a savings account; tokenized US stocks later; human-like but disciplined risk")
+  translated into requirements; the evidence from an 8-question web research sweep (about 270 sourced
+  findings: payoff asymmetry and professional trend-following records, the professionals' risk rules,
+  pyramiding/scaling/streak sizing, pullback/breakout/ORB/VCP setups, crypto rotation, tokenized US
+  stocks on OKX, behavioural evidence, OKX costs and turnover); Trader Policy v1 (three fixed risk
+  budgets, a volatility target with a per-trade loss cap, a heat cap, daily/weekly/monthly loss limits on new entries only, a
+  Turtle-style drawdown ladder, a −30 % hard stop, bounded adds and a conviction tier as flagged
+  variants, pre-registered gates); the setups for research round 3; the expansion path (breadth in
+  crypto first; tokenized stocks through a staged, separately approved path); honest expectations;
+  what stays non-negotiable. Independently reviewed before commit (four lenses: evidence fidelity,
+  safety/scope and buildability, professional-trader critique, owner readability; 80 findings, all
+  applied: among them the tier definitions, the lead sleeve's trade rate, the demo pair count, the
+  fleet restart time and the fleet loader's source-study guard).
+- `docs/PLAN_STATUS.md`: rows R17–R22 (fleet hygiene; Trader Policy v1; research round 3; breadth and
+  one rotation test; tokenized stocks feasibility and log-only collector; fill-cost replay), the
+  third-run note, the 2026-11-05 decisions and the questions left to the owner.
+- `docs/OWNER_CHECKLIST.md`: step 9 (tokenized stocks: the two-minute in-app check), step 10 (the
+  risk budget, optional) and step 11 (a one-line go for the R14 part A demo fix); the "meanwhile"
+  section updated (24 fleet accounts since 2026-11-04 23:00 UTC; the runner's third run).
+- `docs/MASTER_PLAN_2026-10-20.md`: a 2026-11-05 status-log entry pointing at the Trader Plan.
+
+### Found
+- The laptop paper fleet's positioning refresh asks the app's BTC/ETH-only derivatives collector for
+  SOL-USDT-SWAP and DOGE-USDT-SWAP and logs `not allowed` every 30 minutes; the SOL S1+S5 account's
+  funding filter therefore passes for lack of data (plain S1 in effect). Row R17 fixes it inside
+  `research/paper_fleet/`; no fleet trade was affected (0 trades at the time).
+- OKX's demo environment lists 19 tokenized-stock USDT pairs (instruments with the "Stocks" category
+  and an X-prefixed `-USDT` id; public instruments endpoint with the demo header, 2026-11-05).
+
 ## Unreleased — R15: reviewed migration workflow and database backups, tooling only (plan row R15)
 
 Tooling and documentation only. No schema change; nothing under `app/`, `config/`, `migrations/` or

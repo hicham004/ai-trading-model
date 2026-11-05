@@ -79,6 +79,24 @@ Status log:
   retirement notice; the 8443 runbook was wrong (the WebSocket URLs are part of
   the demo account identity, so the fix needs a new account name) and was
   rewritten. The owner's remaining steps are in `docs/OWNER_CHECKLIST.md`.
+- 2026-11-05: R4e and R12 to R16 are done (the fleet shortlist has 14 configurations and
+  24 accounts; the laptop fleet was updated and restarted at 2026-11-04 23:00 UTC, 01:00 Beirut
+  time). The owner asked for
+  real-trader risk ("profit when right, a slight loss when wrong", not a savings account),
+  tokenized US stocks later, and human-like but disciplined risk. The answer is
+  `docs/TRADER_PLAN_2026-11-05.md` (independently reviewed before commit), built on an
+  8-question research sweep (payoff asymmetry
+  and the professionals' records; their risk rules; pyramiding, scaling and streak sizing;
+  pullback, breakout, ORB and VCP setups; crypto rotation; tokenized US stocks on OKX; the
+  behavioural evidence; OKX costs). The third runner run opens R17 (fleet hygiene), R18
+  (Trader Policy v1: a 20 % volatility target with at most 2 % of equity at risk on one stop, a heat cap,
+  daily/weekly/monthly limits on new entries, a Turtle-style drawdown ladder, bounded adds
+  and a conviction tier as tested variants; the confirmed rules re-judged at three fixed
+  risk budgets; the Trader tier into the paper fleet), R19 (research round 3: trend-pullback
+  continuation, the slow breakout under a fixed-rule protocol, bar size after costs), R20
+  (breadth across nine OKX markets plus one pre-registered rotation test), R21 (tokenized
+  stocks: log-only collector, feasibility, design) and R22 (fill-cost replay from OKX's
+  public archive). The safety contract and the demo shadow are untouched.
 
 ---
 

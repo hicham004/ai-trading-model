@@ -1,8 +1,8 @@
-# Owner checklist — the steps only you can do (as of 2026-11-04)
+# Owner checklist — the steps only you can do (as of 2026-11-05)
 
 Written for the owner. Everything an agent could do from this laptop has been
-done or is queued in `docs/PLAN_STATUS.md`. The eight items below need your
-accounts, your keys or your VPS. They are in the order that unlocks the most.
+done or is queued in `docs/PLAN_STATUS.md`. Eight of the eleven items below need
+your accounts, your keys or your VPS; three (9 to 11) are quick answers. They are in the order that unlocks the most.
 Each one says what it is for, how long it takes, and exactly what to type.
 Never paste a key, a token or a chat id into a chat, a screenshot or the repo.
 
@@ -16,6 +16,9 @@ Never paste a key, a token or a chat id into a chat, a screenshot or the repo.
 | 6 | Rotate the Telegram bot token | 10 min | Notifications you can trust (the old token was seen on screen) |
 | 7 | An Anthropic API key with a cap, then start the news shadow on the VPS | 30 min | 30+ days of log-only news evidence (plan row G5) |
 | 8 | Housekeeping: close pull request #7; later, the stale `demo` row | 5 min | Less noise; the partition guard stops failing closed on the stale row |
+| 9 | Tokenized stocks: do you see XNVDA in the OKX app, and at what fee | 2 min | Whether plan row R21's data can ever lead to a trade on your account |
+| 10 | Your risk budget (optional; the default is Trader) | 1 min | Whether the paper fleet also watches the Aggressive budget |
+| 11 | A one-line go for the small demo fix (R14 part A) | 1 min | The demo run can open trades again; demo evidence starts being produced |
 
 Nothing here changes what the system is allowed to do: demo only, spot,
 long only, no AI touches an order.
@@ -187,28 +190,70 @@ step 2 so the VPS has the R4d news rules.
   is a reviewed cleanup (CLAUDE.md open item 3): ask an agent session for the
   exact read-only check and the one `DELETE`, and run it on the VPS yourself.
 
+## 9. Tokenized US stocks: two minutes in the OKX app
+
+Plan row R21 collects data on OKX's tokenized US stocks (pairs such as
+XNVDA/USDT); nothing trades them. Only you can see what your account may do:
+
+1. In the OKX app or website, search for `XNVDA` (or `XQQQ`) under Spot. Do
+   you see the pair and its order book, and does the order form open (do not
+   place an order)? If the pair is hidden or greyed out, your account's region
+   cannot trade them; the data collection (R21) still runs, but no trading step
+   will be planned until that changes.
+2. Open your account's fee page (Profile → Fees, or `okx.com/fees`) and read
+   the spot maker/taker rate shown for a tokenized-stock pair. The regular spot
+   schedule is 0.08 % / 0.10 %; OKX has not published the rate for these pairs
+   anywhere we could read.
+3. Tell the next agent session both answers in one line ("I see XNVDA, 0.10 %
+   taker" or "hidden"). No screenshots of account pages.
+
+## 10. Your risk budget (optional; the default is Trader)
+
+`docs/TRADER_PLAN_2026-11-05.md`, section 4.1, describes three risk budgets:
+Reference (today's), Trader (a 20 % volatility target with at most 2 % of the
+account at risk on one stop: about 1.7 to 2 times today's size and today's
+drawdowns on most sleeves, less on SOL, whose stop is widest) and Aggressive
+(25 % and 2.5 %). Plan row R18
+tests all three and puts the Trader version of each passing rule into the
+paper fleet beside the existing accounts. Nothing moves to the demo account
+without your separate go. If you also want to watch the Aggressive tier in the
+fleet, say so in one line; otherwise nothing is needed.
+
+## 11. A one-line go for the small demo fix (R14 part A)
+
+The demo shadow run on the VPS has very likely been unable to open a trade
+since June 21: after its one round trip, fee crumbs smaller than one lot made it
+believe it still holds a position (`docs/PLAN_STATUS.md`, section 2, "From
+R14"). Part A of the R14 design fixes that in the reviewed safety core (dust no
+longer counts as an open position). It is a small change, but it touches
+`app/execution`, so an agent may not build it under the blanket go: it needs
+your one-line go, then an independent review, the merge (step 2) and the VPS
+update (step 3). Until then no demo evidence is being produced. One line is
+enough: "go for R14 part A".
+
 ---
 
 ## What happens by itself meanwhile
 
 - **The plan runner** (Windows task "AI Trading plan runner", Fable 5.1 at
-  max effort) builds rows R4e, R12, R13, R14, R15 and R16 one chat at a time
-  on `plan/auto` and pushes that branch after each clean step; it never
-  touches `main`. Progress: `docs/PLAN_STATUS.md`, section 0; details:
+  max effort) built rows R4e and R12 to R16 on 2026-11-04 and, since
+  2026-11-05, builds R17 to R22 (the Trader Plan rows: fleet hygiene, Trader
+  Policy v1, research round 3, breadth, tokenized-stocks data and design, fill
+  costs) one chat at a time on `plan/auto`, pushing that branch after each
+  clean step; it never touches `main`. Progress: `docs/PLAN_STATUS.md`, section 0; details:
   `artifacts/plan-runner/summary.md`. Stop it after the current step by
   creating the file `artifacts\plan-runner\STOP`.
-- **The paper fleet** (Windows task "AI Trading paper fleet") runs 20 pretend
+- **The paper fleet** (Windows task "AI Trading paper fleet") runs 24 pretend
   accounts forward on live public prices from its own checkout at
   `C:\Users\Admin\Desktop\ai-trading-fleet`. Free, no keys, nothing can
   trade. Weekly report: `C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\reports\`.
-  It needs about 60 days before the numbers mean anything (plan row G7).
-  Plan row R12 (2026-11-04) added two accounts to the shortlist (S1 and S1+S5
-  on SOL-USDT 6H, the only configurations confirmed on a market the rules were
-  never tuned on); the running fleet takes them only after you update its
-  checkout and restart the task — `docs/runbooks/PAPER_FLEET.md`, "Updating
-  the fleet's code" (STOP file, `git pull` in the fleet checkout, `--dry-run`,
-  `Start-ScheduledTask`). Optional, free, and the 20 existing accounts continue
-  unchanged either way.
+  It needs about 60 days before the numbers mean anything (plan row G7). Its
+  checkout was updated and the task restarted on 2026-11-04 at 23:00 UTC (01:00
+  Beirut time), so the
+  four accounts added by plan rows R12, R13 and R16 (SOL, BTC and DOGE) are
+  running; rows R18 to R20 will add more, each time by the same update-and-restart
+  step (`docs/runbooks/PAPER_FLEET.md`, "Updating the fleet's code"), which an
+  agent session can do for you.
 - The laptop must stay on and plugged in (it does not sleep on power; keep
   the lid open, closing it may put it to sleep). After a sleep both tasks
   simply continue and the fleet catches up bar by bar. After a reboot both
