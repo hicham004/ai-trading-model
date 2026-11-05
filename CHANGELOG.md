@@ -4,6 +4,51 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — R22: fill-cost replay from OKX's public tick and order-book archive (plan row R22)
+
+Research code, tests and docs only (`research/fill_replay.py`, `scripts/run_fill_replay.py`, `tests/`, `docs/`): nothing under
+`config/`, `migrations/` or `research/paper_fleet/` changed, and under `app/` only `app/ops/okx_usage.py`, the OKX changelog
+watcher's list of used endpoints and hosts, gains the public listing path (`GET /api/v5/public/market-data-history`) and the archive
+host (`static.okx.com`) so the watcher covers them, as plan rows R12 and R21 did; `app/execution`, `app/risk`, `app/exchange` and
+`app/shadow` are untouched; the research engine's `Costs` default is unchanged. Public data only: the listing through the data
+lake's GET-only public client (no key, no header), the files through a GET-only downloader bound to `https://static.okx.com/cdn/...`
+and to the URLs the listing returned (no redirect followed, no header sent). Nothing here trades, sizes or approves anything;
+nothing is authorized by it; no finished study is re-judged.
+
+### Added
+- `research/fill_replay.py`: the archive listing (`instIdList`, modules 1 trades / 2 one-minute candles / 4 the 400-level L2 book,
+  10-day and 10-instrument chunks, a day of padding because the listing reads the window in UTC+8 for the trades modules and in UTC
+  for the book, files kept by the day in their name); `ArchiveDownloader` (host-pinned, GET-only, resumable: `.part` then verify
+  against the listed size and the archive's own integrity check, a manifest with SHA-256 per file; a session is handed in, the module
+  imports no network library); the parsers (trades and candle CSVs, the book's JSON lines), `OrderBook` (snapshot and updates, nothing
+  read before the first snapshot), `walk_book` / `cost_bps`, `bar_boundaries`, `post_only_outcome` (trade-through or queue drained,
+  FIFO, cancellations ahead ignored), the replay over pooled trades and candles (their files hold the UTC+8 day) and UTC book days
+  (the book carried across consecutive days; three moments per boundary: the close, the next bar's first trade, one second later),
+  the summaries, `write_results` (summaries indented, one record per line) and `render_tables`.
+- `scripts/run_fill_replay.py`: `--list`, `--fetch`, `--replay [--keep]`, `--all`, `--status`; `--start/--end` or `--days` (default
+  end T-3); the raw files are deleted after the summaries are written unless `--keep`; exit codes 0 / 1 / 2; the fleet's dotenv guard.
+- `docs/research/FILL_COST_REPLAY.md` (the report: coverage, the cost of size against the mid, the candle close and the next open,
+  timing, the post-only fill rates, the recommendation, caveats, how to reproduce), `docs/research/fill_cost_replay_results.json`
+  (summaries, coverage, the 60 file manifests, one record per bar boundary), `docs/research/fill_cost_replay_tables.md` (the full
+  generated tables); `docs/DATA_LAKE.md` (the `data/archive/okx` folder and the day-boundary difference), `docs/RESEARCH_LAB.md`
+  (the R22 section), `docs/PLAN_STATUS.md` (row R22, section 2).
+- Tests: `tests/test_research_fill_replay.py` (URL pinning, the recorded listing, chunking and padding, the downloader's manifests,
+  resumption, refusals of foreign hosts, redirects and corrupt files, the parsers and the book, the arithmetic by hand, the post-only
+  rule, the replay end to end on scripted synthetic days, the summaries, JSON and tables, the command line);
+  `tests/test_research_boundaries.py` (R22 stays in the sandbox, names one public path and one archive host, never the demo header,
+  follows no redirect, is not imported by the app or the fleet); `tests/fixtures/fill_replay/listing_2026-11-05.json` (recorded
+  public listing responses).
+
+### Result (2026-11-05; `docs/research/FILL_COST_REPLAY.md`)
+- Ten UTC days (2026-10-25 to 2026-11-03), 60 files, 2,093 MB fetched in 18 minutes; 7.1 million trades and 64.2 million book
+  events replayed in about 10 minutes; 100 bar boundaries per instrument, 4,800 market-order walks, 384 post-only bars judged.
+- Spread plus impact against the next bar's open: 0.01 bps (BTC) and 0.04 bps (ETH) at the median for every clip from 1 K to 20 K
+  USDT; the 20 K clip 0.08 / 0.33 bps on average, 0.82 / 2.09 bps at the 99th percentile, 2.5 bps at worst; the book one tick wide
+  (0.013 / 0.043 bps). One second of latency: 0.5 / 1.0 bps median mid move, 1.8 / 2.9 bps at the 90th percentile, 15 bps once.
+  A post-only order at the touch filled within the bar in every bar judged, usually within seconds, by trade-through.
+- Recommendation for FUTURE BTC/ETH studies (owner's decision): 2 bps of slippage a side instead of 5, fee unchanged (0.24 % a round
+  trip instead of 0.30 %); altcoins unchanged until measured. Demo fills are from a separate thin book and are not evidence.
+
 ## Unreleased — R21: tokenized US stocks on OKX — feasibility, log-only data collector, design note (plan row R21)
 
 Research code, tests and docs only (`research/xstocks_data.py`, `scripts/collect_xstocks.py`, `scripts/xstocks-task.ps1`, `tests/`,

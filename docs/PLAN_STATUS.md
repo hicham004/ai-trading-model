@@ -431,6 +431,29 @@ Each line: the decision, then the recommendation. Chats add to this list instead
 
 ### Decided — the owner, 2026-10-22
 
+- From R22: the cost model of FUTURE research studies for BTC-USDT and ETH-USDT. The fill-cost replay
+  (`docs/research/FILL_COST_REPLAY.md`: ten UTC days of OKX's own tick and 400-level order-book archive,
+  2026-10-25 to 2026-11-03) measured the spread and book impact of 1 K-20 K USDT market orders at the
+  engine's fill moment at 0.01 bps (BTC) and 0.04 bps (ETH) at the median, 0.08 / 0.33 bps on average
+  for the 20 K clip, 0.82 / 2.09 bps at the 99th percentile and 2.5 bps at worst, against the engine's
+  5 bps a side; one second of latency moves the mid 0.5 / 1.0 bps at the median and 1.8 / 2.9 bps at the
+  90th percentile. Recommendation: for studies started after your go, charge 2 bps of slippage a side
+  for BTC-USDT and ETH-USDT with clips up to 20 K USDT (fee unchanged at 10 bps taker: 0.24 % a round
+  trip instead of 0.30 %), as a new default or a named cost profile in `research/engine.py`, written
+  into each study's pre-registration; altcoins unchanged (5 bps plus the altcoin 10 bps) until measured
+  the same way; no finished study re-judged, no paper-fleet account changed, nothing in the demo or
+  the app touched. Not applied by the runner: it eases every future gate by 6 bps a round trip.
+- From R22, for information: a post-only order at the touch filled within one 4H or 6H bar in all 384
+  bars judged (both instruments, both sides, 1 K-20 K), usually within seconds and by the market
+  trading through the price; this supports what Sprint 3's post-only entry policy assumes, from ten
+  days. A maker cost profile (8 bps fee plus 2 bps) is reasonable only for a study that explicitly
+  assumes that policy, after a longer sample. Demo fills come from a separate thin book and remain no
+  evidence of slippage. Nothing to decide now.
+- From R22, for information: the archive's listing takes `instIdList` (not `instId`; per-instrument
+  trades files of 1-9 MB a day exist beside the 50-150 MB all-SPOT zips), its module codes are 1 trades,
+  2 one-minute candles, 4 the 400-level book and 5 the 5,000-level book, and its trades and candle files
+  hold the UTC+8 day while the book files hold the UTC day; `docs/DATA_LAKE.md` records it. Nothing to
+  decide.
 - From R18a: the study's fleet rows are only RECORDED (`docs/research/trader_policy_v1_results.json`,
   `shortlist_additions`: the five confirmed configurations at the Trader tier with the brakes on, plus the
   "always long above the 200-day average, policy sizing" forward control on BTC-USDT and ETH-USDT 6H); appending

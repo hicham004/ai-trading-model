@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN = (
     "app.execution",
@@ -258,3 +260,40 @@ def test_the_tokenized_stocks_collector_stays_in_the_sandbox_reads_only_public_p
     assert ALLOWED_INSTRUMENTS == ("BTC-USDT", "ETH-USDT")
     for p in paths:
         assert_public_path(p)  # every path the collector names is one the GET-only client would accept
+
+
+def test_the_fill_cost_replay_stays_in_the_sandbox_lists_through_the_public_client_and_downloads_only_from_the_pinned_host():
+    """Plan row R22: the fill-cost replay is research code - no risk, database, broker, execution or exchange code. The archive LISTING goes
+    through the data lake's GET-only public client (one public path); the archive FILES come from a GET-only downloader that the module
+    never builds a network path for itself (the command line hands it a session), bound to https://static.okx.com/cdn/ and to the URLs
+    the listing returned, following no redirect and sending no header; the app and the paper fleet never import it; the allowlist is unchanged."""
+    stricter = FORBIDDEN + ("app.risk", "app.db", "app.broker", "app.backtest")
+    module = ROOT / "research" / "fill_replay.py"
+    script = ROOT / "scripts" / "run_fill_replay.py"
+    for path in (module, script):
+        assert path.exists(), path
+        for m in _imports(path):
+            for forbidden in stricter:
+                assert not (m == forbidden or m.startswith(forbidden + ".")), f"{path.relative_to(ROOT)} imports {m}"
+    network = [m for m in _imports(module) if m.split(".")[0] in ("requests", "httpx", "urllib", "websocket", "websockets", "aiohttp", "socket")]
+    assert not network, f"research/fill_replay.py opens its own network path: {network}"
+    text = module.read_text(encoding="utf-8") + chr(10) + script.read_text(encoding="utf-8")
+    for needle in ("/api/v5/trade", "/api/v5/account", "/api/v5/asset", "x-simulated-trading", "OK-ACCESS", "place_order", ".post(", "requests.post",
+                   "headers=", "auth=", "cookies=", "allow_redirects=True"):
+        assert needle not in text, needle
+    assert set(re.findall(r'"(/api/v5/[\w/\-]+)"', text)) == {"/api/v5/public/market-data-history"}
+    assert set(re.findall(r"\b((?:[a-z0-9\-]+\.)+okx\.com)\b", text)) == {"static.okx.com"}  # the listing host lives in the public client, not here
+    assert "allow_redirects=False" in module.read_text(encoding="utf-8")
+    for p in list((ROOT / "app").rglob("*.py")) + list((ROOT / "research" / "paper_fleet").rglob("*.py")):
+        assert "fill_replay" not in p.read_text(encoding="utf-8"), p
+    from app.datalake.okx_public_rest import assert_public_path
+    from app.okx.client import ALLOWED_INSTRUMENTS
+    from research.fill_replay import ARCHIVE_HOST, FillReplayError, MARKET_DATA_HISTORY_PATH, validate_archive_url
+
+    assert ALLOWED_INSTRUMENTS == ("BTC-USDT", "ETH-USDT") and ARCHIVE_HOST == "static.okx.com"
+    assert_public_path(MARKET_DATA_HISTORY_PATH)
+    validate_archive_url("https://static.okx.com/cdn/okex/traderecords/trades/daily/20261030/BTC-USDT-trades-2026-10-30.zip?v=1001")
+    for bad in ("https://www.okx.com/cdn/okex/x.zip", "http://static.okx.com/cdn/okex/x.zip", "https://static.okx.com.evil.example/cdn/x.zip",
+                "https://static.okx.com/api/v5/trade/order"):
+        with pytest.raises(FillReplayError):
+            validate_archive_url(bad)

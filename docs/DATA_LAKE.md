@@ -243,6 +243,38 @@ daily candles each; 42,024 candles in 3.5 minutes at 0.15 s between requests (26
 requests per 1H series, 1 per daily series); 15 books. The lake for the 15 pairs is
 1.7 MB of candles; a snapshot record is 5-12 KB.
 
+## OKX public market-data archive (plan row R22, research only)
+
+`research/fill_replay.py` with `scripts/run_fill_replay.py` fetches OKX's own daily archive
+files for BTC-USDT and ETH-USDT — tick-by-tick trades, 1-minute candles and the 400-level L2
+order book — to measure real fill costs (`docs/research/FILL_COST_REPLAY.md`). The files are
+NOT part of the lake: they are raw venue archives in a separate git-ignored folder,
+`data/archive/okx/` (override with `--archive-dir`), and they are deleted after the summaries
+are written unless `--keep` is given. The listing comes through the same GET-only public
+client as the lake (`GET /api/v5/public/market-data-history`; no key, no header); the files
+come from a GET-only downloader bound to `https://static.okx.com/cdn/...` and to the URLs the
+listing returned (no redirect followed, no header sent), verified against the listed size and
+the archive's own integrity check.
+
+```
+archive/okx/
+  <instrument>/trades/<inst>-trades-<YYYY-MM-DD>.zip            one CSV: instrument_name,trade_id,side,price,size,created_time,source
+  <instrument>/candles_1m/<inst>-candlesticks-<YYYY-MM-DD>.zip  one CSV: 1-minute candles (open_time in ms)
+  <instrument>/book_400/<inst>-L2orderbook-400lv-<YYYY-MM-DD>.tar.gz
+                                                               one .data member: JSON lines in the public books channel
+                                                               format (snapshot every 15 minutes, updates in between)
+  <instrument>/<kind>/<file>.json                              the manifest: listed size, bytes, SHA-256, fetch time; it
+                                                               stays after the raw file is deleted, as the record
+```
+
+Day boundaries differ by kind: a trades or candle file named `<day>` holds the UTC+8 day
+(16:00 UTC the day before to 16:00 UTC of `<day>`), a book file holds the UTC day. The replay
+therefore pools every trades and candle file of an instrument and walks the book files on the
+UTC grid; the trades files are fetched one day further than the book files. Sizes seen in
+November 2026: trades 1-9 MB a day per instrument, candles 0.04 MB, the book 35-160 MB; ten
+days of both instruments are about 2.1 GB, downloaded in 18 minutes on a residential line and
+replayed in about 10 minutes. The book is published T+3, the trades and candles T+2.
+
 ## Boundaries
 
 - Public data only; no API key is read or sent by anything in this package.

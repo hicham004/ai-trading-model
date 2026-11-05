@@ -894,3 +894,47 @@ to 10.7 %. One pre-market snapshot: spreads 0.8-8 bps, 3-126 K USDT within 0.5 %
   for "pre-open"; the 09:00-10:00 hour for the open); the NYSE holiday calendar in the code was
   written from the published calendar and should be verified before 2027.
 - The design note's changes are all in the reviewed safety core; the runner builds none of them.
+
+## Fill-cost replay from OKX's public tick and order-book archive (plan row R22)
+
+The research engine charges 10 bps fee plus 5 bps slippage a side and fills at the next bar's open;
+the Trader Plan (section 2.9) kept that cost "until R22 measures better". Row R22 (2026-11-05)
+measured it on the venue's own archive: research code and docs only, nothing under `app/` except
+the OKX changelog watcher's list of used endpoints and hosts (`app/ops/okx_usage.py`), no key, no
+header, no order.
+
+| Module | Purpose |
+|---|---|
+| `research/fill_replay.py` | The listing (`GET /api/v5/public/market-data-history` through the data lake's GET-only public client: `instIdList`, `module` 1 trades / 2 one-minute candles / 4 the 400-level book, at most 10 days and 10 instruments a query, a day of padding because the listing reads the window in UTC+8 for the trades modules and in UTC for the book); the host-pinned GET-only downloader (`https://static.okx.com/cdn/...` and the listed URLs only, no redirect, no header, size and integrity verified, one manifest per file, resumable); the parsers (trades and candle CSVs, the book's JSON lines); the order book; the arithmetic (walking a clip through the levels, costs against the mid, the candle close and the next open); the post-only rule from the tape; the replay over pooled trades and UTC book days; the summaries, the JSON and the Markdown tables. |
+| `scripts/run_fill_replay.py` | `--list`, `--fetch`, `--replay [--keep]`, `--all`, `--status`; `--start/--end` or `--days` (the book is published T+3, the trades one file further because their files hold the UTC+8 day); exit codes 0 / 1 (a file or a day failed; the next run resumes) / 2 (setup). |
+| `docs/research/FILL_COST_REPLAY.md`, `fill_cost_replay_results.json`, `fill_cost_replay_tables.md` | The report, the numbers (summaries plus one record per bar boundary) and the full generated tables. |
+
+### Running
+
+```bash
+python scripts/run_fill_replay.py --list --days 10                      # what the archive offers (public listing only)
+python scripts/run_fill_replay.py --fetch --start 2026-10-25 --end 2026-11-03   # about 2.1 GB for ten days of both instruments; resumable
+python scripts/run_fill_replay.py --replay --start 2026-10-25 --end 2026-11-03  # about 10 minutes; deletes the raw files afterwards unless --keep
+```
+
+### Result (2026-11-05)
+
+Ten UTC days (2026-10-25 to 2026-11-03), 7.1 million trades, 64.2 million book events, 100 bar
+boundaries per instrument. For 1 K to 20 K USDT market orders the spread and impact against the next
+bar's open are 0.01 bps (BTC) and 0.04 bps (ETH) at the median for every clip; the 20 K clip averages
+0.08 and 0.33 bps, with a 99th percentile of 0.82 and 2.09 bps and a worst fill of 2.5 bps. One
+second of latency moves the mid 0.5-1.0 bps at the median and 1.8-2.9 bps at the 90th percentile
+(15 bps once, in a burst). A post-only order at the touch filled within the bar in all 384 bars
+judged, usually within seconds, by the market trading through it. Recommendation for future BTC/ETH
+studies: 2 bps of slippage a side instead of 5 (0.24 % a round trip instead of 0.30 %), altcoins
+unchanged; the owner decides (`docs/PLAN_STATUS.md`, section 2). No finished study is re-judged.
+
+### Reading the R22 report honestly
+
+- Ten days and one regime; bar boundaries only; the displayed book without hidden liquidity or the
+  trader's own latency beyond the one-second moment; the post-only rule is a lower bound on fills
+  and assumes the order is left alone. Demo fills come from a separate thin book and are not
+  evidence of any of this.
+- The measurement says the engine's slippage is far above the venue's cost for these two books; it
+  does not make any strategy better, and the fee (10 bps a side) remains the cost that limits
+  turnover (plan section 2.9).
