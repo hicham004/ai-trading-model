@@ -56,6 +56,7 @@ BRACKETS: Dict[str, BracketSpec] = {
     "tp3": BracketSpec("tp3", take_profit_r=3.0),
     "trail1": BracketSpec("trail1", trail_activate_r=1.0, trail_r=1.0),
     "trail2": BracketSpec("trail2", trail_activate_r=1.0, trail_r=2.0),
+    "trail3": BracketSpec("trail3", trail_activate_r=1.0, trail_r=3.0),  # plan row R18: the wide trailing exit variant
     "trail1_tp3": BracketSpec("trail1_tp3", take_profit_r=3.0, trail_activate_r=1.0, trail_r=1.0),
     "time30": BracketSpec("time30", time_stop_days=30.0),
 }

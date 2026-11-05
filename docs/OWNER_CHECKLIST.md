@@ -213,11 +213,15 @@ XNVDA/USDT); nothing trades them. Only you can see what your account may do:
 Reference (today's), Trader (a 20 % volatility target with at most 2 % of the
 account at risk on one stop: about 1.7 to 2 times today's size and today's
 drawdowns on most sleeves, less on SOL, whose stop is widest) and Aggressive
-(25 % and 2.5 %). Plan row R18
-tests all three and puts the Trader version of each passing rule into the
-paper fleet beside the existing accounts. Nothing moves to the demo account
-without your separate go. If you also want to watch the Aggressive tier in the
-fleet, say so in one line; otherwise nothing is needed.
+(25 % and 2.5 %). Plan row R18a (done 2026-11-05,
+`docs/research/TRADER_POLICY_V1_REPORT.md`) tested all three: all five
+confirmed rules pass the plan's gates at the Trader tier with the brakes on,
+and the Trader version of each is recorded for the paper fleet; plan row R18b
+adds those accounts beside the existing ones (the fleet's loader has to learn
+the tier-tagged rows first). Nothing moves to the demo account without your
+separate go. If you also want to watch the Aggressive tier in the fleet (it
+passed on all five too, at about 1.2 times the Trader drawdowns), say so in one
+line; otherwise nothing is needed.
 
 ## 11. A one-line go for the small demo fix (R14 part A)
 

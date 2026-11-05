@@ -117,7 +117,9 @@ def test_bracket_take_profit_time_stop_and_frames():
     assert apply_bracket(frame, get_bracket("none"), "1H") is frame
     with pytest.raises(ValueError):
         get_bracket("tp99")
-    assert set(BRACKETS) == {"none", "tp2", "tp3", "trail1", "trail2", "trail1_tp3", "time30"}
+    # "trail3" joined the registry in plan row R18 (a flagged variant); the Sprint 2c protocol's default list is unchanged.
+    assert set(BRACKETS) == {"none", "tp2", "tp3", "trail1", "trail2", "trail3", "trail1_tp3", "time30"}
+    assert get_bracket("trail3").trail_activate_r == 1.0 and get_bracket("trail3").trail_r == 3.0
 
 
 def test_per_column_time_stops():

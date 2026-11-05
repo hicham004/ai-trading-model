@@ -10,10 +10,13 @@ from research.engine import Costs
 from research.metrics import max_drawdown
 
 
-def trade_order_bootstrap(trade_returns: Sequence[float], *, n_paths: int = 1000, seed: int = 0) -> Dict[str, float]:
+def trade_order_bootstrap(trade_returns: Sequence[float], *, n_paths: int = 1000, seed: int = 0,
+                          dd_thresholds: Sequence[float] = (0.30,)) -> Dict[str, float]:
     """Resample the sequence of per-trade returns (with replacement) and study paths.
 
-    Returns percentiles of terminal growth and maximum drawdown across paths.
+    Returns percentiles of terminal growth and maximum drawdown across paths, and
+    the share of paths whose maximum drawdown reaches each of ``dd_thresholds``
+    (plan row R18: the probability of touching the -30 % hard stop).
     Compounded, all-in sizing (matches the sweep engine's default).
     """
     r = np.asarray([x for x in trade_returns if np.isfinite(x)], dtype=float)
@@ -24,7 +27,7 @@ def trade_order_bootstrap(trade_returns: Sequence[float], *, n_paths: int = 1000
     growth = np.cumprod(1.0 + r[idx], axis=1)
     terminal = growth[:, -1]
     dds = np.array([max_drawdown(np.concatenate([[1.0], path])) for path in growth])
-    return {
+    out = {
         "n_trades": int(r.size),
         "paths": int(n_paths),
         "terminal_p05": float(np.percentile(terminal, 5)),
@@ -35,6 +38,9 @@ def trade_order_bootstrap(trade_returns: Sequence[float], *, n_paths: int = 1000
         "max_dd_p95": float(np.percentile(dds, 95)),
         "max_dd_worst": float(dds.max()),
     }
+    for threshold in dd_thresholds:
+        out[f"prob_max_dd_ge_{float(threshold) * 100:g}"] = float((dds >= float(threshold) - 1e-12).mean())
+    return out
 
 
 def slippage_stress(run: Callable[[Costs], Mapping[str, float]], base: Costs, multipliers: Sequence[float] = (1.0, 2.0, 3.0), metric: str = "total_return") -> Dict[str, float]:

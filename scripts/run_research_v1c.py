@@ -43,15 +43,30 @@ from app.datalake.layout import LakeLayout  # noqa: E402
 from app.risk.manager import RiskLimits, RiskManager  # noqa: E402
 from app.strategy.timeframes import parse_timeframe  # noqa: E402
 from research.bracket import BRACKETS  # noqa: E402
+from research.brakes import summary_for_column  # noqa: E402
 from research.data import bars_per_year, load_or_resample_candles, positioning_context, split_holdout, to_market_candles  # noqa: E402
 from research.engine import Costs, buy_and_hold  # noqa: E402
 from research.gated_walkforward import (  # noqa: E402
     WindowRegime,
+    cost_scenarios_gated,
     gate_desired_matrix,
     regimes_for_windows,
     replay_gated,
     run_gated_walk_forward,
     slippage_stress_gated,
+)
+from research.trader_policy import (  # noqa: E402  (plan row R18: tiers, brakes and variants, all off by default)
+    VARIANT_NAMES,
+    acceptance_check_r18,
+    brake_spec_from_args,
+    cap_binding_stats,
+    conviction_multiplier,
+    conviction_test,
+    trade_stats,
+    variant,
+    variant_applies,
+    variant_combos,
+    variant_frames,
 )
 from research.metrics import deflated_sharpe_ratio, equity_metrics, return_moments, sharpe, trade_metrics  # noqa: E402
 from research.montecarlo import trade_order_bootstrap  # noqa: E402
@@ -72,7 +87,7 @@ from research.report_v1c import (  # noqa: E402
     yearly_gate_v2,
 )
 from research.sized_walkforward import SizingSelection  # noqa: E402
-from research.sizing import LadderConfig, SizingSpec, fraction_matrix, sizing_grid  # noqa: E402
+from research.sizing import LadderConfig, SizingSpec, fraction_matrix, rule_fraction_matrix, sizing_grid  # noqa: E402
 from research.strategies import ALL_KEYS, REFERENCES, S5_RETEST_VARIANTS, TURNOVER_VARIANTS, get_candidate  # noqa: E402
 from research.strategies.adapters import ResearchStrategyAdapter  # noqa: E402
 from research.strategies.base import days_to_bars  # noqa: E402
@@ -123,6 +138,17 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--policy-crash-dd", type=float, default=0.15)
     p.add_argument("--policy-crash-days", type=float, default=90.0)
     p.add_argument("--policy-no-ladder", action="store_true")
+    # Plan row R18 (Trader Policy v1). Every default below is Sprint 2c's behaviour; the protocol check records any change.
+    p.add_argument("--policy-kind", default="vol_target", choices=["vol_target", "risk"], help="Sizing kind: the vol target, or risk-sized from the stop (Kovner).")
+    p.add_argument("--policy-risk", type=float, default=None, help="Kind 'risk': the share of equity at risk on every stop (e.g. 0.015).")
+    p.add_argument("--policy-risk-cap", type=float, default=None, help="Per-trade cap: allocation <= cap / (stop distance / close) (e.g. 0.02).")
+    p.add_argument("--turtle-ladder", action="store_true", help="The entries-only Turtle ladder (x0.8 at -10 %%, x0.64 at -20 %%, restored on new highs).")
+    p.add_argument("--brakes", action="store_true", help="The section 4.3 brakes: hard stop, entry caps, loss limits, heat cap (entries only).")
+    p.add_argument("--heat-cap", type=float, default=None, help="Heat cap when --brakes is on (default 0.06; the variant is 0.08).")
+    p.add_argument("--variant", default="none", choices=list(VARIANT_NAMES), help="One pre-registered position-management variant (default none).")
+    p.add_argument("--cost-scenarios", nargs="*", default=[], metavar="NAME=FEE:SLIP",
+                   help="Fixed replays of the selected rule at other per-side costs, e.g. measured=0.0005:0.0005 altcoin=0.001:0.0015.")
+    p.add_argument("--tier", default=None, help="A label for the sizing tier this run represents (recorded with every result).")
     p.add_argument("--no-comparison", action="store_true", help="Skip the small train-selected sizing comparison.")
     p.add_argument("--rebalance-threshold", type=float, default=0.25)
     p.add_argument("--ladder-recovery-days", type=float, default=30.0)
@@ -155,9 +181,34 @@ def _wf_config(args, timeframe: str, *, min_trades: Optional[int] = None) -> Wal
 
 
 def _policy_spec(args) -> SizingSpec:
-    return SizingSpec(kind="vol_target", target_vol=args.policy_target_vol, vol_lookback=args.policy_lookback,
-                      crash_dd=args.policy_crash_dd, crash_window_days=args.policy_crash_days, crash_mode="half",
-                      ladder=not args.policy_no_ladder)
+    kind = getattr(args, "policy_kind", "vol_target")
+    extra = {}
+    if kind == "risk":
+        extra = {"kind": "risk", "risk_fraction": args.policy_risk}
+    else:
+        extra = {"kind": "vol_target", "target_vol": args.policy_target_vol, "vol_lookback": args.policy_lookback}
+    return SizingSpec(crash_dd=args.policy_crash_dd, crash_window_days=args.policy_crash_days, crash_mode="half",
+                      ladder=not args.policy_no_ladder, risk_cap=getattr(args, "policy_risk_cap", None), **extra)
+
+
+def _brakes(args):
+    """Plan row R18: the brake spec of this run (None = the engine's default path, as in Sprint 2c)."""
+    return brake_spec_from_args(bool(getattr(args, "turtle_ladder", False)), bool(getattr(args, "brakes", False)), getattr(args, "heat_cap", None))
+
+
+def _variant_name(args) -> str:
+    return str(getattr(args, "variant", "none") or "none")
+
+
+def _cost_scenarios(args) -> Dict[str, Costs]:
+    out: Dict[str, Costs] = {}
+    for item in getattr(args, "cost_scenarios", None) or []:
+        name, _, pair = str(item).partition("=")
+        fee, _, slip = pair.partition(":")
+        if not name or not fee or not slip:
+            raise ValueError(f"cost scenario {item!r} must look like NAME=FEE:SLIP")
+        out[name] = Costs(fee_rate=float(fee), slippage_rate=float(slip))
+    return out
 
 
 def _comparison_specs(args) -> List[SizingSpec]:
@@ -238,7 +289,23 @@ def run_candidate(args, layout: LakeLayout, df_all: pd.DataFrame, instrument: st
     frames = build_frames(candidate, df_in, combos, context, no_trade=no_trade)
     cfg = _wf_config(args, timeframe, min_trades=1 if not has_stop else None)
     ladder = LadderConfig(recovery_bars=days_to_bars(args.ladder_recovery_days, timeframe))
-    policy_fracs = fraction_matrix(df_in, [policy], timeframe, ppy)
+    # Plan row R18: the tier's brakes and the variant of this run (all None / "none" by default: Sprint 2c's path, unchanged).
+    brakes = _brakes(args)
+    vname = _variant_name(args)
+    applies, why_not = variant_applies(vname, key, combos)
+    vspec = variant(vname if applies else "none")
+    engine_var = vspec.engine
+    conv = conviction_multiplier(df_in, timeframe) if vspec.name == "conviction" else None
+    test_frames = variant_frames(vspec.name, candidate, df_in, combos, context, no_trade=no_trade) if vspec.kind == "frames" else None
+    stop_aware = policy.needs_stop or conv is not None
+
+    def _policy_fractions(frame_set, data=df_in, mult=conv):
+        # A stop-aware tier reads the stop the trade will actually carry (the variant's frames when a variant changes them).
+        if stop_aware:
+            return rule_fraction_matrix(data, policy, frame_set.stop, timeframe, ppy, multiplier=mult)
+        return fraction_matrix(data, [policy], timeframe, ppy)
+
+    policy_fracs = _policy_fractions(test_frames if test_frames is not None else frames)
     comp_specs = _comparison_specs(args)
     comp_fracs = fraction_matrix(df_in, comp_specs, timeframe, ppy) if comp_specs else None
     rebalance = _rebalance(args)
@@ -247,9 +314,12 @@ def run_candidate(args, layout: LakeLayout, df_all: pd.DataFrame, instrument: st
 
     wf = run_gated_walk_forward(df_in, frames, combos, cfg, policy, policy_fracs, ladder, regime_cfg, costs=costs, periods_per_year=ppy,
                                 timeframe=timeframe, rebalance_threshold=rebalance, stage_a_columns=stage_a, siblings=siblings, regimes=regimes,
-                                comparison_specs=comp_specs or None, comparison_fractions=comp_fracs, comparison_cfg=comparison_cfg)
+                                comparison_specs=comp_specs or None, comparison_fractions=comp_fracs, comparison_cfg=comparison_cfg,
+                                brakes=brakes, variants=engine_var, test_frames=test_frames)
     windows = make_windows(len(df_in), cfg)
     notes: List[str] = []
+    if vname != "none" and not applies:
+        notes.append(f"variant {vname!r} does not apply to this rule ({why_not}); the base rule ran instead")
     selected = wf.rule_most_often
     if selected is None:
         last = wf.last_selected
@@ -262,14 +332,22 @@ def run_candidate(args, layout: LakeLayout, df_all: pd.DataFrame, instrument: st
     if rule_col is None:
         combos = list(combos) + [selected]
         frames = build_frames(candidate, df_in, combos, context, no_trade=no_trade)
+        test_frames = variant_frames(vspec.name, candidate, df_in, combos, context, no_trade=no_trade) if vspec.kind == "frames" else None
+        policy_fracs = _policy_fractions(test_frames if test_frames is not None else frames)
         rule_col = len(combos) - 1
+    sim_frames = test_frames if test_frames is not None else frames  # what the selected rule is simulated with
+    rule_fracs = policy_fracs[:, [rule_col]] if policy_fracs.shape[1] > 1 else policy_fracs
 
     # Robustness: ±30 % perturbations replayed with the same per-window gate and the policy sizing.
     neighbours = perturbed_params(selected, list(candidate.grid), tolerance=0.30)
     sets = [selected] + neighbours
-    pert_frames = build_frames(candidate, df_in, sets, context, no_trade=no_trade)
+    if vspec.kind == "frames":
+        pert_frames = variant_frames(vspec.name, candidate, df_in, sets, context, no_trade=no_trade)
+    else:
+        pert_frames = build_frames(candidate, df_in, sets, context, no_trade=no_trade)
     replays, _ = replay_gated(df_in, pert_frames, range(len(sets)), windows, regimes, costs=costs, periods_per_year=ppy,
-                              size_fraction=policy_fracs, ladder=ladder, ladder_on=policy.ladder, rebalance_threshold=rebalance)
+                              size_fraction=_policy_fractions(pert_frames), ladder=ladder, ladder_on=policy.ladder, rebalance_threshold=rebalance,
+                              brakes=brakes, variants=engine_var)
     neighbour_returns = np.array([r["total_return"] for r in replays[1:]], dtype=float)
     robust = {
         "n_neighbours": int(len(neighbours)), "best": float(replays[0]["total_return"]),
@@ -295,9 +373,23 @@ def run_candidate(args, layout: LakeLayout, df_all: pd.DataFrame, instrument: st
     trades = wf.oos_trades
     equity_level = (trades["return_pct"] * trades["size_fraction"]).to_numpy() if len(trades) else []
     mc = trade_order_bootstrap(equity_level, n_paths=args.mc_paths, seed=args.seed)
-    stress = slippage_stress_gated(df_in, frames, rule_col, windows, regimes, base_costs=costs, periods_per_year=ppy, size_fraction=policy_fracs,
-                                   ladder=ladder, ladder_on=policy.ladder, rebalance_threshold=rebalance)
+    stress = slippage_stress_gated(df_in, sim_frames, rule_col, windows, regimes, base_costs=costs, periods_per_year=ppy, size_fraction=rule_fracs,
+                                   ladder=ladder, ladder_on=policy.ladder, rebalance_threshold=rebalance, brakes=brakes, variants=engine_var)
     acceptance = acceptance_check_v1c(wf.oos_metrics, yearly_gate, robust)
+    tier_name = getattr(args, "tier", None)
+    acceptance_r18 = acceptance_check_r18(wf.oos_metrics, yearly_gate, robust, tier_name or "reference")
+    scenarios = _cost_scenarios(args)
+    cost_replays = cost_scenarios_gated(df_in, sim_frames, rule_col, windows, regimes, scenarios=scenarios, periods_per_year=ppy, size_fraction=rule_fracs,
+                                        ladder=ladder, ladder_on=policy.ladder, rebalance_threshold=rebalance, brakes=brakes, variants=engine_var) if scenarios else {}
+    rule_of_window = {w.idx: w.rule_combo for w in wf.windows if w.rule_combo is not None}
+    r18 = {
+        "tier": tier_name, "brakes": None if brakes is None else brakes.to_dict(), "brake_summary": wf.brake_summary,
+        "variant": dict(vspec.to_dict(), requested=vname, applies=bool(applies), why_not=why_not),
+        "trades": trade_stats(trades, slippage_rate=costs.slippage_rate),
+        "cap": cap_binding_stats(trades, df_in, rule_of_window, sim_frames.stop, policy, timeframe, ppy, multiplier=conv),
+        "conviction": conviction_test(trades, df_in, timeframe) if vspec.name == "conviction" else None,
+        "acceptance": acceptance_r18, "cost_scenarios": cost_replays,
+    }
     train_shares = [w.regime_train.get("bear_share") for w in wf.windows if w.regime_train]
     test_shares = [w.regime_test.get("bear_share") for w in wf.windows if w.regime_test]
     if "S5" in key:
@@ -323,6 +415,7 @@ def run_candidate(args, layout: LakeLayout, df_all: pd.DataFrame, instrument: st
         "regime_test_bear_share_median": float(np.median(test_shares)) if test_shares else None,
         "positioning_coverage": cov,
         "acceptance": acceptance,
+        "acceptance_r18": acceptance_r18, "r18": r18, "tier": tier_name,
         "windows": [
             {"idx": w.idx, "train": f"{w.train_start:%Y-%m-%d}->{w.train_end:%Y-%m-%d}", "test": f"{w.test_start:%Y-%m-%d}->{w.test_end:%Y-%m-%d}",
              "rule": w.rule_params, "rule_train_metric": None if not np.isfinite(w.rule_train_metric) else w.rule_train_metric,
@@ -335,9 +428,12 @@ def run_candidate(args, layout: LakeLayout, df_all: pd.DataFrame, instrument: st
     }
 
     # Passers are judged on the untouched holdout; the passive controls are evaluated on it too (a reference, not a selection).
-    if (acceptance["passed"] or not has_stop) and args.evaluate_holdout and len(df_hold):
-        full_frames = build_frames(candidate, df_all, [selected], context, no_trade=no_trade)
-        full_fracs = fraction_matrix(df_all, [policy], timeframe, ppy)
+    holdout_pass = acceptance_r18["passed"] if tier_name else acceptance["passed"]  # an R18 tier run is judged by the section 4.6 gates
+    if (holdout_pass or not has_stop) and args.evaluate_holdout and len(df_hold):
+        full_frames = (variant_frames(vspec.name, candidate, df_all, [selected], context, no_trade=no_trade) if vspec.kind == "frames" else None)
+        if full_frames is None:
+            full_frames = build_frames(candidate, df_all, [selected], context, no_trade=no_trade)
+        full_fracs = _policy_fractions(full_frames, data=df_all, mult=conviction_multiplier(df_all, timeframe) if conv is not None else None)
         if regime_cfg.active:
             try:
                 fitted = fit_regime(df_in, timeframe, ppy, regime_cfg)
@@ -354,12 +450,14 @@ def run_candidate(args, layout: LakeLayout, df_all: pd.DataFrame, instrument: st
         if full_frames is not None:
             hold_slice = slice(len(df_in), len(df_all))
             res = simulate_sizing(df_all, full_frames, 0, hold_slice, full_fracs, costs=costs, ladder=ladder, ladder_mask=np.array([policy.ladder]),
-                                  rebalance_threshold=rebalance)
+                                  rebalance_threshold=rebalance, brakes=brakes, variants=engine_var)
             hm = equity_metrics(res.equity[:, 0], ppy)
             hm.update(trade_metrics(res.trades, init_cash=res.init_cash, n_bars=res.n_bars, periods_per_year=ppy))
             hm["avg_allocation"] = float(res.avg_allocation[0])
             out["holdout"] = {k: _finite(v, k) for k, v in hm.items()}
-            if has_stop and selected.get("bracket", "none") == "none" and not regime_cfg.active:
+            out["holdout_r18"] = {"trades": trade_stats(res.trades, slippage_rate=costs.slippage_rate),
+                                  "brake_summary": summary_for_column(res.brakes, 0) if res.brakes else {}}
+            if has_stop and selected.get("bracket", "none") == "none" and not regime_cfg.active and vspec.name == "none":
                 try:
                     hold_frames = build_frames(candidate, df_hold, [selected], context, no_trade=no_trade)
                     vec = simulate_sizing(df_hold, hold_frames, 0, slice(0, len(df_hold)), np.ones((len(df_hold), 1)), costs=costs)
@@ -704,6 +802,8 @@ def main(argv=None) -> int:
             "selection": "entries selected among bracket-free rules, then the exit bracket among siblings, on the gated train slice; fixed policy sizing",
             "positioning_source": args.positioning_source, "instruments": args.instruments, "timeframes": args.timeframes,
             "strategies": args.strategies, "quick": bool(args.quick), "seed": args.seed, "workers": args.workers,
+            "r18": {"tier": args.tier, "brakes": None if _brakes(args) is None else _brakes(args).to_dict(), "variant": _variant_name(args),
+                    "cost_scenarios": list(args.cost_scenarios)},
             "report_path": args.report, "shortlist_path": args.shortlist,
             "elapsed_minutes": round((time.monotonic() - t0) / 60.0, 1),
         },

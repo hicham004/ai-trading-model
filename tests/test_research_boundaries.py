@@ -32,7 +32,8 @@ def test_research_package_and_runner_stay_in_the_sandbox():
     files = list((ROOT / "research").rglob("*.py")) + [ROOT / "scripts" / "run_research.py", ROOT / "scripts" / "run_research_v1b.py", ROOT / "scripts" / "run_research_v1c.py",
                                                        ROOT / "scripts" / "run_paper_fleet.py", ROOT / "scripts" / "run_allocator_v2.py",
                                                        ROOT / "scripts" / "run_long_short_study.py", ROOT / "scripts" / "run_replication_v1d.py",
-                                                       ROOT / "scripts" / "run_research_round_1.py", ROOT / "scripts" / "run_research_round_2.py"]
+                                                       ROOT / "scripts" / "run_research_round_1.py", ROOT / "scripts" / "run_research_round_2.py",
+                                                       ROOT / "scripts" / "run_trader_policy_v1.py"]
     assert files
     for path in files:
         for module in _imports(path):

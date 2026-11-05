@@ -10,7 +10,8 @@ import numpy as np
 import pandas as pd
 
 from research.bracket import apply_bracket, get_bracket
-from research.engine import Costs, SweepResult, run_vectorized
+from research.brakes import BrakeSpec
+from research.engine import Costs, EngineVariants, SweepResult, run_vectorized
 from research.metrics import summarize_combo
 from research.sizing import LadderConfig
 from research.strategies.base import FeatureContext, ResearchStrategy, SignalFrame, gate_entries
@@ -108,6 +109,11 @@ def _slice_fraction(size_fraction: Union[float, np.ndarray], sl: slice, n_total:
     return sf
 
 
+def _bar_times(sub: pd.DataFrame, brakes: Optional[BrakeSpec]):
+    """The bars' timestamps for the engine's brakes (only when brakes run: the default path hands nothing over)."""
+    return None if brakes is None else np.asarray(sub.index.values)
+
+
 def simulate_slice(
     df: pd.DataFrame,
     frames: Frames,
@@ -120,12 +126,15 @@ def simulate_slice(
     ladder: Optional[LadderConfig] = None,
     ladder_mask: Optional[np.ndarray] = None,
     rebalance_threshold: Optional[float] = None,
+    brakes: Optional[BrakeSpec] = None,
+    variants: Optional[EngineVariants] = None,
 ) -> SweepResult:
     """Simulate (a subset of) combos on ``df[sl]`` starting flat.
 
     ``size_fraction`` is a scalar or a full-length (n, 1 | k) matrix of entry
     fractions that is sliced like ``df``; ``ladder_mask`` refers to the selected
-    columns (length k) when given.
+    columns (length k) when given. ``brakes`` / ``variants`` are the plan-row-R18
+    engine options (off by default).
     """
     cols = np.arange(frames.n_combos) if columns is None else np.asarray(list(columns), dtype=int)
     desired = frames.desired[sl][:, cols]
@@ -140,7 +149,7 @@ def simulate_slice(
         desired, stop, costs=costs, time_stop_bars=time_stops, target_distance=target,
         size_fraction=_slice_fraction(size_fraction, sl, len(df), len(cols)), init_cash=init_cash,
         trail_activate_r=act, trail_r=dist, ladder=ladder, ladder_mask=ladder_mask,
-        rebalance_threshold=rebalance_threshold,
+        rebalance_threshold=rebalance_threshold, brakes=brakes, bar_times=_bar_times(sub, brakes), variants=variants,
     )
 
 
@@ -156,6 +165,8 @@ def simulate_sizing(
     ladder_mask: Optional[np.ndarray] = None,
     rebalance_threshold: Optional[float] = None,
     init_cash: float = 10_000.0,
+    brakes: Optional[BrakeSpec] = None,
+    variants: Optional[EngineVariants] = None,
 ) -> SweepResult:
     """One rule (``column``) under every sizing column of ``fractions`` (full-length (n, S))."""
     S = int(np.asarray(fractions).shape[1])
@@ -170,7 +181,7 @@ def simulate_sizing(
         desired, stop, costs=costs, time_stop_bars=[frames.time_stops[column]] * S, target_distance=target,
         size_fraction=np.asarray(fractions, dtype=float)[sl], init_cash=init_cash,
         trail_activate_r=act, trail_r=dist, ladder=ladder, ladder_mask=ladder_mask,
-        rebalance_threshold=rebalance_threshold,
+        rebalance_threshold=rebalance_threshold, brakes=brakes, bar_times=_bar_times(sub, brakes), variants=variants,
     )
 
 

@@ -1,0 +1,1577 @@
+{
+ "note": "Every opening of the untouched 12 months by the Trader Policy v1 study (plan row R18), in order; entries are appended, never edited. A tier changes only the size of the same trades, so an opening at a tier is a near-second look at months the stored studies already opened at the Reference tier; the report names the earlier look beside each opening. The hold controls' 12 months are a comparison line.",
+ "entries": [
+  {
+   "generated_at": "2026-11-05 03:22 UTC",
+   "started_at": "2026-11-05 03:13 UTC",
+   "preregistration_sha256": "64d73064dfb183e98e3593213a1174b8418df13c5cbc32d591ab54dfbe2f3666",
+   "results_file": "docs/research/trader_policy_v1_results.json",
+   "openings": [
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "time30"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.106526,
+     "max_drawdown": 0.044136,
+     "profit_factor": 3.513339,
+     "n_trades": 11,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "time30"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.095279,
+     "max_drawdown": 0.021302,
+     "profit_factor": 5.485294,
+     "n_trades": 12,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "time30"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.085372,
+     "max_drawdown": 0.035547,
+     "profit_factor": 3.514392,
+     "n_trades": 11,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.038732,
+     "max_drawdown": 0.0931,
+     "profit_factor": 1.336438,
+     "n_trades": 30,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.022704,
+     "max_drawdown": 0.039434,
+     "profit_factor": 1.475736,
+     "n_trades": 32,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.034127,
+     "max_drawdown": 0.076659,
+     "profit_factor": 1.362265,
+     "n_trades": 30,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.106526,
+     "max_drawdown": 0.044136,
+     "profit_factor": 3.513339,
+     "n_trades": 11,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.095279,
+     "max_drawdown": 0.021302,
+     "profit_factor": 5.485294,
+     "n_trades": 12,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.085372,
+     "max_drawdown": 0.035547,
+     "profit_factor": 3.514392,
+     "n_trades": 11,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+VC BTC-USDT 4H [gate]",
+     "cell": "reference|nobrakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 1,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.019813,
+     "max_drawdown": 0.043534,
+     "profit_factor": 1.40848,
+     "n_trades": 25,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 4H [gate]",
+     "cell": "reference|nobrakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.017873,
+     "max_drawdown": 0.022949,
+     "profit_factor": 1.645297,
+     "n_trades": 18,
+     "confirmed": true
+    },
+    {
+     "configuration": "TF BTC-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "tf_control",
+     "selected_params": {
+      "sma_days": 200.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.015819,
+     "max_drawdown": 0.073823,
+     "profit_factor": 0.785719,
+     "n_trades": 6,
+     "confirmed": null
+    },
+    {
+     "configuration": "TF BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "tf_control",
+     "selected_params": {
+      "sma_days": 200.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.012274,
+     "max_drawdown": 0.0594,
+     "profit_factor": 0.793364,
+     "n_trades": 6,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 4H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.093606,
+     "max_drawdown": 0.13504,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 4H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.042675,
+     "max_drawdown": 0.052232,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 4H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.074885,
+     "max_drawdown": 0.108266,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.096225,
+     "max_drawdown": 0.142641,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.039948,
+     "max_drawdown": 0.054928,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.07698,
+     "max_drawdown": 0.114669,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 4H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.066809,
+     "max_drawdown": 0.075771,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 4H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.026724,
+     "max_drawdown": 0.030377,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 4H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.053447,
+     "max_drawdown": 0.060663,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 4H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.065841,
+     "max_drawdown": 0.09845,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 4H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.026336,
+     "max_drawdown": 0.039541,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 4H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.052673,
+     "max_drawdown": 0.078867,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.072736,
+     "max_drawdown": 0.100531,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.029095,
+     "max_drawdown": 0.040396,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.058189,
+     "max_drawdown": 0.080547,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.063426,
+     "max_drawdown": 0.095611,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.02537,
+     "max_drawdown": 0.038442,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.05074,
+     "max_drawdown": 0.07662,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    }
+   ],
+   "earlier_looks": [
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "earlier_study": "Sprint 2c",
+     "earlier_opened": true,
+     "earlier_total_return": 0.022704,
+     "earlier_profit_factor": 1.475736,
+     "earlier_n_trades": 32,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "earlier_study": "Sprint 2c",
+     "earlier_opened": true,
+     "earlier_total_return": 0.022704,
+     "earlier_profit_factor": 1.475736,
+     "earlier_n_trades": 32,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_study": "Sprint 2c",
+     "earlier_opened": true,
+     "earlier_total_return": 0.022704,
+     "earlier_profit_factor": 1.475736,
+     "earlier_n_trades": 32,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+VC BTC-USDT 4H [gate]",
+     "cell": "reference|nobrakes|none",
+     "earlier_study": "R13 research round 1",
+     "earlier_opened": true,
+     "earlier_total_return": 0.019813,
+     "earlier_profit_factor": 1.40848,
+     "earlier_n_trades": 25,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 4H [gate]",
+     "cell": "reference|nobrakes|none",
+     "earlier_study": "R16 research round 2",
+     "earlier_opened": true,
+     "earlier_total_return": 0.017873,
+     "earlier_profit_factor": 1.645297,
+     "earlier_n_trades": 18,
+     "earlier_confirmed": true
+    }
+   ]
+  },
+  {
+   "generated_at": "2026-11-05 03:34 UTC",
+   "started_at": "2026-11-05 03:25 UTC",
+   "preregistration_sha256": "64d73064dfb183e98e3593213a1174b8418df13c5cbc32d591ab54dfbe2f3666",
+   "results_file": "docs/research/trader_policy_v1_results.json",
+   "openings": [
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "time30"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.106526,
+     "max_drawdown": 0.044136,
+     "profit_factor": 3.513339,
+     "n_trades": 11,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "time30"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.095279,
+     "max_drawdown": 0.021302,
+     "profit_factor": 5.485294,
+     "n_trades": 12,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "time30"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.085372,
+     "max_drawdown": 0.035547,
+     "profit_factor": 3.514392,
+     "n_trades": 11,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.038732,
+     "max_drawdown": 0.0931,
+     "profit_factor": 1.336438,
+     "n_trades": 30,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.022704,
+     "max_drawdown": 0.039434,
+     "profit_factor": 1.475736,
+     "n_trades": 32,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.034127,
+     "max_drawdown": 0.076659,
+     "profit_factor": 1.362265,
+     "n_trades": 30,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.106526,
+     "max_drawdown": 0.044136,
+     "profit_factor": 3.513339,
+     "n_trades": 11,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.095279,
+     "max_drawdown": 0.021302,
+     "profit_factor": 5.485294,
+     "n_trades": 12,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.085372,
+     "max_drawdown": 0.035547,
+     "profit_factor": 3.514392,
+     "n_trades": 11,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+VC BTC-USDT 4H [gate]",
+     "cell": "aggressive|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 1,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.001426,
+     "max_drawdown": 0.110615,
+     "profit_factor": 1.011625,
+     "n_trades": 27,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+VC BTC-USDT 4H [gate]",
+     "cell": "reference|nobrakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 1,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.019813,
+     "max_drawdown": 0.043534,
+     "profit_factor": 1.40848,
+     "n_trades": 25,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+VC BTC-USDT 4H [gate]",
+     "cell": "trader|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 1,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.019837,
+     "max_drawdown": 0.09288,
+     "profit_factor": 1.186466,
+     "n_trades": 27,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 4H [gate]",
+     "cell": "aggressive|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.015314,
+     "max_drawdown": 0.058025,
+     "profit_factor": 1.223749,
+     "n_trades": 16,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 4H [gate]",
+     "cell": "reference|nobrakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.017873,
+     "max_drawdown": 0.022949,
+     "profit_factor": 1.645297,
+     "n_trades": 18,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 4H [gate]",
+     "cell": "trader|brakes|none",
+     "role": "configuration",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.012566,
+     "max_drawdown": 0.046677,
+     "profit_factor": 1.228592,
+     "n_trades": 16,
+     "confirmed": true
+    },
+    {
+     "configuration": "TF BTC-USDT 4H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "tf_control",
+     "selected_params": {
+      "sma_days": 200.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.017719,
+     "max_drawdown": 0.043104,
+     "profit_factor": 1.533041,
+     "n_trades": 4,
+     "confirmed": null
+    },
+    {
+     "configuration": "TF BTC-USDT 4H [none]",
+     "cell": "trader|brakes|none",
+     "role": "tf_control",
+     "selected_params": {
+      "sma_days": 200.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.014402,
+     "max_drawdown": 0.034662,
+     "profit_factor": 1.540524,
+     "n_trades": 4,
+     "confirmed": null
+    },
+    {
+     "configuration": "TF BTC-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "tf_control",
+     "selected_params": {
+      "sma_days": 200.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.015819,
+     "max_drawdown": 0.073823,
+     "profit_factor": 0.785719,
+     "n_trades": 6,
+     "confirmed": null
+    },
+    {
+     "configuration": "TF BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "tf_control",
+     "selected_params": {
+      "sma_days": 200.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.012274,
+     "max_drawdown": 0.0594,
+     "profit_factor": 0.793364,
+     "n_trades": 6,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 4H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.093606,
+     "max_drawdown": 0.13504,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 4H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.042675,
+     "max_drawdown": 0.052232,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 4H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.074885,
+     "max_drawdown": 0.108266,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.096225,
+     "max_drawdown": 0.142641,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.039948,
+     "max_drawdown": 0.054928,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.07698,
+     "max_drawdown": 0.114669,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 4H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.066809,
+     "max_drawdown": 0.075771,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 4H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.026724,
+     "max_drawdown": 0.030377,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 4H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.053447,
+     "max_drawdown": 0.060663,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 4H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.065841,
+     "max_drawdown": 0.09845,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 4H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.026336,
+     "max_drawdown": 0.039541,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 4H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.052673,
+     "max_drawdown": 0.078867,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.072736,
+     "max_drawdown": 0.100531,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.029095,
+     "max_drawdown": 0.040396,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.058189,
+     "max_drawdown": 0.080547,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.063426,
+     "max_drawdown": 0.095611,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.02537,
+     "max_drawdown": 0.038442,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.05074,
+     "max_drawdown": 0.07662,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    }
+   ],
+   "earlier_looks": [
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "earlier_study": "Sprint 2c",
+     "earlier_opened": true,
+     "earlier_total_return": 0.022704,
+     "earlier_profit_factor": 1.475736,
+     "earlier_n_trades": 32,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "earlier_study": "Sprint 2c",
+     "earlier_opened": true,
+     "earlier_total_return": 0.022704,
+     "earlier_profit_factor": 1.475736,
+     "earlier_n_trades": 32,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_study": "Sprint 2c",
+     "earlier_opened": true,
+     "earlier_total_return": 0.022704,
+     "earlier_profit_factor": 1.475736,
+     "earlier_n_trades": 32,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "aggressive|brakes|none",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "reference|nobrakes|none",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_study": "R12 replication",
+     "earlier_opened": true,
+     "earlier_total_return": 0.095279,
+     "earlier_profit_factor": 5.485294,
+     "earlier_n_trades": 12,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+VC BTC-USDT 4H [gate]",
+     "cell": "aggressive|brakes|none",
+     "earlier_study": "R13 research round 1",
+     "earlier_opened": true,
+     "earlier_total_return": 0.019813,
+     "earlier_profit_factor": 1.40848,
+     "earlier_n_trades": 25,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+VC BTC-USDT 4H [gate]",
+     "cell": "reference|nobrakes|none",
+     "earlier_study": "R13 research round 1",
+     "earlier_opened": true,
+     "earlier_total_return": 0.019813,
+     "earlier_profit_factor": 1.40848,
+     "earlier_n_trades": 25,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+VC BTC-USDT 4H [gate]",
+     "cell": "trader|brakes|none",
+     "earlier_study": "R13 research round 1",
+     "earlier_opened": true,
+     "earlier_total_return": 0.019813,
+     "earlier_profit_factor": 1.40848,
+     "earlier_n_trades": 25,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 4H [gate]",
+     "cell": "aggressive|brakes|none",
+     "earlier_study": "R16 research round 2",
+     "earlier_opened": true,
+     "earlier_total_return": 0.017873,
+     "earlier_profit_factor": 1.645297,
+     "earlier_n_trades": 18,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 4H [gate]",
+     "cell": "reference|nobrakes|none",
+     "earlier_study": "R16 research round 2",
+     "earlier_opened": true,
+     "earlier_total_return": 0.017873,
+     "earlier_profit_factor": 1.645297,
+     "earlier_n_trades": 18,
+     "earlier_confirmed": true
+    },
+    {
+     "configuration": "S1+VC DOGE-USDT 4H [gate]",
+     "cell": "trader|brakes|none",
+     "earlier_study": "R16 research round 2",
+     "earlier_opened": true,
+     "earlier_total_return": 0.017873,
+     "earlier_profit_factor": 1.645297,
+     "earlier_n_trades": 18,
+     "earlier_confirmed": true
+    }
+   ]
+  }
+ ]
+}

@@ -21,13 +21,31 @@ exposure without touching its entry/exit rule:
 Every series produced here uses only bars up to and including the current
 one; the engine applies the value computed at bar ``i-1`` to the execution at
 bar ``i`` (next open), exactly like the strategy signals.
+
+Trader Policy v1 (plan row R18, ``docs/TRADER_PLAN_2026-11-05.md`` section 4.1)
+adds two stop-aware pieces, both read from the candidate's own stop distance
+at the decision bar and both off by default (a spec without them is bit-for-bit
+the Sprint 2b spec):
+
+- a **per-trade risk cap** ``risk_cap``: the allocation may not exceed
+  ``risk_cap / (stop_distance / close)``, so one stop can cost at most
+  ``risk_cap`` of equity (before costs and gaps); where the candidate has no
+  stop at that bar the cap cannot act and the vol-target fraction stands;
+- a **risk-sized** kind (``kind="risk"``, Kovner's rule): the allocation is
+  ``risk_fraction / (stop_distance / close)`` outright (NaN without a stop).
+
+:data:`SIZING_TIERS` names the fixed tiers the policy uses (Reference = today's
+``vt10/30 crash15/90dh ladder``; Trader = ``vt20/30 crash15/90dh cap2``;
+Aggressive = ``vt25/30 crash15/90dh cap2.5``; ``risk1.5`` for information). The
+Turtle drawdown ladder of the higher tiers acts on entries only and lives in
+:mod:`research.brakes`, not here.
 """
 
 from __future__ import annotations
 
 import itertools
 from dataclasses import asdict, dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -160,25 +178,31 @@ def crash_multiplier(close: pd.Series, drawdown: float, window_bars: int, *, mod
 
 @dataclass(frozen=True)
 class SizingSpec:
-    """One sizing configuration: fixed fraction or vol target, optional crash filter and ladder."""
+    """One sizing configuration: fixed fraction, vol target or risk-sized, optional crash filter, ladder and per-trade risk cap."""
 
-    kind: str = "vol_target"  # "vol_target" | "fixed"
+    kind: str = "vol_target"  # "vol_target" | "fixed" | "risk"
     fraction: float = 1.0  # fixed kind only
     target_vol: float = 0.15  # annualized
     vol_lookback: int = 30  # bars
     crash_dd: Optional[float] = None
     crash_window_days: Optional[float] = None
     crash_mode: str = "half"
-    ladder: bool = False
+    ladder: bool = False  # the Reference drawdown ladder (half at -5 %, flat at -10 %), applied in the engine
     cap: float = 1.0
+    risk_fraction: Optional[float] = None  # kind "risk": allocation = risk_fraction / (stop distance / close)
+    risk_cap: Optional[float] = None  # per-trade cap: allocation <= risk_cap / (stop distance / close) (plan row R18)
 
     def __post_init__(self) -> None:
-        if self.kind not in ("vol_target", "fixed"):
-            raise ValueError("kind must be 'vol_target' or 'fixed'")
+        if self.kind not in ("vol_target", "fixed", "risk"):
+            raise ValueError("kind must be 'vol_target', 'fixed' or 'risk'")
         if self.kind == "fixed" and not (0.0 < self.fraction <= 1.0):
             raise ValueError("fixed fraction must be in (0, 1]")
         if self.kind == "vol_target" and (self.target_vol <= 0 or int(self.vol_lookback) < 2):
             raise ValueError("vol target needs target_vol > 0 and lookback >= 2")
+        if self.kind == "risk" and (self.risk_fraction is None or not (0.0 < float(self.risk_fraction) < 1.0)):
+            raise ValueError("kind 'risk' needs risk_fraction in (0, 1)")
+        if self.kind != "risk" and self.risk_fraction is not None:
+            raise ValueError("risk_fraction only applies to kind 'risk'")
         if (self.crash_dd is None) != (self.crash_window_days is None):
             raise ValueError("crash_dd and crash_window_days go together")
         if self.crash_dd is not None and not (0.0 < self.crash_dd < 1.0 and self.crash_window_days > 0):
@@ -187,51 +211,153 @@ class SizingSpec:
             raise ValueError("crash_mode must be 'half' or 'zero'")
         if not (0.0 < self.cap <= 1.0):
             raise ValueError("cap must be in (0, 1]")
+        if self.risk_cap is not None and not (0.0 < float(self.risk_cap) <= 1.0):
+            raise ValueError("risk_cap must be in (0, 1] when given")
+
+    @property
+    def needs_stop(self) -> bool:
+        """The fraction depends on the candidate's stop distance (risk-sized kind or a per-trade risk cap)."""
+        return self.kind == "risk" or self.risk_cap is not None
 
     @property
     def label(self) -> str:
         if self.kind == "fixed":
             base = f"fixed{self.fraction * 100:.0f}"
+        elif self.kind == "risk":
+            base = f"risk{float(self.risk_fraction) * 100:g}"
         else:
             base = f"vt{self.target_vol * 100:.0f}/{int(self.vol_lookback)}"
         if self.crash_dd is not None:
             mode = "h" if self.crash_mode == "half" else "z"
             base += f" crash{self.crash_dd * 100:.0f}/{self.crash_window_days:g}d{mode}"
+        if self.risk_cap is not None:
+            base += f" cap{float(self.risk_cap) * 100:g}"
         if self.ladder:
             base += " ladder"
         return base
 
     def to_dict(self) -> Dict[str, object]:
+        # The two R18 fields appear only when set, so a Sprint 2b/2c spec serialises exactly as it always did
+        # (the stored studies' ``policy_sizing`` dictionaries are compared with this output by the protocol check).
         out = asdict(self)
+        for key in ("risk_fraction", "risk_cap"):
+            if out[key] is None:
+                del out[key]
         out["label"] = self.label
         return out
 
 
-def fraction_series(df: pd.DataFrame, spec: SizingSpec, timeframe: str, periods_per_year: float) -> pd.Series:
-    """Entry fraction of equity for every bar (NaN while the vol window warms up)."""
+def _stop_pct(close: pd.Series, stop_distance) -> pd.Series:
+    """Stop distance as a fraction of the close (NaN where there is no usable stop)."""
+    sd = pd.Series(np.asarray(stop_distance, dtype=float), index=close.index)
+    pct = sd / close.astype(float)
+    return pct.where(np.isfinite(pct) & (pct > 0))
+
+
+def fraction_series(
+    df: pd.DataFrame, spec: SizingSpec, timeframe: str, periods_per_year: float, *,
+    stop_distance=None, multiplier: Optional[pd.Series] = None,
+) -> pd.Series:
+    """Entry fraction of equity for every bar (NaN while the vol window warms up).
+
+    ``stop_distance`` (one value per bar, the candidate's stop distance at that bar) is required by a
+    spec that :attr:`SizingSpec.needs_stop`; ``multiplier`` scales the base fraction before the per-trade cap
+    (the conviction split of plan row R18), never above the cap or 100 % of equity.
+    """
     close = df["close"].astype(float)
+    if spec.needs_stop and stop_distance is None:
+        raise ValueError(f"sizing {spec.label!r} needs the candidate's stop distance")
     if spec.kind == "fixed":
         frac = pd.Series(float(spec.fraction), index=close.index, dtype=float)
+    elif spec.kind == "risk":
+        frac = (float(spec.risk_fraction) / _stop_pct(close, stop_distance)).astype(float)
     else:
         frac = vol_target_fraction(close, spec.target_vol, spec.vol_lookback, periods_per_year, cap=spec.cap)
     if spec.crash_dd is not None:
         window = days_to_bars(float(spec.crash_window_days), timeframe)
         frac = frac * crash_multiplier(close, spec.crash_dd, window, mode=spec.crash_mode)
+    if multiplier is not None:
+        m = pd.Series(np.asarray(multiplier, dtype=float), index=close.index)
+        frac = frac * m.where(np.isfinite(m), 1.0)
+    if spec.risk_cap is not None:
+        cap_alloc = float(spec.risk_cap) / _stop_pct(close, stop_distance)
+        # A warm-up NaN stays NaN (no entry); without a usable stop the cap cannot act and the base fraction stands.
+        frac = frac.where(~np.isfinite(cap_alloc) | ~np.isfinite(frac) | (frac <= cap_alloc), cap_alloc)
     return frac.clip(lower=0.0, upper=spec.cap)
 
 
-def fraction_matrix(df: pd.DataFrame, specs: Sequence[SizingSpec], timeframe: str, periods_per_year: float) -> np.ndarray:
-    """(n, S) matrix of entry fractions, one column per spec (the ladder is applied in the engine)."""
+def fraction_components(
+    df: pd.DataFrame, spec: SizingSpec, timeframe: str, periods_per_year: float, *, stop_distance, multiplier: Optional[pd.Series] = None,
+) -> pd.DataFrame:
+    """The parts of :func:`fraction_series` side by side: ``base`` (before the cap), ``cap_allocation``, ``fraction`` and ``cap_binds``.
+
+    ``cap_binds`` is True where the per-trade cap is the smaller of the two (the vol target would have allocated more);
+    it is always False for a spec without a cap.
+    """
+    uncapped = SizingSpec(**{**asdict(spec), "risk_cap": None})
+    base = fraction_series(df, uncapped, timeframe, periods_per_year, stop_distance=stop_distance, multiplier=multiplier)
+    frac = fraction_series(df, spec, timeframe, periods_per_year, stop_distance=stop_distance, multiplier=multiplier)
+    close = df["close"].astype(float)
+    cap_alloc = (float(spec.risk_cap) / _stop_pct(close, stop_distance)) if spec.risk_cap is not None else pd.Series(np.nan, index=close.index)
+    binds = np.isfinite(cap_alloc) & np.isfinite(base) & (cap_alloc < base - 1e-15)
+    return pd.DataFrame({"base": base, "cap_allocation": cap_alloc, "fraction": frac, "cap_binds": binds.fillna(False).astype(bool)}, index=close.index)
+
+
+def fraction_matrix(
+    df: pd.DataFrame, specs: Sequence[SizingSpec], timeframe: str, periods_per_year: float, *,
+    stop_distance=None, multiplier: Optional[pd.Series] = None,
+) -> np.ndarray:
+    """(n, S) matrix of entry fractions, one column per spec (the ladder is applied in the engine).
+
+    ``stop_distance`` (n,) is one rule's stop distance, shared by every spec that needs it."""
     n = len(df)
     out = np.full((n, len(specs)), np.nan)
     cache: Dict[Tuple, np.ndarray] = {}
     for j, spec in enumerate(specs):
         key = (spec.kind, spec.fraction, spec.target_vol, spec.vol_lookback, spec.crash_dd,
-               spec.crash_window_days, spec.crash_mode, spec.cap)
+               spec.crash_window_days, spec.crash_mode, spec.cap, spec.risk_fraction, spec.risk_cap)
         if key not in cache:
-            cache[key] = fraction_series(df, spec, timeframe, periods_per_year).to_numpy(dtype=float)
+            cache[key] = fraction_series(df, spec, timeframe, periods_per_year, stop_distance=stop_distance if spec.needs_stop else None,
+                                         multiplier=multiplier).to_numpy(dtype=float)
         out[:, j] = cache[key]
     return out
+
+
+def rule_fraction_matrix(
+    df: pd.DataFrame, spec: SizingSpec, stop_matrix: np.ndarray, timeframe: str, periods_per_year: float, *,
+    multiplier: Optional[pd.Series] = None,
+) -> np.ndarray:
+    """(n, C) matrix of entry fractions of ONE spec, one column per rule column of ``stop_matrix`` (n, C).
+
+    A spec that does not read the stop gives identical columns (the Sprint 2c policy replicated), so the walk-forward
+    can treat every policy the same way: the fraction of rule column ``k`` is column ``k``.
+    """
+    stops = np.asarray(stop_matrix, dtype=float)
+    if stops.ndim != 2 or stops.shape[0] != len(df):
+        raise ValueError("stop_matrix must be (n_bars, n_rules)")
+    C = stops.shape[1]
+    if not spec.needs_stop:
+        one = fraction_series(df, spec, timeframe, periods_per_year, multiplier=multiplier).to_numpy(dtype=float)
+        return np.repeat(one[:, None], C, axis=1)
+    out = np.full((len(df), C), np.nan)
+    cache: Dict[bytes, np.ndarray] = {}
+    for k in range(C):
+        key = stops[:, k].tobytes()  # rule columns that share a stop (same ATR multiple, other parameters differ) are computed once
+        if key not in cache:
+            cache[key] = fraction_series(df, spec, timeframe, periods_per_year, stop_distance=stops[:, k], multiplier=multiplier).to_numpy(dtype=float)
+        out[:, k] = cache[key]
+    return out
+
+
+#: Trader Policy v1 (plan row R18): the fixed sizing tiers, one rule each, never swept. The Reference tier is Sprint 2c's
+#: policy unchanged; the Trader and Aggressive tiers carry no Reference ladder (their Turtle ladder is an entry brake,
+#: ``research.brakes``); ``risk1.5`` is Kovner's rule, reported for information only and never a tier.
+SIZING_TIERS: Mapping[str, SizingSpec] = {
+    "reference": SizingSpec(kind="vol_target", target_vol=0.10, vol_lookback=30, crash_dd=0.15, crash_window_days=90.0, crash_mode="half", ladder=True),
+    "trader": SizingSpec(kind="vol_target", target_vol=0.20, vol_lookback=30, crash_dd=0.15, crash_window_days=90.0, crash_mode="half", ladder=False, risk_cap=0.02),
+    "aggressive": SizingSpec(kind="vol_target", target_vol=0.25, vol_lookback=30, crash_dd=0.15, crash_window_days=90.0, crash_mode="half", ladder=False, risk_cap=0.025),
+    "risk1.5": SizingSpec(kind="risk", risk_fraction=0.015, crash_dd=0.15, crash_window_days=90.0, crash_mode="half", ladder=False),
+}
 
 
 def ladder_mask(specs: Sequence[SizingSpec]) -> np.ndarray:

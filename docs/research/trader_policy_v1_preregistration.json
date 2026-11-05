@@ -1,0 +1,729 @@
+{
+ "note": "Plan row R18. The configurations, tiers, brakes, variants, gates, costs and verdict rules of the Trader Policy v1 study, fixed BEFORE the first run. Never edited.",
+ "written_at": "2026-11-05T03:10:26+00:00",
+ "data_end": "2026-10-20T10:00:00+00:00",
+ "gates": {
+  "profit_factor_min": 1.2,
+  "max_drawdown_max": 0.2,
+  "sharpe_min": 0.7,
+  "calmar_min": 0.5,
+  "rolling_12m_positive_min": 0.75,
+  "worst_calendar_year_min": -0.1,
+  "min_trades": 30,
+  "robust_share_min": 0.5,
+  "min_year_days": 60
+ },
+ "tier_gates": {
+  "reference": {
+   "max_drawdown_max": 0.2,
+   "worst_calendar_year_min": -0.1
+  },
+  "higher": {
+   "max_drawdown_max": 0.25,
+   "worst_calendar_year_min": -0.15
+  }
+ },
+ "payoff_min": 2.0,
+ "configurations": [
+  {
+   "key": "C1",
+   "candidate": "S1+S5",
+   "instrument": "BTC-USDT",
+   "timeframe": "6H",
+   "mode": "none",
+   "role": "configuration",
+   "source_study": "Sprint 2c",
+   "source_results": "docs/research/ensemble_v1c_results.json"
+  },
+  {
+   "key": "C2",
+   "candidate": "S1",
+   "instrument": "SOL-USDT",
+   "timeframe": "6H",
+   "mode": "none",
+   "role": "configuration",
+   "source_study": "R12 replication",
+   "source_results": "docs/research/replication_v1d_results.json"
+  },
+  {
+   "key": "C3",
+   "candidate": "S1+S5",
+   "instrument": "SOL-USDT",
+   "timeframe": "6H",
+   "mode": "none",
+   "role": "configuration",
+   "source_study": "R12 replication",
+   "source_results": "docs/research/replication_v1d_results.json"
+  },
+  {
+   "key": "C4",
+   "candidate": "S1+VC",
+   "instrument": "BTC-USDT",
+   "timeframe": "4H",
+   "mode": "gate",
+   "role": "configuration",
+   "source_study": "R13 research round 1",
+   "source_results": "docs/research/research_round_1_results.json"
+  },
+  {
+   "key": "C5",
+   "candidate": "S1+VC",
+   "instrument": "DOGE-USDT",
+   "timeframe": "4H",
+   "mode": "gate",
+   "role": "configuration",
+   "source_study": "R16 research round 2",
+   "source_results": "docs/research/research_round_2_results.json"
+  },
+  {
+   "key": "H1",
+   "candidate": "hold",
+   "instrument": "BTC-USDT",
+   "timeframe": "4H",
+   "mode": "none",
+   "role": "control",
+   "source_study": "Sprint 2c",
+   "source_results": "docs/research/ensemble_v1c_results.json"
+  },
+  {
+   "key": "H2",
+   "candidate": "hold",
+   "instrument": "BTC-USDT",
+   "timeframe": "6H",
+   "mode": "none",
+   "role": "control",
+   "source_study": "Sprint 2c",
+   "source_results": "docs/research/ensemble_v1c_results.json"
+  },
+  {
+   "key": "H3",
+   "candidate": "hold",
+   "instrument": "ETH-USDT",
+   "timeframe": "4H",
+   "mode": "none",
+   "role": "control",
+   "source_study": "Sprint 2c",
+   "source_results": "docs/research/ensemble_v1c_results.json"
+  },
+  {
+   "key": "H4",
+   "candidate": "hold",
+   "instrument": "ETH-USDT",
+   "timeframe": "6H",
+   "mode": "none",
+   "role": "control",
+   "source_study": "Sprint 2c",
+   "source_results": "docs/research/ensemble_v1c_results.json"
+  },
+  {
+   "key": "H5",
+   "candidate": "hold",
+   "instrument": "SOL-USDT",
+   "timeframe": "6H",
+   "mode": "none",
+   "role": "control",
+   "source_study": "R12 replication",
+   "source_results": "docs/research/replication_v1d_results.json"
+  },
+  {
+   "key": "H6",
+   "candidate": "hold",
+   "instrument": "DOGE-USDT",
+   "timeframe": "4H",
+   "mode": "none",
+   "role": "control",
+   "source_study": "R12 replication",
+   "source_results": "docs/research/replication_v1d_results.json"
+  },
+  {
+   "key": "T1",
+   "candidate": "TF",
+   "instrument": "BTC-USDT",
+   "timeframe": "4H",
+   "mode": "none",
+   "role": "tf_control",
+   "source_study": "none (new forward control)",
+   "source_results": ""
+  },
+  {
+   "key": "T2",
+   "candidate": "TF",
+   "instrument": "BTC-USDT",
+   "timeframe": "6H",
+   "mode": "none",
+   "role": "tf_control",
+   "source_study": "none (new forward control)",
+   "source_results": ""
+  },
+  {
+   "key": "T3",
+   "candidate": "TF",
+   "instrument": "ETH-USDT",
+   "timeframe": "4H",
+   "mode": "none",
+   "role": "tf_control",
+   "source_study": "none (new forward control)",
+   "source_results": ""
+  },
+  {
+   "key": "T4",
+   "candidate": "TF",
+   "instrument": "ETH-USDT",
+   "timeframe": "6H",
+   "mode": "none",
+   "role": "tf_control",
+   "source_study": "none (new forward control)",
+   "source_results": ""
+  }
+ ],
+ "cells": [
+  {
+   "tier": "reference",
+   "brakes": false,
+   "variant": "none",
+   "key": "reference|nobrakes|none",
+   "label": "vt10/30 crash15/90dh ladder, brakes off"
+  },
+  {
+   "tier": "reference",
+   "brakes": true,
+   "variant": "none",
+   "key": "reference|brakes|none",
+   "label": "vt10/30 crash15/90dh ladder, brakes on"
+  },
+  {
+   "tier": "trader",
+   "brakes": false,
+   "variant": "none",
+   "key": "trader|nobrakes|none",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes off"
+  },
+  {
+   "tier": "trader",
+   "brakes": true,
+   "variant": "none",
+   "key": "trader|brakes|none",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes on"
+  },
+  {
+   "tier": "aggressive",
+   "brakes": false,
+   "variant": "none",
+   "key": "aggressive|nobrakes|none",
+   "label": "vt25/30 crash15/90dh cap2.5 turtle, brakes off"
+  },
+  {
+   "tier": "aggressive",
+   "brakes": true,
+   "variant": "none",
+   "key": "aggressive|brakes|none",
+   "label": "vt25/30 crash15/90dh cap2.5 turtle, brakes on"
+  },
+  {
+   "tier": "risk1.5",
+   "brakes": false,
+   "variant": "none",
+   "key": "risk1.5|nobrakes|none",
+   "label": "risk1.5 crash15/90dh turtle, brakes off"
+  },
+  {
+   "tier": "trader-reference-ladder",
+   "brakes": false,
+   "variant": "none",
+   "key": "trader-reference-ladder|nobrakes|none",
+   "label": "vt20/30 crash15/90dh cap2 ladder, brakes off"
+  },
+  {
+   "tier": "aggressive-reference-ladder",
+   "brakes": false,
+   "variant": "none",
+   "key": "aggressive-reference-ladder|nobrakes|none",
+   "label": "vt25/30 crash15/90dh cap2.5 ladder, brakes off"
+  },
+  {
+   "tier": "trader-no-ladder",
+   "brakes": false,
+   "variant": "none",
+   "key": "trader-no-ladder|nobrakes|none",
+   "label": "vt20/30 crash15/90dh cap2, brakes off"
+  },
+  {
+   "tier": "aggressive-no-ladder",
+   "brakes": false,
+   "variant": "none",
+   "key": "aggressive-no-ladder|nobrakes|none",
+   "label": "vt25/30 crash15/90dh cap2.5, brakes off"
+  },
+  {
+   "tier": "trader",
+   "brakes": true,
+   "variant": "add",
+   "key": "trader|brakes|add",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes on, variant add"
+  },
+  {
+   "tier": "trader",
+   "brakes": true,
+   "variant": "scale_out",
+   "key": "trader|brakes|scale_out",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes on, variant scale_out"
+  },
+  {
+   "tier": "trader",
+   "brakes": true,
+   "variant": "conviction",
+   "key": "trader|brakes|conviction",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes on, variant conviction"
+  },
+  {
+   "tier": "trader",
+   "brakes": true,
+   "variant": "trail2",
+   "key": "trader|brakes|trail2",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes on, variant trail2"
+  },
+  {
+   "tier": "trader",
+   "brakes": true,
+   "variant": "trail3",
+   "key": "trader|brakes|trail3",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes on, variant trail3"
+  },
+  {
+   "tier": "trader",
+   "brakes": true,
+   "variant": "wider_stop",
+   "key": "trader|brakes|wider_stop",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes on, variant wider_stop"
+  },
+  {
+   "tier": "trader",
+   "brakes": true,
+   "variant": "no_time_stop",
+   "key": "trader|brakes|no_time_stop",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes on, variant no_time_stop"
+  }
+ ],
+ "control_cells": [
+  {
+   "tier": "reference",
+   "brakes": false,
+   "variant": "none",
+   "key": "reference|nobrakes|none",
+   "label": "vt10/30 crash15/90dh ladder, brakes off"
+  },
+  {
+   "tier": "reference",
+   "brakes": true,
+   "variant": "none",
+   "key": "reference|brakes|none",
+   "label": "vt10/30 crash15/90dh ladder, brakes on"
+  },
+  {
+   "tier": "trader",
+   "brakes": false,
+   "variant": "none",
+   "key": "trader|nobrakes|none",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes off"
+  },
+  {
+   "tier": "trader",
+   "brakes": true,
+   "variant": "none",
+   "key": "trader|brakes|none",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes on"
+  },
+  {
+   "tier": "aggressive",
+   "brakes": false,
+   "variant": "none",
+   "key": "aggressive|nobrakes|none",
+   "label": "vt25/30 crash15/90dh cap2.5 turtle, brakes off"
+  },
+  {
+   "tier": "aggressive",
+   "brakes": true,
+   "variant": "none",
+   "key": "aggressive|brakes|none",
+   "label": "vt25/30 crash15/90dh cap2.5 turtle, brakes on"
+  }
+ ],
+ "holdout_cells": [
+  {
+   "tier": "reference",
+   "brakes": false,
+   "variant": "none",
+   "key": "reference|nobrakes|none",
+   "label": "vt10/30 crash15/90dh ladder, brakes off"
+  },
+  {
+   "tier": "trader",
+   "brakes": true,
+   "variant": "none",
+   "key": "trader|brakes|none",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes on"
+  },
+  {
+   "tier": "aggressive",
+   "brakes": true,
+   "variant": "none",
+   "key": "aggressive|brakes|none",
+   "label": "vt25/30 crash15/90dh cap2.5 turtle, brakes on"
+  }
+ ],
+ "tiers": {
+  "reference": {
+   "name": "reference",
+   "label": "vt10/30 crash15/90dh ladder",
+   "sizing": {
+    "kind": "vol_target",
+    "fraction": 1.0,
+    "target_vol": 0.1,
+    "vol_lookback": 30,
+    "crash_dd": 0.15,
+    "crash_window_days": 90.0,
+    "crash_mode": "half",
+    "ladder": true,
+    "cap": 1.0,
+    "label": "vt10/30 crash15/90dh ladder"
+   },
+   "turtle_ladder": false,
+   "description": "today's policy: 10 % volatility target, half size in a crash state, the Reference ladder (half at -5 %, flat at -10 %)"
+  },
+  "trader": {
+   "name": "trader",
+   "label": "vt20/30 crash15/90dh cap2 turtle",
+   "sizing": {
+    "kind": "vol_target",
+    "fraction": 1.0,
+    "target_vol": 0.2,
+    "vol_lookback": 30,
+    "crash_dd": 0.15,
+    "crash_window_days": 90.0,
+    "crash_mode": "half",
+    "ladder": false,
+    "cap": 1.0,
+    "risk_cap": 0.02,
+    "label": "vt20/30 crash15/90dh cap2"
+   },
+   "turtle_ladder": true,
+   "description": "20 % volatility target, at most 2 % of equity at risk on one stop, the same crash de-risking, the Turtle ladder on entries"
+  },
+  "aggressive": {
+   "name": "aggressive",
+   "label": "vt25/30 crash15/90dh cap2.5 turtle",
+   "sizing": {
+    "kind": "vol_target",
+    "fraction": 1.0,
+    "target_vol": 0.25,
+    "vol_lookback": 30,
+    "crash_dd": 0.15,
+    "crash_window_days": 90.0,
+    "crash_mode": "half",
+    "ladder": false,
+    "cap": 1.0,
+    "risk_cap": 0.025,
+    "label": "vt25/30 crash15/90dh cap2.5"
+   },
+   "turtle_ladder": true,
+   "description": "25 % volatility target, at most 2.5 % of equity at risk on one stop, the same crash de-risking, the Turtle ladder on entries"
+  },
+  "risk1.5": {
+   "name": "risk1.5",
+   "label": "risk1.5 crash15/90dh turtle",
+   "sizing": {
+    "kind": "risk",
+    "fraction": 1.0,
+    "target_vol": 0.15,
+    "vol_lookback": 30,
+    "crash_dd": 0.15,
+    "crash_window_days": 90.0,
+    "crash_mode": "half",
+    "ladder": false,
+    "cap": 1.0,
+    "risk_fraction": 0.015,
+    "label": "risk1.5 crash15/90dh"
+   },
+   "turtle_ladder": true,
+   "description": "for information only: Kovner's rule, 1.5 % of equity at risk on every stop, the same crash de-risking, the Turtle ladder"
+  },
+  "trader-reference-ladder": {
+   "name": "trader-reference-ladder",
+   "label": "vt20/30 crash15/90dh cap2 ladder",
+   "sizing": {
+    "kind": "vol_target",
+    "fraction": 1.0,
+    "target_vol": 0.2,
+    "vol_lookback": 30,
+    "crash_dd": 0.15,
+    "crash_window_days": 90.0,
+    "crash_mode": "half",
+    "ladder": true,
+    "cap": 1.0,
+    "risk_cap": 0.02,
+    "label": "vt20/30 crash15/90dh cap2 ladder"
+   },
+   "turtle_ladder": false,
+   "description": "the Trader tier's size rule under the Reference ladder instead of the Turtle ladder (comparison only)"
+  },
+  "aggressive-reference-ladder": {
+   "name": "aggressive-reference-ladder",
+   "label": "vt25/30 crash15/90dh cap2.5 ladder",
+   "sizing": {
+    "kind": "vol_target",
+    "fraction": 1.0,
+    "target_vol": 0.25,
+    "vol_lookback": 30,
+    "crash_dd": 0.15,
+    "crash_window_days": 90.0,
+    "crash_mode": "half",
+    "ladder": true,
+    "cap": 1.0,
+    "risk_cap": 0.025,
+    "label": "vt25/30 crash15/90dh cap2.5 ladder"
+   },
+   "turtle_ladder": false,
+   "description": "the Aggressive tier's size rule under the Reference ladder (comparison only)"
+  },
+  "trader-no-ladder": {
+   "name": "trader-no-ladder",
+   "label": "vt20/30 crash15/90dh cap2",
+   "sizing": {
+    "kind": "vol_target",
+    "fraction": 1.0,
+    "target_vol": 0.2,
+    "vol_lookback": 30,
+    "crash_dd": 0.15,
+    "crash_window_days": 90.0,
+    "crash_mode": "half",
+    "ladder": false,
+    "cap": 1.0,
+    "risk_cap": 0.02,
+    "label": "vt20/30 crash15/90dh cap2"
+   },
+   "turtle_ladder": false,
+   "description": "the Trader tier's size rule with no ladder at all (the ladder's cost)"
+  },
+  "aggressive-no-ladder": {
+   "name": "aggressive-no-ladder",
+   "label": "vt25/30 crash15/90dh cap2.5",
+   "sizing": {
+    "kind": "vol_target",
+    "fraction": 1.0,
+    "target_vol": 0.25,
+    "vol_lookback": 30,
+    "crash_dd": 0.15,
+    "crash_window_days": 90.0,
+    "crash_mode": "half",
+    "ladder": false,
+    "cap": 1.0,
+    "risk_cap": 0.025,
+    "label": "vt25/30 crash15/90dh cap2.5"
+   },
+   "turtle_ladder": false,
+   "description": "the Aggressive tier's size rule with no ladder at all (the ladder's cost)"
+  }
+ },
+ "brakes_on": {
+  "ladder": {
+   "kind": "turtle",
+   "steps": [
+    [
+     0.1,
+     0.8
+    ],
+    [
+     0.2,
+     0.64
+    ]
+   ]
+  },
+  "hard_stop_dd": 0.3,
+  "max_entries_per_market_per_day": 1,
+  "max_entries_per_day": 3,
+  "no_entry_bar_after_exit": true,
+  "daily_loss_limit": 0.03,
+  "weekly_loss_limit": 0.06,
+  "monthly_loss_limit": 0.1,
+  "heat_cap": 0.06,
+  "heat_group_share": 0.5,
+  "corr_threshold": 0.7,
+  "corr_lookback_days": 60,
+  "label": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)"
+ },
+ "variants": {
+  "none": {
+   "name": "none",
+   "kind": "none",
+   "description": "the base rule: no variant",
+   "engine": null
+  },
+  "add": {
+   "name": "add",
+   "kind": "engine",
+   "description": "one add of 0.5 x the initial quantity once the close is +1 R (first unit keeps its stop; the add gets the rule's own stop of the add bar; never after a loss)",
+   "engine": {
+    "add_at_r": 1.0,
+    "add_size": 0.5,
+    "scale_out_at_r": null,
+    "scale_out_share": 0.5,
+    "label": "add 0.5x at +1R"
+   }
+  },
+  "scale_out": {
+   "name": "scale_out",
+   "kind": "engine",
+   "description": "a 0.5 scale-out once the close is +2 R (the remainder keeps its stop; one trade, P&L pooled)",
+   "engine": {
+    "add_at_r": null,
+    "add_size": 0.5,
+    "scale_out_at_r": 2.0,
+    "scale_out_share": 0.5,
+    "label": "scale-out 0.5 at +2R"
+   }
+  },
+  "conviction": {
+   "name": "conviction",
+   "kind": "fraction",
+   "description": "1.25 x the tier's size when the 30-day volume z-score is above 1 at the entry bar, 0.75 x otherwise, never above the tier's per-trade cap (not on the S1+VC sleeves)",
+   "engine": null
+  },
+  "trail2": {
+   "name": "trail2",
+   "kind": "frames",
+   "description": "a trailing exit that activates at +1 R and follows the running high at 2 R",
+   "engine": null
+  },
+  "trail3": {
+   "name": "trail3",
+   "kind": "frames",
+   "description": "a trailing exit that activates at +1 R and follows the running high at 3 R",
+   "engine": null
+  },
+  "wider_stop": {
+   "name": "wider_stop",
+   "kind": "frames",
+   "description": "a wider initial stop: max(4, the selected multiple + 1) x ATR",
+   "engine": null
+  },
+  "no_time_stop": {
+   "name": "no_time_stop",
+   "kind": "frames",
+   "description": "the selected exit bracket without its time stop (S1 SOL-USDT 6H's time30)",
+   "engine": null
+  }
+ },
+ "cost_scenarios": {
+  "measured_btc_eth": [
+   0.0005,
+   0.0005
+  ],
+  "altcoin": [
+   0.001,
+   0.0015
+  ]
+ },
+ "configuration": {
+  "runs": [
+   "C1",
+   "C2",
+   "C3",
+   "C4",
+   "C5",
+   "H1",
+   "H2",
+   "H3",
+   "H4",
+   "H5",
+   "H6",
+   "T1",
+   "T2",
+   "T3",
+   "T4"
+  ],
+  "cells": [
+   "reference|nobrakes|none",
+   "reference|brakes|none",
+   "trader|nobrakes|none",
+   "trader|brakes|none",
+   "aggressive|nobrakes|none",
+   "aggressive|brakes|none",
+   "risk1.5|nobrakes|none",
+   "trader-reference-ladder|nobrakes|none",
+   "aggressive-reference-ladder|nobrakes|none",
+   "trader-no-ladder|nobrakes|none",
+   "aggressive-no-ladder|nobrakes|none",
+   "trader|brakes|add",
+   "trader|brakes|scale_out",
+   "trader|brakes|conviction",
+   "trader|brakes|trail2",
+   "trader|brakes|trail3",
+   "trader|brakes|wider_stop",
+   "trader|brakes|no_time_stop"
+  ],
+  "reproduction": true,
+  "data_end": "2026-10-20T10:00:00+00:00",
+  "quick": false,
+  "lake_dir": null
+ },
+ "preregistration": {
+  "fixed_on": "2026-11-05, before any run (plan row R18)",
+  "question": "At the three fixed risk budgets of Trader Policy v1 (Reference = today's 10 % volatility target with the Reference ladder; Trader = a 20 % target capped so that no stop costs more than 2 % of equity, with the Turtle ladder; Aggressive = 25 % and 2.5 %), with the section 4.3 brakes on and off and each section 4.2 position-management variant on alone, do the five confirmed configurations still pass the section 4.6 gates on the Sprint 2c walk-forward, what do the brakes and the variants cost or add, where does each tier's realized volatility, risk per trade and probability of a 30 % drawdown land, and which configurations therefore join the paper fleet at the Trader tier?",
+  "configurations": [
+   "S1+S5 BTC-USDT 6H [none] (stored by Sprint 2c)",
+   "S1 SOL-USDT 6H [none] (stored by R12 replication)",
+   "S1+S5 SOL-USDT 6H [none] (stored by R12 replication)",
+   "S1+VC BTC-USDT 4H [gate] (stored by R13 research round 1)",
+   "S1+VC DOGE-USDT 4H [gate] (stored by R16 research round 2)"
+  ],
+  "controls": [
+   "hold BTC-USDT 4H [none]",
+   "hold BTC-USDT 6H [none]",
+   "hold ETH-USDT 4H [none]",
+   "hold ETH-USDT 6H [none]",
+   "hold SOL-USDT 6H [none]",
+   "hold DOGE-USDT 4H [none]",
+   "TF BTC-USDT 4H [none] (new forward control: long above the 200-day average, policy sizing; fixed rule, no exit bracket, no 20-train-trade qualification; never judged)",
+   "TF BTC-USDT 6H [none] (new forward control: long above the 200-day average, policy sizing; fixed rule, no exit bracket, no 20-train-trade qualification; never judged)",
+   "TF ETH-USDT 4H [none] (new forward control: long above the 200-day average, policy sizing; fixed rule, no exit bracket, no 20-train-trade qualification; never judged)",
+   "TF ETH-USDT 6H [none] (new forward control: long above the 200-day average, policy sizing; fixed rule, no exit bracket, no 20-train-trade qualification; never judged)"
+  ],
+  "tiers": {
+   "reference": "vt10/30 crash15/90dh ladder: today's policy: 10 % volatility target, half size in a crash state, the Reference ladder (half at -5 %, flat at -10 %)",
+   "trader": "vt20/30 crash15/90dh cap2 turtle: 20 % volatility target, at most 2 % of equity at risk on one stop, the same crash de-risking, the Turtle ladder on entries",
+   "aggressive": "vt25/30 crash15/90dh cap2.5 turtle: 25 % volatility target, at most 2.5 % of equity at risk on one stop, the same crash de-risking, the Turtle ladder on entries",
+   "risk1.5": "risk1.5 crash15/90dh turtle: for information only: Kovner's rule, 1.5 % of equity at risk on every stop, the same crash de-risking, the Turtle ladder",
+   "trader-reference-ladder": "vt20/30 crash15/90dh cap2 ladder: the Trader tier's size rule under the Reference ladder instead of the Turtle ladder (comparison only)",
+   "aggressive-reference-ladder": "vt25/30 crash15/90dh cap2.5 ladder: the Aggressive tier's size rule under the Reference ladder (comparison only)",
+   "trader-no-ladder": "vt20/30 crash15/90dh cap2: the Trader tier's size rule with no ladder at all (the ladder's cost)",
+   "aggressive-no-ladder": "vt25/30 crash15/90dh cap2.5: the Aggressive tier's size rule with no ladder at all (the ladder's cost)"
+  },
+  "brakes": {
+   "on": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)",
+   "off": "the tier's own ladder only (Turtle for Trader/Aggressive/risk1.5, the Reference ladder for Reference, none for the no-ladder comparisons)",
+   "scope": "entries only: no brake closes, reduces or otherwise touches an open position; the Reference ladder (which does reduce) is the Reference tier's own rule and the comparison for the higher tiers",
+   "windows": "the walk-forward's test windows restart flat from the same capital every 180 days, so the ladder's equity peak, the hard stop and the loss windows restart with them, exactly as Sprint 2c's Reference ladder did; the stitched curve's drawdown can exceed any window's, and the brakes' counts are per-window counts summed"
+  },
+  "variants": {
+   "add": "one add of 0.5 x the initial quantity once the close is +1 R (first unit keeps its stop; the add gets the rule's own stop of the add bar; never after a loss)",
+   "scale_out": "a 0.5 scale-out once the close is +2 R (the remainder keeps its stop; one trade, P&L pooled)",
+   "conviction": "1.25 x the tier's size when the 30-day volume z-score is above 1 at the entry bar, 0.75 x otherwise, never above the tier's per-trade cap (not on the S1+VC sleeves)",
+   "trail2": "a trailing exit that activates at +1 R and follows the running high at 2 R",
+   "trail3": "a trailing exit that activates at +1 R and follows the running high at 3 R",
+   "wider_stop": "a wider initial stop: max(4, the selected multiple + 1) x ATR",
+   "no_time_stop": "the selected exit bracket without its time stop (S1 SOL-USDT 6H's time30)"
+  },
+  "variant_rule": "each variant runs alone at the Trader tier with the brakes on and is compared with the same sleeve without it; it counts only with Sharpe >= the base's and Calmar >= the base's after scaling to the base's realized volatility (size-neutral); the conviction split additionally needs expectancy in R of its 1.25 x trades above its 0.75 x trades with >= 30 trades each, read per sleeve and pooled over the sleeves it applies to (S1+S5 BTC 6H, S1 and S1+S5 SOL 6H; not the S1+VC sleeves); no variant joins the fleet in this row (the fleet account is the base rule, all variants off)",
+  "protocol": "Sprint 2c's own runner (scripts/run_research_v1c.py loaded as a module, its run_series), with Sprint 2c's defaults for everything the tier does not define: the candidates' grids and brackets (none/tp2/trail1/time30), the S0 filter with the FOMC calendar, the regime-v2 entry gate where the configuration has one, the walk-forward (train 540 d, purge 7 d, test 180 d, Sharpe with >= 20 train trades, entries then bracket) and the 0.25 reduce-only rebalance; the tier replaces only the policy sizing (and adds its brakes); the per-window selection of the rule variants is unchanged and never sees the tier, so every configuration keeps the ATR multiple and exit bracket its walk-forward selected (S1 SOL-USDT 6H's time30 included, also run once without it as a variant); the runner's defaults are checked against the stored Sprint 2c run before the study runs and the protocol check of every cell is recorded in the results (a tier is a recorded policy_sizing mismatch, never hidden); the TF control runs with --brackets none --min-trades 1, a recorded deviation, because R16 showed the 20-train-trade qualification leaves this slow rule flat",
+  "data": "OKX public 1H and 4H spot candles of BTC-USDT, ETH-USDT, SOL-USDT and DOGE-USDT (4H stored, 6H resampled from 1H), frozen in a study lake at Sprint 2c's data end (bar close <= 2026-10-20T10:00:00+00:00) so the walk-forward and the untouched 12 months (2025-10-20 -> 2026-10-20) are the same calendar window as in Sprint 2c, R12, R13 and R16; Binance public funding and open interest for the S5 filter as before",
+  "costs": "the engine's 0.10 % fee + 0.05 % slippage a side (0.30 % a round trip) for the gates; the selected rule is also replayed, same windows and sizing, at 0.20 % a round trip (0.05 % + 0.05 % a side, the measured BTC/ETH cost) and at 0.50 % (0.10 % + 0.15 % a side, altcoins at +10 bps a side), reported, never gated",
+  "reproduction": "before any tier is judged, the Reference cell (brakes off) of every configuration and hold control must give the stored walk-forward numbers to 6 decimals, the same trade counts, the same most-selected rules and the same gate verdicts \u2014 Sprint 2c's for BTC-USDT and ETH-USDT, the replication study's for SOL-USDT and DOGE-USDT, round 1's for S1+VC BTC-USDT 4H [gate], round 2's for S1+VC DOGE-USDT 4H [gate]; otherwise the study stops",
+  "gates": "section 4.6: the Sprint 2c gates (PF > 1.2, Sharpe > 0.7, Calmar > 0.5, >= 75 % of rolling 12-month windows positive, >= 30 trades, >= 50 % of +-30 % neighbours profitable) with max drawdown <= 20 % and worst calendar year >= -10 % at the Reference tier, <= 25 % and >= -15 % at the higher tiers, plus average win / average loss >= 2 at every tier; expectancy in R (R = quantity x (entry fill - initial stop); under the add the first unit's R) is reported for every cell, not gated",
+  "brake_judgement": "the brakes are judged by their trigger counts and their cost: the same sleeve with and without them, and the tier with its ladder beside the same tier with no ladder and with the Reference ladder; a brake that costs more than 0.1 Calmar is flagged for the owner; the loss limits and the heat cap are expected to count zero on one sleeve (they act in the multi-market book, plan row R20); re-entries within two bars of a stop-out are the rule's own behaviour, counted, not changed",
+  "readings": "per configuration and tier: realized yearly volatility, average allocation and its ratio to the Reference tier, the effective risk per trade and how often the 2 % / 2.5 % cap binds, how often a tier put the whole account in one trade, trades whose loss exceeded the stop distance (gaps), re-entries within two bars of a stop-out, and the bootstrap probability of touching -30 % (the hard stop), beside section 4.1's expectations (Trader near 10-11 % realized volatility on the lead sleeve, about 1 in 30 for the hard stop; Aggressive near 13 % and about 1 in 10)",
+  "holdout": "the last 12 months (2025-10-20 -> 2026-10-20), opened only by the full pre-registered study (every configuration, control and cell, with the reproduction, never --quick), only for (a) the Reference reproduction, whose months the stored studies already opened and which must reproduce them, (b) the brakes-on cell of the Trader and Aggressive tiers when it passes every section 4.6 gate, and (c) the hold controls as the comparison line (as every study did); the v1c verdict (positive return, PF > 1, >= 10 trades); every opening goes into an append-only ledger the report shows. CAVEAT, stated before the run: a tier changes only the size of the same trades, so a holdout opened at a tier is a near-second look at months already opened at the Reference tier, and its falling direction was known for every market; a confirmation is necessary, not sufficient, and the paper fleet's forward record is the judge",
+  "fleet": "a configuration that passes every section 4.6 gate at the trader tier with the brakes on and whose holdout at that cell confirms joins the paper fleet's shortlist as a NEW account with a source tag naming this study, its tier, its brakes and 'no variant' \u2014 the base rule at the Trader tier (vt20, 2 % cap, Turtle ladder, hard stop and entry caps on, all variants off); the TF control on BTC-USDT and ETH-USDT (6H) joins as a forward control at the Reference sizing; the rows are recorded in the results (shortlist_additions) and applied by plan row R18b once the fleet's loader can validate a tier-tagged row; existing accounts are untouched; nothing joins demo or live",
+  "no_changes_after_results": "no gate, tier, brake number, variant, market, threshold or verdict rule changes after the results are in; if a gate looks wrong the report says so"
+ },
+ "sha256": "ffe5343c5ea1d60f73f20ec48edd858a4ed818035f92f993a24585d5b70c3ef1"
+}

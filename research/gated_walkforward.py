@@ -28,7 +28,8 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from research.engine import Costs, SweepResult
+from research.brakes import BrakeSpec, merge_summaries, summary_for_column
+from research.engine import Costs, EngineVariants, SweepResult
 from research.metrics import bar_returns, equity_metrics, giveback_metrics, return_moments, sharpe, trade_metrics, yearly_returns
 from research.regime_v2 import FittedRegime, RegimeV2Config, bear_probability, entry_gate_mask, fit_regime, regime_summary, size_multiplier
 from research.sized_walkforward import SizingSelection, select_sizing
@@ -129,6 +130,7 @@ class GatedWindowResult:
     gate_blocked_share: float = 0.0  # share of desired test bars removed by the gate (selected rule)
     comparison_label: str = ""
     comparison_metrics: Dict[str, float] = field(default_factory=dict)
+    brake_summary: Dict[str, Any] = field(default_factory=dict)  # the brakes' counts in this test window (plan row R18)
 
 
 @dataclass
@@ -147,6 +149,7 @@ class GatedWalkForwardResult:
     comparison_returns: Optional[pd.Series] = None
     comparison_metrics: Dict[str, float] = field(default_factory=dict)
     comparison_frequency: Dict[str, int] = field(default_factory=dict)
+    brake_summary: Dict[str, Any] = field(default_factory=dict)  # the brakes' counts summed over the test windows (plan row R18)
 
     @property
     def rule_most_often(self) -> Optional[Dict[str, Any]]:
@@ -203,7 +206,15 @@ def run_gated_walk_forward(
     comparison_specs: Optional[Sequence[SizingSpec]] = None,
     comparison_fractions: Optional[np.ndarray] = None,
     comparison_cfg: SizingSelection = SizingSelection(),
+    brakes: Optional[BrakeSpec] = None,
+    variants: Optional[EngineVariants] = None,
+    test_frames: Optional[Frames] = None,
 ) -> GatedWalkForwardResult:
+    """Plan row R18 additions (all optional): ``policy_fractions`` may be an (n_bars, n_rules) matrix with one policy
+    column per rule column (a stop-aware tier), ``brakes`` / ``variants`` reach the engine for the TEST simulation only
+    (the rule selection on the train slice stays Sprint 2c's, at full size), and ``test_frames`` (same columns as
+    ``frames``) replaces the frames the selected rule is simulated with on the test slice (a protocol variant such as a
+    wider stop or a trailing exit), the selection itself still being made on ``frames``."""
     n = len(df)
     windows = make_windows(n, cfg)
     if not windows:
@@ -211,8 +222,10 @@ def run_gated_walk_forward(
     pf = np.asarray(policy_fractions, dtype=float)
     if pf.ndim == 1:
         pf = pf[:, None]
-    if pf.shape != (n, 1):
-        raise ValueError("policy_fractions must be an (n_bars, 1) matrix")
+    if pf.shape[0] != n or pf.shape[1] not in (1, frames.n_combos):
+        raise ValueError("policy_fractions must be an (n_bars, 1) matrix or one column per rule column")
+    if test_frames is not None and test_frames.n_combos != frames.n_combos:
+        raise ValueError("test_frames must have one column per rule column of frames")
     if regimes is None:
         regimes = regimes_for_windows(df, windows, regime_cfg, timeframe, periods_per_year)
     if len(regimes) != len(windows):
@@ -237,9 +250,7 @@ def run_gated_walk_forward(
         test_rel = slice(w.test.start - lo, hi - lo)
         test_index = df.index[w.test]
         fw = window_frames(frames, lo, hi, reg.ok)
-        fractions_w = pf[lo:hi].copy()
-        if reg.mult is not None:
-            fractions_w = fractions_w * reg.mult[:, None]
+        fw_test = fw if test_frames is None else window_frames(test_frames, lo, hi, reg.ok)
 
         train_res = simulate_slice(sub, fw, train_rel, costs=costs)
         table = metrics_table(train_res, combos, periods_per_year=periods_per_year)
@@ -261,9 +272,13 @@ def run_gated_walk_forward(
         rule = int(best["combo"])
         params = dict(combos[rule])
         rule_freq[_params_key(params)] = rule_freq.get(_params_key(params), 0) + 1
+        fractions_w = (pf[:, [rule]] if pf.shape[1] > 1 else pf)[lo:hi].copy()
+        if reg.mult is not None:
+            fractions_w = fractions_w * reg.mult[:, None]
 
-        test_res = simulate_sizing(sub, fw, rule, test_rel, fractions_w, costs=costs, ladder=ladder,
-                                   ladder_mask=np.array([policy.ladder]), rebalance_threshold=rebalance_threshold)
+        test_res = simulate_sizing(sub, fw_test, rule, test_rel, fractions_w, costs=costs, ladder=ladder,
+                                   ladder_mask=np.array([policy.ladder]), rebalance_threshold=rebalance_threshold,
+                                   brakes=brakes, variants=variants)
         test_returns = _window_returns(test_res, 0, test_index)
         tm = equity_metrics(test_res.equity[:, 0], periods_per_year)
         tm.update(trade_metrics(test_res.trades, init_cash=test_res.init_cash, n_bars=test_res.n_bars, periods_per_year=periods_per_year))
@@ -303,7 +318,8 @@ def run_gated_walk_forward(
 
         results.append(GatedWindowResult(w.idx, df.index[w.train.start], df.index[w.train.stop - 1], test_index[0], test_index[-1],
                                          rule, params, float(best[cfg.select_by]), int((stage_table["n_trades"] >= cfg.min_trades).sum()),
-                                         tm, test_returns, rule_sharpes, reg.train_summary, reg.test_summary, blocked, comp_label, comp_metrics))
+                                         tm, test_returns, rule_sharpes, reg.train_summary, reg.test_summary, blocked, comp_label, comp_metrics,
+                                         summary_for_column(test_res.brakes, 0) if test_res.brakes else {}))
         oos_returns.append(test_returns)
 
     stitched, oos_equity, trades_df, oos_metrics = _stitch(oos_returns, oos_trades, traded, periods_per_year)
@@ -312,7 +328,7 @@ def run_gated_walk_forward(
     oos_metrics["windows_positive"] = sum(1 for r in results if r.rule_combo is not None and r.test_metrics.get("total_return", 0) > 0)
     oos_metrics["gate_blocked_share"] = float(np.mean([r.gate_blocked_share for r in results if r.rule_combo is not None])) if oos_metrics["windows_traded"] else 0.0
     out = GatedWalkForwardResult(results, list(regimes), oos_equity, stitched, trades_df, oos_metrics, yearly_returns(oos_equity),
-                                 rule_freq, cfg, regime_cfg, policy)
+                                 rule_freq, cfg, regime_cfg, policy, brake_summary=merge_summaries([r.brake_summary for r in results]))
     if comparison_specs and comp_returns:
         c_stitched, _, _, c_metrics = _stitch(comp_returns, comp_trades, comp_traded, periods_per_year)
         out.comparison_returns = c_stitched
@@ -337,12 +353,14 @@ def replay_gated(
     ladder_on: bool = False,
     rebalance_threshold: Optional[float] = None,
     want_returns: bool = False,
+    brakes: Optional[BrakeSpec] = None,
+    variants: Optional[EngineVariants] = None,
 ) -> Tuple[List[Dict[str, float]], List[pd.Series]]:
     """Replay FIXED rule columns over every test window with the per-window gate; stitched metrics per column.
 
-    ``size_fraction`` is a full-length (n, 1) policy matrix or None (full size).
-    Returns ``(metrics per column, stitched bar-return series per column)``
-    (the series list is empty unless ``want_returns``).
+    ``size_fraction`` is a full-length (n, 1) policy matrix, an (n, len(columns)) matrix with one policy column per
+    replayed rule column (a stop-aware tier), or None (full size). Returns ``(metrics per column, stitched bar-return
+    series per column)`` (the series list is empty unless ``want_returns``). ``brakes`` / ``variants`` reach the engine.
     """
     cols = list(columns)
     n_cols = len(cols)
@@ -359,7 +377,7 @@ def replay_gated(
             sf: Any = 1.0
             mask = np.full(n_cols, bool(ladder_on)) if ladder is not None else None
             res = simulate_slice(sub, fw, test_rel, costs=costs, size_fraction=sf, columns=cols, ladder=ladder, ladder_mask=mask,
-                                 rebalance_threshold=rebalance_threshold)
+                                 rebalance_threshold=rebalance_threshold, brakes=brakes, variants=variants)
         else:
             sf_w = np.asarray(size_fraction, dtype=float)[lo:hi].copy()
             if reg.mult is not None:
@@ -367,7 +385,8 @@ def replay_gated(
             # one policy column replicated for every rule column
             mask = np.full(n_cols, bool(ladder_on)) if ladder is not None else None
             res = simulate_slice(sub, fw, test_rel, costs=costs, size_fraction=np.repeat(sf_w, n_cols, axis=1) if sf_w.shape[1] == 1 else sf_w,
-                                 columns=cols, ladder=ladder, ladder_mask=mask, rebalance_threshold=rebalance_threshold)
+                                 columns=cols, ladder=ladder, ladder_mask=mask, rebalance_threshold=rebalance_threshold,
+                                 brakes=brakes, variants=variants)
         test_index = df.index[w.test]
         for k in range(n_cols):
             per_col_returns[k].append(_window_returns(res, k, test_index))
@@ -389,11 +408,31 @@ def slippage_stress_gated(
     df: pd.DataFrame, frames: Frames, column: int, windows: Sequence[Window], regimes: Sequence[WindowRegime], *,
     base_costs: Costs, periods_per_year: float, size_fraction: np.ndarray, ladder: LadderConfig, ladder_on: bool,
     rebalance_threshold: Optional[float], multipliers: Sequence[float] = (1.0, 2.0, 3.0),
+    brakes: Optional[BrakeSpec] = None, variants: Optional[EngineVariants] = None,
 ) -> Dict[str, float]:
     out: Dict[str, float] = {}
     for mult in multipliers:
         sc = Costs(fee_rate=base_costs.fee_rate, slippage_rate=min(0.0999, base_costs.slippage_rate * mult))
         m, _ = replay_gated(df, frames, [column], windows, regimes, costs=sc, periods_per_year=periods_per_year,
-                            size_fraction=size_fraction, ladder=ladder, ladder_on=ladder_on, rebalance_threshold=rebalance_threshold)
+                            size_fraction=size_fraction, ladder=ladder, ladder_on=ladder_on, rebalance_threshold=rebalance_threshold,
+                            brakes=brakes, variants=variants)
         out[f"x{mult:g}"] = float(m[0]["total_return"])
+    return out
+
+
+def cost_scenarios_gated(
+    df: pd.DataFrame, frames: Frames, column: int, windows: Sequence[Window], regimes: Sequence[WindowRegime], *,
+    scenarios: Mapping[str, Costs], periods_per_year: float, size_fraction: np.ndarray, ladder: LadderConfig, ladder_on: bool,
+    rebalance_threshold: Optional[float], brakes: Optional[BrakeSpec] = None, variants: Optional[EngineVariants] = None,
+) -> Dict[str, Dict[str, float]]:
+    """Plan row R18: the selected rule replayed (same windows, same gate, same sizing) under other fee + slippage pairs."""
+    out: Dict[str, Dict[str, float]] = {}
+    for name, sc in scenarios.items():
+        m, _ = replay_gated(df, frames, [column], windows, regimes, costs=sc, periods_per_year=periods_per_year,
+                            size_fraction=size_fraction, ladder=ladder, ladder_on=ladder_on, rebalance_threshold=rebalance_threshold,
+                            brakes=brakes, variants=variants)
+        keep = ("total_return", "cagr", "sharpe", "max_drawdown", "calmar", "profit_factor", "n_trades", "fees_pct_per_year", "ann_vol", "win_rate",
+                "avg_win", "avg_loss")
+        out[name] = {"fee_rate": sc.fee_rate, "slippage_rate": sc.slippage_rate, "round_trip": 2.0 * (sc.fee_rate + sc.slippage_rate),
+                     **{k: float(m[0][k]) for k in keep if k in m[0]}}
     return out

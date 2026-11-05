@@ -4,6 +4,92 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — R18a: Trader Policy v1 — three fixed risk budgets, entry brakes, position-management variants and the pre-registered study (plan row R18a)
+
+Research code, tests and docs only (`research/`, `scripts/run_research_v1c.py`, `scripts/run_trader_policy_v1.py`, `tests/`, `docs/`): nothing under
+`app/`, `config/` or `migrations/` changed; `app/execution`, `app/risk`, `app/exchange` and `app/shadow` are untouched. The demo shadow run, its caps
+(10 USDT an entry, 1 USDT a day) and the 0.60 confidence floor are untouched; no tier, brake or variant reaches demo or live. Simulation only: nothing
+here places, sizes or approves an order. The paper-fleet half of the row (loader extension, fleet engine, the new accounts, the weekly report) is plan
+row R18b; the rows for it are RECORDED in the results file, not applied.
+
+### Added
+- `research/sizing.py`: a per-trade risk cap (`risk_cap`: allocation <= cap / (stop distance / close)) and a risk-sized kind (`kind="risk"`, Kovner's
+  rule), both read from the candidate's own stop distance at the decision bar; `rule_fraction_matrix` (one policy column per rule column);
+  `fraction_components` (how often the cap binds); `SIZING_TIERS` (Reference = Sprint 2c's policy unchanged; Trader `vt20/30 crash15/90dh cap2`;
+  Aggressive `vt25/30 crash15/90dh cap2.5`; `risk1.5` for information). A spec without the new fields serialises exactly as before (the stored
+  studies' protocol check compares it).
+- `research/brakes.py`: the section 4.3 brakes, entries only — the Turtle ladder (x0.8 at -10 % from the equity peak, x0.64 at -20 %, restored on a
+  new high), the -30 % hard stop, the entry caps (1 per market per day, 3 per day, none on the bar after an exit), the rolling 24-hour / weekly /
+  monthly loss limits (3 / 6 / 10 %), the heat cap (6 %, variant 8 %) with the R5b correlation grouping and equal size-down — as an
+  `EntryBrakes` state machine the engine consults once per bar before its entries, with per-column trigger counts; `BarCalendar` (UTC day,
+  Monday-based week, month, bars per day; unit-independent).
+- `research/engine.py`: the optional `brakes` / `bar_times` hook and `EngineVariants` (one add of half the initial quantity at +1 R with its own stop
+  from the add bar, the first unit keeping its stop; a half scale-out at +2 R through the reduce-only path), both off by default and bit-for-bit
+  today's engine when off; the extra trade columns `stop_price`, `risk`, `risk_pct`, `adds`, `add_worst_case_r`, `scale_outs` (the Sprint 2 columns
+  unchanged). `research/bracket.py`: `trail3`. `research/montecarlo.py`: the share of bootstrap paths touching a drawdown threshold (`prob_max_dd_ge_30`).
+- `research/trader_policy.py`: the tiers (`TIERS`, the comparison tiers with the Reference ladder and with no ladder, `tier_for` for the fleet
+  loader), the variants (`VARIANTS`, `variant_frames`, the conviction multiplier), the section 4.6 gates (`acceptance_check_r18`: max drawdown <=
+  25 % and worst year >= -15 % at the higher tiers, average win / average loss >= 2 at every tier), the size-neutral variant rule
+  (`variant_counts`), the brake-cost flag (0.1 Calmar), the per-trade statistics (expectancy in R, payoff ratio, gaps past the stop, re-entries within
+  two bars of a stop-out, risk per trade, cap binding, adds' worst case, the conviction test).
+- `research/trader_policy_study.py`, `research/report_trader_policy.py`, `scripts/run_trader_policy_v1.py`: the pre-registered study — the five
+  confirmed configurations (S1+S5 BTC 6H; S1 and S1+S5 SOL 6H; S1+VC BTC 4H gate; S1+VC DOGE 4H gate), six hold controls and four TF forward controls
+  (long above the 200-day average, policy sizing, a fixed rule) at 11 core cells (tiers x brakes on/off, the comparison ladders, `risk1.5`) plus 7
+  variant cells, 150 cells in all, through Sprint 2c's own runner; the reproduction of every stored number first (the study stops otherwise); the
+  protocol check recorded per cell (a tier is a documented `policy_sizing` mismatch; the study stops on any other); costs replayed at 0.20 % and 0.50 %
+  a round trip beside the 0.30 % gate cost; the holdout for the pre-registered cells only, through an append-only ledger with the earlier looks;
+  `docs/research/TRADER_POLICY_V1_REPORT.md`, `trader_policy_v1_results.json`, `trader_policy_v1_preregistration.json`,
+  `trader_policy_v1_holdout_ledger.json`; the fleet rows recorded in the results (`shortlist_additions`) for plan row R18b.
+- Tests: `tests/test_research_brakes.py` (each brake's rule and counts, the calendar on nanosecond and microsecond indices, the heat-cap functions),
+  `tests/test_research_trader_policy_engine.py` (tiers, cap, risk kind, per-rule matrices, the add and scale-out, flags off bit-for-bit, the walk-forward
+  plumbing, cost replays, the Monte Carlo threshold), `tests/test_research_trader_policy.py` (gates, variant rule, statistics, cells, runner arguments,
+  protocol honesty, pre-registration write-once and integrity, stored results found, a synthetic-lake run through the real runner, fleet rows, ledger,
+  the command line); `tests/test_research_boundaries.py` covers the new script.
+
+### Changed
+- `scripts/run_research_v1c.py` (the Sprint 2c protocol runner) takes the plan-row-R18 arguments `--policy-kind`, `--policy-risk`, `--policy-risk-cap`,
+  `--turtle-ladder`, `--brakes`, `--heat-cap`, `--variant`, `--cost-scenarios`, `--tier`; every default is Sprint 2c's and the stored numbers reproduce
+  at the defaults (checked by the study: 11 of 11). The per-window rule selection never sees the tier; a tier run records `acceptance_r18`, `r18`
+  (brake counts, trade statistics, cap binding, cost replays, the conviction test) and the tier label, and judges its holdout by the section 4.6 gates.
+- `research/gated_walkforward.py`: `policy_fractions` may be an (n_bars, n_rules) matrix; `brakes`, `variants` and `test_frames` (the variant's frames
+  for the test slice; the selection still runs on the originals) reach the engine; `replay_gated` / `slippage_stress_gated` take them;
+  `cost_scenarios_gated`. `research/sweep.py`: `simulate_slice` / `simulate_sizing` pass `brakes` and `variants` through.
+- `docs/PLAN_STATUS.md`: row R18 split into R18a (this) and R18b (the paper-fleet side); owner items in section 2. `docs/RESEARCH_LAB.md`: a section.
+
+### Result (2026-11-05)
+- `docs/research/TRADER_POLICY_V1_REPORT.md` (150 cells, 9.6 min on 12 workers). Reproduction: 11 of 11 stored results exact (differences below the
+  stored 6-decimal rounding; same trades, rules and verdicts). **All five configurations pass the section 4.6 gates at the Trader tier with the
+  brakes on, and their untouched 12 months confirm at that tier** (near-second looks at months the Reference tier already opened; the ledger names each
+  earlier look). Trader tier, brakes on, 0.30 % a round trip: S1+S5 BTC 6H +10.4 % a year at a 14.1 % worst drawdown (Calmar 0.74, realized
+  volatility 10.1 %, 1.66 x the Reference exposure, a stop costs 1.7 % of the account on average, the 2 % cap binding on 64 % of entries, holdout +3.4 %
+  from 30 trades); S1 SOL 6H +9.8 % at 8.0 % (Calmar 1.22, vol 8.0 %, 1.61 x, holdout +8.5 % from 11 trades); S1+S5 SOL 6H +13.6 % at 9.8 % (Calmar
+  1.39, vol 9.5 %, 1.63 x, the same 11 holdout trades); S1+VC BTC 4H gate +8.0 % at 13.8 % (Calmar 0.58, vol 10.5 %, 1.74 x, holdout +2.0 % from 27
+  trades); S1+VC DOGE 4H gate +6.3 % at 9.4 % (Calmar 0.67, vol 7.9 %, 1.82 x, holdout +1.3 % from 16 trades). Average win 2.7-4.7 x average loss,
+  expectancy 0.16-0.27 R, no stop-loss exit filled below its stop in 4.3 out-of-sample years, bootstrap chance of touching -30 % at most 0.6 % at
+  Trader and 2.9 % at Aggressive (section 4.1 expected about 1 in 30 and 1 in 10). The Aggressive tier passes on all five with the brakes on (4 of 5
+  without) at 9.8-12.7 % realized volatility and 9.9-17.2 % drawdowns; `risk1.5` sits between Reference and Trader (1.2-1.5 x the Reference exposure).
+- Brakes, Trader tier, five sleeves summed: "no entry on the bar after an exit" acted 131 times, "one entry per market per day" 26 times, the Turtle
+  ladder cut 7 entries, the 24-hour loss limit blocked 1; the weekly and monthly limits and the heat cap never acted. Cost beside the same sleeve
+  without them: -0.18 to +0.10 Calmar (it IMPROVED S1 SOL 6H from 1.04 to 1.22); flagged above 0.1 Calmar only on S1+VC DOGE 4H at the Reference
+  and Aggressive tiers (at Trader exactly 0.10). The Turtle ladder cost no sleeve more than 0.02 Calmar beside no ladder; the Reference ladder in
+  its place is worse on SOL S1 (0.76 against 1.22) and no better elsewhere.
+- Variants (size-neutral rule, each alone at Trader with brakes on): the +1 R add counted on S1+S5 BTC 6H only (Sharpe 1.03 to 1.24, Calmar 0.74 to
+  0.95, 21 adds, worst case at the stops 1.52 R on average and 1.73 R at most) and lost on the four others; the +2 R half scale-out counted on the
+  two SOL sleeves (Calmar 1.22 to 1.96 and 1.39 to 2.22) and lost on the three others; `trail2` / `trail3` lost everywhere; the wider stop counted on
+  DOGE only; dropping the time stop counted on S1 SOL (no change: it never fired), S1+VC BTC 4H (0.58 to 0.78) and DOGE; the conviction split FAILED
+  its pre-registered test (pooled: 46 high-conviction trades at 0.12 R against 277 at 0.25 R). Nothing changes in any account: a variant that counted
+  is a candidate for a pre-registered forward test, an owner decision.
+- Costs (fixed replays of the selected rule, Trader, brakes on): at 0.20 % a round trip the BTC sleeves gain (Calmar 0.74 to 0.90 and 0.58 to 0.66);
+  at 0.50 % the altcoin sleeves keep their shape (SOL S1 1.22 to 0.94, SOL S1+S5 1.39 to 1.16, DOGE 0.67 to 0.62).
+- Fleet rows recorded for plan row R18b: the five configurations at the Trader tier (brakes on, no variant) and the TF forward control on BTC-USDT
+  and ETH-USDT 6H (Reference sizing, fixed rule). The shortlist file and the 24 running accounts are untouched.
+- Two things to know: (1) the study's first run had a timestamp-unit bug in the brakes' calendar (stored 4H candles carry millisecond timestamps,
+  read as nanoseconds, so every 4H bar fell on one day and the one-entry-per-day cap blocked almost every 4H entry); its own brake counts exposed
+  it, the calendar was fixed (and tested on both units) and the whole study re-run with the pre-registration unchanged; both runs' holdout openings
+  are in the append-only ledger. (2) The runner opens the holdout for any cell that passes the gates, and the TF forward control passed at the
+  Trader and Aggressive cells on BTC-USDT 4H and 6H, so its 12 months were opened there although the pre-registration listed only the configurations
+  and the hold controls; recorded in the ledger, no verdict (TF is never judged); the job planner now excludes the TF controls from the holdout.
+
 ## Unreleased — R17: paper-fleet hygiene — public positioning data for the replication markets and honest "filter without data" labels (plan row R17)
 
 Fleet and research code, tests and docs only (`research/`, `scripts/run_paper_fleet.py`, `tests/`, `docs/`): nothing under `app/`,

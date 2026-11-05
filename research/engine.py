@@ -42,16 +42,37 @@ the Sprint 2 engine, which is parity-tested against the reviewed simulator):
 
 All combos (columns) are simulated together: one Python loop over bars with
 numpy operations across combos, which is fast enough for 1H/4H/6H/1D research.
+
+Trader Policy v1 (plan row R18) adds three optional pieces, each off by default
+and each leaving the engine bit-for-bit what it was when off:
+
+- ``brakes`` (:class:`research.brakes.BrakeSpec`, with the bars' ``bar_times``):
+  entry-only circuit breakers (the Turtle ladder, the hard stop, the entry caps,
+  the loss limits, the heat cap) consulted once per bar right before the
+  entries; a brake never closes or reduces a position.
+- ``variants`` (:class:`EngineVariants`): ONE add of ``add_size`` x the initial
+  quantity decided at a bar close once the close is ``add_at_r`` R above the
+  entry fill (R = entry fill - initial stop), executed at the next open; the
+  first unit keeps its stop, the add gets the candidate's own stop distance of
+  the decision bar; never after a loss, never averaging down. And a half
+  scale-out decided at a bar close once the close is ``scale_out_at_r`` R up,
+  sold at the next open through the reduce-only path; the remainder keeps its
+  stop; the trade stays one trade with its P&L pooled.
+- extra trade columns (``stop_price``, ``risk`` = quantity x (entry fill -
+  initial stop), ``risk_pct`` of the equity at entry, ``adds``,
+  ``add_worst_case_r``, ``scale_outs``) for the expectancy-in-R, gap and
+  re-entry statistics; the Sprint 2 columns are unchanged.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import List, Optional, Sequence, Union
+from dataclasses import asdict, dataclass, field
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
 
+from research.brakes import BarCalendar, BrakeSpec, EntryBrakes
 from research.sizing import LADDER_MULTIPLIERS, LadderConfig, ladder_step
 
 
@@ -72,8 +93,49 @@ TRADE_COLUMNS = (
     "fees", "pnl", "return_pct", "bars_held", "exit_reason",
     "mfe_pct", "mae_pct", "size_fraction", "reductions",
 )
+#: Plan row R18: the initial stop price, the money and the share of equity at risk at the initial stop, the add and scale-out counts.
+EXTRA_TRADE_COLUMNS = ("stop_price", "risk", "risk_pct", "adds", "add_worst_case_r", "scale_outs")
+ALL_TRADE_COLUMNS = TRADE_COLUMNS + EXTRA_TRADE_COLUMNS
 _OBJECT_COLUMNS = ("exit_reason",)
-_INT_COLUMNS = ("combo", "entry_i", "exit_i", "bars_held", "reductions")
+_INT_COLUMNS = ("combo", "entry_i", "exit_i", "bars_held", "reductions", "adds", "scale_outs")
+
+
+@dataclass(frozen=True)
+class EngineVariants:
+    """The two position-management variants of Trader Policy v1 (plan row R18), both off by default."""
+
+    add_at_r: Optional[float] = None  # one add once the close is this many R above the entry fill (decided at a bar close)
+    add_size: float = 0.5  # the add's quantity as a share of the initial quantity
+    scale_out_at_r: Optional[float] = None  # sell ``scale_out_share`` of the position once the close is this many R up
+    scale_out_share: float = 0.5
+
+    def __post_init__(self) -> None:
+        if self.add_at_r is not None and not (float(self.add_at_r) > 0):
+            raise ValueError("add_at_r must be positive when given")
+        if not (0.0 < float(self.add_size) <= 1.0):
+            raise ValueError("add_size must be in (0, 1]")
+        if self.scale_out_at_r is not None and not (float(self.scale_out_at_r) > 0):
+            raise ValueError("scale_out_at_r must be positive when given")
+        if not (0.0 < float(self.scale_out_share) < 1.0):
+            raise ValueError("scale_out_share must be in (0, 1)")
+
+    @property
+    def active(self) -> bool:
+        return self.add_at_r is not None or self.scale_out_at_r is not None
+
+    @property
+    def label(self) -> str:
+        parts = []
+        if self.add_at_r is not None:
+            parts.append(f"add {self.add_size:g}x at +{self.add_at_r:g}R")
+        if self.scale_out_at_r is not None:
+            parts.append(f"scale-out {self.scale_out_share:g} at +{self.scale_out_at_r:g}R")
+        return ", ".join(parts) or "no variant"
+
+    def to_dict(self) -> Dict[str, Any]:
+        out = asdict(self)
+        out["label"] = self.label
+        return out
 
 
 @dataclass
@@ -86,6 +148,7 @@ class SweepResult:
     n_combos: int
     exposure: np.ndarray = field(default_factory=lambda: np.zeros(0))  # (C,) fraction of bars long
     allocation: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))  # (n, C) allocated fraction of equity (0 when flat)
+    brakes: Optional[Dict[str, Any]] = None  # the brakes' per-column counts (plan row R18), None when no brakes ran
 
     def trades_for(self, combo: int) -> pd.DataFrame:
         return self.trades[self.trades["combo"] == combo]
@@ -121,7 +184,7 @@ def _per_column(values, C: int, name: str) -> np.ndarray:
 
 def _empty_trades() -> pd.DataFrame:
     cols = {}
-    for k in TRADE_COLUMNS:
+    for k in ALL_TRADE_COLUMNS:
         if k in _OBJECT_COLUMNS:
             cols[k] = pd.Series(dtype=object)
         elif k in _INT_COLUMNS:
@@ -149,8 +212,15 @@ def run_vectorized(
     ladder: Optional[LadderConfig] = None,
     ladder_mask: Optional[np.ndarray] = None,
     rebalance_threshold: Optional[float] = None,
+    brakes: Optional[BrakeSpec] = None,
+    bar_times=None,
+    variants: Optional[EngineVariants] = None,
 ) -> SweepResult:
-    """Simulate every column of ``desired`` (bool, shape (n, C)) on the same OHLC path."""
+    """Simulate every column of ``desired`` (bool, shape (n, C)) on the same OHLC path.
+
+    ``brakes`` (with ``bar_times``, one timestamp per bar) and ``variants`` are the plan-row-R18 options; both
+    default to off, and off is bit-for-bit the engine as it was.
+    """
     o, h, l, c = (np.asarray(x, dtype=float) for x in (open_, high, low, close))
     n = len(c)
     if not (len(o) == len(h) == len(l) == n):
@@ -217,6 +287,22 @@ def run_vectorized(
         raise ValueError("rebalance_threshold must be in [0, 1) when given")
     overlay = frac is not None or use_ladder or rebalance_threshold is not None
 
+    # -- plan row R18: entry brakes and the add / scale-out variants (all off by default) ------------
+    brake_state: Optional[EntryBrakes] = None
+    if brakes is not None and brakes.active:
+        if bar_times is None:
+            raise ValueError("brakes need bar_times (one timestamp per bar)")
+        cal = BarCalendar.from_times(bar_times)
+        if cal.n_bars != n:
+            raise ValueError("bar_times must have one timestamp per bar")
+        brake_state = EntryBrakes(brakes, C, float(init_cash), cal)
+    var = variants if variants is not None else EngineVariants()
+    use_add = var.add_at_r is not None
+    use_so = var.scale_out_at_r is not None
+    overlay = overlay or use_add or use_so  # the allocation matrix is tracked when a variant changes a position's size
+    if use_add and stops is None:
+        raise ValueError("the add variant needs the candidate's stop distances (the add gets its own stop)")
+
     fee, slip = costs.fee_rate, costs.slippage_rate
     cash = np.full(C, float(init_cash))
     qty = np.zeros(C)
@@ -239,6 +325,21 @@ def run_vectorized(
     lad_flat = np.zeros(C, dtype=np.int64)
     lad_peak = np.full(C, float(init_cash))
     lad_mult = np.ones(C)
+    # R18 bookkeeping (constant zeros / NaN unless a variant is on).
+    stop0 = np.full(C, np.nan)  # the initial stop price of the open trade
+    risk_money = np.full(C, np.nan)  # quantity x (entry fill - initial stop)
+    risk_pct = np.full(C, np.nan)  # ... as a share of the equity at entry
+    n_add = np.zeros(C, dtype=np.int64)
+    add_qty = np.zeros(C)  # quantity of the add unit still held
+    add_qty0 = np.zeros(C)
+    add_px = np.zeros(C)
+    add_fee = np.zeros(C)
+    add_stop = np.full(C, np.nan)
+    add_alloc = np.zeros(C)  # the add unit's share of equity (so the reduce-only overlay does not sell a deliberate add back)
+    add_wc = np.full(C, np.nan)  # worst case at the stop prices, in first-unit R, at the moment of the add
+    add_pending = np.zeros(C, dtype=bool)
+    n_so = np.zeros(C, dtype=np.int64)
+    so_pending = np.zeros(C, dtype=bool)
     equity = np.empty((n, C))
     position = np.zeros((n, C), dtype=bool)
     allocation = np.zeros((n, C))
@@ -253,7 +354,11 @@ def run_vectorized(
         fill = price[mask] * (1.0 - slip)
         q = qty[mask]
         q0 = qty0[mask]
-        proceeds = fill * q
+        if use_add:
+            aq = add_qty[mask]
+            proceeds = fill * (q + aq)
+        else:
+            proceeds = fill * q
         exit_fee = proceeds * fee
         cash[mask] += proceeds - exit_fee
         share = q / q0
@@ -261,6 +366,11 @@ def run_vectorized(
         pnl = realized[mask] + proceeds - exit_fee - ep * q - entry_fee[mask] * share
         fees = fees_acc[mask] + exit_fee
         outlay = ep * q0 + entry_fee[mask]
+        if use_add:
+            held_add = add_qty0[mask] > 0
+            add_cost = np.where(held_add, add_px[mask] * aq + add_fee[mask] * np.where(held_add, aq / np.where(held_add, add_qty0[mask], 1.0), 0.0), 0.0)
+            pnl = pnl - add_cost
+            outlay = outlay + np.where(held_add, add_px[mask] * add_qty0[mask] + add_fee[mask], 0.0)
         count = int(mask.sum())
         trade_chunks.append(
             {
@@ -279,6 +389,12 @@ def run_vectorized(
                 "mae_pct": np.where(np.isfinite(ll[mask]), ll[mask] / ep - 1.0, 0.0),
                 "size_fraction": alloc0[mask].copy(),
                 "reductions": n_red[mask].copy(),
+                "stop_price": stop0[mask].copy(),
+                "risk": risk_money[mask].copy(),
+                "risk_pct": risk_pct[mask].copy(),
+                "adds": n_add[mask].copy(),
+                "add_worst_case_r": add_wc[mask].copy(),
+                "scale_outs": n_so[mask].copy(),
             }
         )
         in_pos[mask] = False
@@ -294,6 +410,39 @@ def run_vectorized(
         realized[mask] = 0.0
         fees_acc[mask] = 0.0
         n_red[mask] = 0
+        stop0[mask] = np.nan
+        risk_money[mask] = np.nan
+        risk_pct[mask] = np.nan
+        n_add[mask] = 0
+        add_qty[mask] = 0.0
+        add_qty0[mask] = 0.0
+        add_px[mask] = 0.0
+        add_fee[mask] = 0.0
+        add_stop[mask] = np.nan
+        add_alloc[mask] = 0.0
+        add_wc[mask] = np.nan
+        add_pending[mask] = False
+        n_so[mask] = 0
+        so_pending[mask] = False
+        if brake_state is not None:
+            brake_state.on_exit(i, mask)
+
+    def _exit_add_unit(mask: np.ndarray, price: np.ndarray, i: int) -> None:
+        """The add unit's own stop: sell only that unit (the first unit and its stop stay)."""
+        if not mask.any():
+            return
+        fill = price[mask] * (1.0 - slip)
+        aq = add_qty[mask]
+        proceeds = fill * aq
+        f = proceeds * fee
+        cash[mask] += proceeds - f
+        realized[mask] += proceeds - f - add_px[mask] * aq - add_fee[mask] * (aq / add_qty0[mask])
+        fees_acc[mask] += f
+        add_qty[mask] = 0.0
+        add_stop[mask] = np.nan
+        # The allocation falls back by the add's share (an estimate, as every allocation after a fill is).
+        alloc[mask] = np.maximum(alloc[mask] - add_alloc[mask], 0.0)
+        add_alloc[mask] = 0.0
 
     def _reduce(mask: np.ndarray, price: np.ndarray, target_alloc: np.ndarray) -> None:
         """Sell part of the open positions in ``mask`` down to ``target_alloc`` (reduce-only)."""
@@ -301,13 +450,30 @@ def run_vectorized(
             return
         fill = price[mask] * (1.0 - slip)
         ratio = target_alloc[mask] / alloc[mask]
-        dq = qty[mask] * (1.0 - ratio)
-        proceeds = fill * dq
-        f = proceeds * fee
-        cash[mask] += proceeds - f
-        realized[mask] += proceeds - f - entry_px[mask] * dq - entry_fee[mask] * (dq / qty0[mask])
-        fees_acc[mask] += f
-        qty[mask] -= dq
+        if use_add:
+            total = qty[mask] + add_qty[mask]
+            dq_total = total * (1.0 - ratio)
+            from_add = np.minimum(add_qty[mask], dq_total)  # the add unit (the most recent, dearest unit) goes first
+            dq = dq_total - from_add
+            proceeds = fill * dq_total
+            f = proceeds * fee
+            cash[mask] += proceeds - f
+            add_share = np.where(add_qty0[mask] > 0, from_add / np.where(add_qty0[mask] > 0, add_qty0[mask], 1.0), 0.0)
+            realized[mask] += proceeds - f - entry_px[mask] * dq - entry_fee[mask] * (dq / qty0[mask]) - add_px[mask] * from_add - add_fee[mask] * add_share
+            fees_acc[mask] += f
+            qty[mask] -= dq
+            before_add = add_qty[mask]
+            add_qty[mask] -= from_add
+            add_alloc[mask] = np.where(before_add > 0, add_alloc[mask] * add_qty[mask] / np.where(before_add > 0, before_add, 1.0), 0.0)
+            add_stop[mask] = np.where(add_qty[mask] > 1e-15, add_stop[mask], np.nan)
+        else:
+            dq = qty[mask] * (1.0 - ratio)
+            proceeds = fill * dq
+            f = proceeds * fee
+            cash[mask] += proceeds - f
+            realized[mask] += proceeds - f - entry_px[mask] * dq - entry_fee[mask] * (dq / qty0[mask])
+            fees_acc[mask] += f
+            qty[mask] -= dq
         alloc[mask] = target_alloc[mask]
         n_red[mask] += 1
 
@@ -322,6 +488,12 @@ def run_vectorized(
             ref = np.where(o[i] < stop_px, o[i], stop_px)
             _exit(hit, ref, i, "stop_loss")
             exited |= hit
+        if use_add:
+            # The add unit's own stop (checked after the whole-position stop, which closes both units).
+            hit_a = in_pos & ~exited & (add_qty > 0) & np.isfinite(add_stop) & (l[i] <= add_stop)
+            if hit_a.any():
+                ref = np.where(o[i] < add_stop, o[i], add_stop)
+                _exit_add_unit(hit_a, ref, i)
         if targets is not None:
             hit_t = in_pos & ~exited & np.isfinite(target_px) & (h[i] >= target_px)
             if hit_t.any():
@@ -354,6 +526,8 @@ def run_vectorized(
                 else:
                     f_dec = frac[i - 1] if frac is not None else np.full(C, frac_scalar)
                     basis = np.where(np.isfinite(f_dec), f_dec, alloc0)
+                if use_add:
+                    basis = basis + add_alloc  # a held add is a deliberate increase, not an over-allocation to sell back
                 target = np.minimum(alloc, basis * lad_mult)
                 kill = still & (target <= 1e-12)
                 if kill.any():
@@ -362,6 +536,36 @@ def run_vectorized(
                 red = still & ~kill & (target < alloc * (1.0 - thr) - 1e-12)
                 if red.any():
                     _reduce(red, np.full(C, o[i]), target)
+            # Plan row R18 variants, decided at the previous close, executed at this open on positions still open.
+            if use_so and so_pending.any():
+                do = so_pending & in_pos
+                if do.any():
+                    _reduce(do, np.full(C, o[i]), alloc * (1.0 - float(var.scale_out_share)))
+                    n_so[do] += 1
+                so_pending[:] = False
+            if use_add and add_pending.any():
+                do = add_pending & in_pos & (add_qty0 == 0) & ((c[i - 1] - stops[i - 1]) < o[i])
+                if do.any():
+                    fill = o[i] * (1.0 + slip)
+                    q_add = qty0[do] * float(var.add_size)
+                    affordable = cash[do] / (fill * (1.0 + fee))
+                    q_add = np.minimum(q_add, np.maximum(affordable, 0.0))  # never on margin: at most the cash left
+                    f = fill * q_add * fee
+                    equity_before = cash[do] + (qty[do] + add_qty[do]) * o[i]
+                    cash[do] -= fill * q_add + f
+                    add_qty[do] = q_add
+                    add_qty0[do] = q_add
+                    add_px[do] = fill
+                    add_fee[do] = f
+                    add_stop[do] = c[i - 1] - stops[i - 1][do]
+                    fees_acc[do] += f
+                    n_add[do] += 1
+                    add_alloc[do] = np.where(equity_before > 0, fill * q_add / equity_before, 0.0)
+                    alloc[do] = alloc[do] + add_alloc[do]
+                    first_risk = qty[do] * (entry_px[do] - stop_px[do])
+                    add_risk = q_add * (fill - add_stop[do])
+                    add_wc[do] = np.where(risk_money[do] > 0, (first_risk + add_risk) / risk_money[do], np.nan)
+                add_pending[:] = False
             # Enter at the open when flat and desired (stop must sit below the open).
             to_enter = want & ~in_pos & ~exited
             if to_enter.any():
@@ -372,8 +576,17 @@ def run_vectorized(
                     sd_prev = stops[i - 1]
                     has_stop = np.isfinite(sd_prev) & (sd_prev > 0)
                     to_enter &= ~has_stop | ((c[i - 1] - sd_prev) < o[i])
+                if brake_state is not None and to_enter.any():
+                    if stops is not None:
+                        sd_prev = stops[i - 1]
+                        stop_pct = np.where(np.isfinite(sd_prev) & (sd_prev > 0), sd_prev / c[i - 1], np.nan)
+                    else:
+                        stop_pct = np.full(C, np.nan)
+                    f_entry = f_entry * brake_state.entry_multiplier(i, to_enter, f_entry, stop_pct)
+                    to_enter &= f_entry > 0.0
                 if to_enter.any():
                     fill = o[i] * (1.0 + slip)
+                    cash_before = cash[to_enter].copy()
                     notional = cash[to_enter] * f_entry[to_enter]
                     q = notional / (fill * (1.0 + fee))
                     f = fill * q * fee
@@ -396,15 +609,24 @@ def run_vectorized(
                         has = np.isfinite(sd) & (sd > 0)
                         stop_px[to_enter] = np.where(has, c[i - 1] - sd, np.nan)
                         risk[to_enter] = np.where(has, sd, np.nan)
+                        stop0[to_enter] = stop_px[to_enter]
+                        rm = np.where(has, q * (fill - stop_px[to_enter]), np.nan)
+                        risk_money[to_enter] = rm
+                        risk_pct[to_enter] = np.where(has & (cash_before > 0), rm / cash_before, np.nan)
                     if targets is not None:
                         td = targets[i - 1][to_enter]
                         target_px[to_enter] = np.where(np.isfinite(td) & (td > 0), c[i - 1] + td, np.nan)
+                    if brake_state is not None:
+                        brake_state.on_entry(i, to_enter)
                     # Same-bar stop for a position just opened at the open.
                     hit = to_enter & np.isfinite(stop_px) & (l[i] <= stop_px)
                     if hit.any():
                         ref = np.where(o[i] < stop_px, o[i], stop_px)
                         _exit(hit, ref, i, "stop_loss")
-        equity[i] = cash + qty * c[i]
+        if use_add:
+            equity[i] = cash + (qty + add_qty) * c[i]
+        else:
+            equity[i] = cash + qty * c[i]
         position[i] = in_pos
         if overlay:
             allocation[i] = np.where(in_pos, alloc, 0.0)
@@ -417,12 +639,21 @@ def run_vectorized(
                 if armed.any():
                     new_stop = hh - dist * risk
                     stop_px[:] = np.where(armed, np.fmax(stop_px, new_stop), stop_px)
+            if use_add:
+                # One add per trade, only on a winner (the close is add_at_r R above the entry fill), with a stop of its own.
+                sd_now = stops[i]
+                add_pending[:] = (in_pos & (n_add == 0) & np.isfinite(risk) & (risk > 0) & np.isfinite(sd_now) & (sd_now > 0)
+                                  & ((c[i] - entry_px) >= float(var.add_at_r) * risk) & ((c[i] - sd_now) < c[i]))
+            if use_so:
+                so_pending[:] = in_pos & (n_so == 0) & np.isfinite(risk) & (risk > 0) & ((c[i] - entry_px) >= float(var.scale_out_at_r) * risk)
         if use_ladder:
             lvl, flt, pk = ladder_step(lad_level, lad_flat, lad_peak, equity[i], ladder)
             lad_level = np.where(lmask, lvl, 0)
             lad_flat = np.where(lmask, flt, 0)
             lad_peak = np.where(lmask, pk, lad_peak)
             lad_mult = LADDER_MULTIPLIERS[lad_level]
+        if brake_state is not None:
+            brake_state.on_bar_close(i, equity[i])
 
     if not overlay:
         allocation = position.astype(float) * frac_scalar
@@ -433,7 +664,7 @@ def run_vectorized(
         equity[-1] = cash
 
     if trade_chunks:
-        trades = pd.DataFrame({k: np.concatenate([ch[k] for ch in trade_chunks]) for k in TRADE_COLUMNS})
+        trades = pd.DataFrame({k: np.concatenate([ch[k] for ch in trade_chunks]) for k in ALL_TRADE_COLUMNS})
         trades = trades.sort_values(["combo", "entry_i"], kind="mergesort").reset_index(drop=True)
     else:
         trades = _empty_trades()
@@ -448,6 +679,7 @@ def run_vectorized(
         n_combos=C,
         exposure=position.mean(axis=0) if n else np.zeros(C),
         allocation=allocation,
+        brakes=None if brake_state is None else brake_state.summary(),
     )
 
 
