@@ -197,9 +197,9 @@ XNVDA/USDT); nothing trades them. Built 2026-11-05: the collector, its first run
 (the 15 most traded pairs, 112 days of hourly candles, one order book each), the
 feasibility report (`docs/research/TOKENIZED_STOCKS_FEASIBILITY.md`) and the design
 note (`docs/design/TOKENIZED_STOCKS.md`). What keeps collecting (the open and close
-order books the decision needs) is a laptop task next to the paper fleet that
-needs starting once (`docs/runbooks/XSTOCKS_DATA.md`, about ten minutes, free; an
-agent session can do it with the fleet's next update-and-restart). Only you can
+order books the decision needs) is a laptop task next to the paper fleet,
+`AI Trading xstocks data`, started for you on 2026-11-05 at 19:12 UTC
+(`docs/runbooks/XSTOCKS_DATA.md`; free, public data, nothing trades). Only you can
 see what your account may do:
 
 1. In the OKX app or website, search for `XNVDA` (or `XQQQ`) under Spot. Do
@@ -247,34 +247,38 @@ enough: "go for R14 part A".
 ## What happens by itself meanwhile
 
 - **The plan runner** (Windows task "AI Trading plan runner", Fable 5.1 at
-  max effort) built rows R4e and R12 to R16 on 2026-11-04 and, since
-  2026-11-05, builds R17 to R22 (the Trader Plan rows: fleet hygiene, Trader
-  Policy v1, research round 3, breadth, tokenized-stocks data and design, fill
-  costs) one chat at a time on `plan/auto`, pushing that branch after each
-  clean step; it never touches `main`. Progress: `docs/PLAN_STATUS.md`, section 0; details:
+  max effort) built rows R4e and R12 to R16 on 2026-11-04 and R17 to R22 (the
+  Trader Plan rows: fleet hygiene, Trader Policy v1, research round 3, breadth,
+  tokenized-stocks data and design, fill costs) on 2026-11-05, one chat at a
+  time on `plan/auto`, pushing that branch after each clean step; it never
+  touches `main`. It stopped at 12:47 Beirut time on 2026-11-05 because the next
+  row, R10, needs your go; it starts again at logon and has nothing to do until
+  a new row is opened. Progress: `docs/PLAN_STATUS.md`, section 0; details:
   `artifacts/plan-runner/summary.md`. Stop it after the current step by
   creating the file `artifacts\plan-runner\STOP`.
-- **The paper fleet** (Windows task "AI Trading paper fleet") runs 24 pretend
+- **The paper fleet** (Windows task "AI Trading paper fleet") runs 31 pretend
   accounts forward on live public prices from its own checkout at
   `C:\Users\Admin\Desktop\ai-trading-fleet`. Free, no keys, nothing can
   trade. Weekly report: `C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\reports\`.
   It needs about 60 days before the numbers mean anything (plan row G7). Its
   checkout was updated and the task restarted on 2026-11-04 at 23:00 UTC (01:00
-  Beirut time), so the
-  four accounts added by plan rows R12, R13 and R16 (SOL, BTC and DOGE) are
-  running; rows R18 to R20 will add more, each time by the same update-and-restart
+  Beirut time; the four accounts of rows R12, R13 and R16 joined) and again on
+  2026-11-05 at 19:05 UTC (21:05 Beirut time; the seven Trader-tier accounts of
+  row R18b joined, and row R17's funding and open-interest data for SOL and DOGE
+  went live, so `c11` runs with its filter again). The 24 earlier accounts kept
+  their records. A later row that adds an account needs the same update-and-restart
   step (`docs/runbooks/PAPER_FLEET.md`, "Updating the fleet's code"), which an
-  agent session can do for you. Row R17 (built 2026-11-05) needs that step once
-  too: it gives the SOL and DOGE accounts their funding and open-interest data;
-  until the restart, `c11` runs as plain S1 and the weekly report labels its bars
-  "S5 running without data".
-- **The tokenized-stocks collector** (plan row R21, built 2026-11-05) is NOT running
-  by itself yet: its first run filled the history on this laptop, and the task that
-  keeps taking the US-open and US-close order books (`AI Trading xstocks data`)
-  waits for step 9's start (`docs/runbooks/XSTOCKS_DATA.md`). Free, public data,
-  nothing trades.
+  agent session can do for you; the Trader accounts' first 30-day verdicts come
+  about 2026-12-05.
+- **The tokenized-stocks collector** (plan row R21, Windows task "AI Trading
+  xstocks data") runs since 2026-11-05 at 19:12 UTC from the fleet's checkout: the
+  history of the 15 pairs is in, and it takes the US-open and US-close order books
+  every weekday plus the 03:00 UTC and Saturday-noon books
+  (`docs/runbooks/XSTOCKS_DATA.md`). The 60-90 days before the decision in plan
+  section 6.2 count from that day. Free, public data, nothing trades.
 - The laptop must stay on and plugged in (it does not sleep on power; keep
-  the lid open, closing it may put it to sleep). After a sleep both tasks
-  simply continue and the fleet catches up bar by bar. After a reboot both
+  the lid open, closing it may put it to sleep). After a sleep all three tasks
+  simply continue (the fleet catches up bar by bar; the collector still takes a
+  slot missed by less than 30 minutes). After a reboot all three
   tasks start again when you log on (each has a logon trigger); the runner
   then waits for 20 quiet minutes before its next row.

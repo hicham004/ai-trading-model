@@ -74,6 +74,13 @@ A 🚦 row that is plain **Open** stops the runner. **In progress** — another 
   `migrations/` untouched. The paper fleet's checkout was updated to 46fa44c and restarted at
   2026-11-04 23:00 UTC (01:00 Beirut time; fleet state `created_at` 2026-11-04T22:59:50Z); it runs
   24 accounts (fingerprint 0b5a7ea75c0f) and processed its first SOL and DOGE bars at cycle 539.
+  The run finished 2026-11-05 at 12:47 Beirut time (R17, R18a, R18b, R19, R20, R21 and R22 Done; it
+  stopped at R10, which is Optional). The same day at 19:05 UTC (21:05 Beirut time) the fleet's
+  checkout was updated to 078a609 and restarted: 31 accounts (fingerprint 1b1e9e0e0df3; the seven
+  R18b accounts joined at the resume, the 24 running accounts untouched), R17's positioning data live
+  for every market (first cycle after the resume, 1213: 0 errors). At 19:12 UTC the tokenized-stocks
+  collector task `AI Trading xstocks data` (R21) was registered and started after its first pass from
+  the fleet checkout (42,189 candles, 15 order books, 0 errors).
 - See what would run next without starting anything: `.\scripts\plan-runner.ps1 -DryRun`.
 - What happened: `artifacts\plan-runner\summary.md`, and one report per step next to it.
 
@@ -288,6 +295,11 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   accounts joined at cycle 480), and the restart's `resume` record in `fleet.jsonl` gives the exact
   cycle at which the fix took effect. No rule, fingerprint or gate changed; the app's allowlists are
   untouched.
+  **Done 2026-11-05 at 19:05 UTC (21:05 Beirut time):** the fleet checkout was updated to 078a609 and
+  restarted (the STOP file at 19:02 UTC, `git pull`, `--dry-run` with 31 accounts and every check ok,
+  the task started); the first cycle after the resume (1213) logged 0 errors, and `--status` shows
+  funding and open-interest data for every market (last refresh 19:05:33 UTC). `c11-s1s5-sol-6h-none`
+  ran as plain S1 from 2026-11-04T22:59:50Z to cycle 1209 (the last before the stop) with 0 trades.
 - From R18b (nothing to decide): the seven recorded rows are now in the shortlist (`c15`-`c19`, the five
   confirmed rules at the Trader tier with the brakes on, beside their Reference twins `c11`, `c12`, `c01`,
   `c14`, `c13`; `ctl-tf-btc-6h` and `ctl-tf-eth-6h`, the slow-trend forward control), the fleet loads 31
@@ -296,6 +308,11 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   (`docs/runbooks/PAPER_FLEET.md`, "A configuration at the Trader tier (plan row R18)"). Recommendation:
   do that restart once `plan/auto` carries this row, together with R17's; the Trader accounts' first
   verdicts come 30 days later, and the budget stays your decision at G7.
+  **Done 2026-11-05 at 19:05 UTC** with R17's restart: the fleet resumed with 31 accounts (`accounts
+  added: c15-s1s5-sol-6h-none-trader, c16-s1-sol-6h-none-trader, c17-s1s5-btc-6h-none-trader,
+  c18-s1vc-doge-4h-gate-trader, c19-s1vc-btc-4h-gate-trader, ctl-tf-eth-6h, ctl-tf-btc-6h; retired:
+  none`), fleet fingerprint 1b1e9e0e0df3, each Trader account at 10,000.00, flat, Turtle multiplier
+  1.0, no limit tripped. Their first verdicts come 30 days later (about 2026-12-05).
 - From R18b, for information: the Trader-tier accounts run the Reference accounts' rules at about twice
   the size (in the dry run `c19` took the same BTC 4H trade as `c13` with 53 % of equity against 27 %,
   1.1 % of equity at risk against 0.6 %), so their forward returns and drawdowns will be about twice the
@@ -383,6 +400,11 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   update-and-restart, one `--once` pass, one task registration; about ten minutes; free; public data; an
   agent session can do it). Recommendation: yes, with the next fleet update-and-restart, so the 60-90 days
   of plan section 6.2 start counting.
+  **Done 2026-11-05 at 19:12 UTC:** the first pass from the fleet checkout (4 min 46 s; 30 candle
+  series, 42,189 candles, 15 ad-hoc order books, 0 errors), then the task `AI Trading xstocks data`
+  registered (logon trigger, like the fleet's) and started; the loop's own first pass added 0 candles
+  (the history was in). The 60-90 days of plan section 6.2 count from 2026-11-05; the first `us_close`
+  snapshot is due at 21:00 UTC the same day and the first `us_open` at 14:30 UTC on 2026-11-06.
 - From R21, for information: the first data confirms the plan's product risks in numbers. About half of
   the weekday volume trades while the US market is shut; over 16 weekends the token fell more than 2.4 %
   below Friday's close (the size of the plan's 3-ATR BTC stop) in 22 % of the 240 pair-weekends and more
