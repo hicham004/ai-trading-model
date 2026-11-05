@@ -138,10 +138,11 @@ def is_flat(position: Decimal, lot_size: Decimal) -> bool:
     position == 0, which is unreachable whenever the entry fee is not a lot
     multiple.
 
-    Currently used by reporting/operator-tooling paths only. The safety core
-    still treats position > 0 as open (DemoStore.position_summary consumers:
-    the driver's per-candle stop check and exit gating); adopting this
-    definition there is a future, separately reviewed change.
+    Used by reporting/operator tooling and, since R14 part A (2026-11-05), by
+    the safety core through ``PositionView`` in ``app/execution/driver.py``:
+    the per-candle stop check, the FLAT exit, the entry gate and the caps treat
+    only a *sellable* position (floor(position, lot_size) >= min_size) as open;
+    an unsellable remainder (0 < floored < min_size) is reported, never traded.
     """
     if position <= 0:
         return True

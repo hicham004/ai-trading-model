@@ -244,14 +244,17 @@ def _run_gate_and(driver, settings, *, arm: bool, arm_ttl, smoke: bool, place_te
 
 
 def _print_positions(driver, settings) -> None:
-    """Read-only per-instrument position report using lot-precision flatness.
+    """Read-only per-instrument position report at lot precision (R14 part A).
 
-    A fully exited position can keep unsellable sub-lot fee dust (e.g. 1.2E-10
-    BTC), so "flat" here means floor(position, lot_size) == 0, never an exact
-    zero. Reporting only; it changes no gating or order behavior.
+    Uses the driver's own ``PositionView`` definitions, so the report says what
+    the gating sees: FLAT when floor(position, lot_size) == 0 (sub-lot fee dust
+    such as 1.2E-10 BTC is not an open position), OPEN with its sellable size
+    when the lot-floored size is at least the venue minimum, and an unsellable
+    remainder in between (reported, never traded, not an open position).
+    Reporting only; it changes no gating or order behavior.
     """
     from app.exchange.instruments import parse_instruments
-    from app.execution.precision import is_flat
+    from app.execution.driver import PositionView
 
     try:
         metas = parse_instruments(driver.rest.get_instruments())
@@ -264,11 +267,21 @@ def _print_positions(driver, settings) -> None:
         if meta is None:
             print(f"[DEMO] position {inst}: {position} (raw net; lot size unknown)")
             continue
-        if is_flat(position, meta.lot_size):
-            dust = f", sub-lot dust {position}" if position > 0 else ""
-            print(f"[DEMO] position {inst}: FLAT at lot precision{dust}")
+        view = PositionView.from_summary(position, stop, meta)
+        if view.flat:
+            dust = f"sub-lot dust {view.net}; " if view.net > 0 else ""
+            print(f"[DEMO] position {inst}: FLAT at lot precision ({dust}sellable 0)")
+        elif view.remainder > 0:
+            print(
+                f"[DEMO] position {inst}: unsellable remainder {view.remainder} "
+                f"(below minimum {meta.min_size}; net {view.net}): reported, not traded, "
+                "not an open position"
+            )
         else:
-            print(f"[DEMO] position {inst}: {position} OPEN (stop={stop})")
+            print(
+                f"[DEMO] position {inst}: {view.net} OPEN "
+                f"(sellable {view.sellable}, stop={view.stop})"
+            )
 
 
 def _smoke_place_and_cancel(driver, settings) -> None:
@@ -438,7 +451,13 @@ def main(argv: list[str] | None = None) -> int:
             released = store.release_stale_lock(
                 aid, stale_after_seconds=settings.demo_lock_stale_seconds, now=now
             )
-            print(f"[DEMO] stale lock released: {released}")
+            if released:
+                print(
+                    "[DEMO] stale lock released: True; arming cleared (the runtime "
+                    "starts DISARMED until --arm or the supervisor gate re-arms it)."
+                )
+            else:
+                print("[DEMO] stale lock released: False (no stale lock; arming untouched).")
         return 0
 
     if args.engage_kill_switch:

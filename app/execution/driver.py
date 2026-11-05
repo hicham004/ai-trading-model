@@ -40,6 +40,7 @@ from app.execution.account_validation import validate_demo_account
 from app.execution.ids import CLIENT_ORDER_PREFIX
 from app.execution.identity import demo_identity_config
 from app.execution.lifecycle import INTENT_ENTRY, OrderLifecycle
+from app.execution.precision import floor_size, is_flat
 from app.execution.reconcile import DemoReconciler
 from app.execution.runtime import DemoExecutionRuntime, EntryContext
 from app.execution.store import (
@@ -103,6 +104,59 @@ class CandleProcessingItem:
     candle: MarketCandle
     actionable: bool
     confirms_recovery: bool = False
+
+
+@dataclass(frozen=True)
+class PositionView:
+    """Lot-precision view of one instrument's fill-derived position.
+
+    The single place the safety core's position definitions live (lot-precision
+    gating change of 2026-11-05, plan row R14 part A; design note
+    ``docs/design/POSITION_PERSISTENCE.md`` section 5.4, which lives on branch
+    ``plan/auto`` until that branch merges, so the definitions are restated here
+    in full):
+
+    * ``net``: the raw fill-derived net from ``DemoStore.position_summary``
+      (unchanged; reconciliation and the reports keep using it);
+    * ``sellable``: ``floor(net, lot_size)`` when that is at least the venue
+      ``min_size``, else 0. Only a sellable position is an open position for
+      the per-candle stop check, the FLAT exit, the entry gate and the
+      open-position / exposure caps;
+    * ``remainder``: an unsellable remainder, ``0 < floor(net, lot) < min_size``
+      (else 0). Reachable through a partially filled then cancelled order: an
+      exit, or an entry cancelled by the kill switch, the venue or the operator
+      (entries require twice the minimum, so fees alone cannot produce it). It
+      is worth less than one venue-minimum order (``min_size * price``).
+      Reported, never traded, never an open position for gating; the next entry
+      merges it;
+    * ``stop``: the latest persisted entry stop level;
+    * ``flat``: the official lot-precision flatness, ``is_flat(net, lot_size)``.
+
+    Exactly one of ``flat``, ``sellable > 0`` and ``remainder > 0`` holds. Sub-lot
+    dust (``flat`` with ``net > 0``) is the normal post-exit state, not a
+    remainder.
+    """
+
+    net: Decimal
+    sellable: Decimal
+    remainder: Decimal
+    stop: Optional[Decimal]
+    flat: bool
+
+    @classmethod
+    def from_summary(
+        cls, net: Decimal, stop: Optional[Decimal], meta: InstrumentMeta
+    ) -> "PositionView":
+        floored = floor_size(net, meta.lot_size)
+        sellable = floored if floored >= meta.min_size else Decimal(0)
+        remainder = floored if Decimal(0) < floored < meta.min_size else Decimal(0)
+        return cls(
+            net=net,
+            sellable=sellable,
+            remainder=remainder,
+            stop=stop,
+            flat=is_flat(net, meta.lot_size),
+        )
 
 
 class DemoTradingDriver:
@@ -183,6 +237,11 @@ class DemoTradingDriver:
         self._recovered_ohlc: Dict[str, Dict[datetime, tuple[Decimal, Decimal, Decimal, Decimal]]] = {
             inst: {} for inst in self._instruments
         }
+        # Last reported unsellable remainder per instrument (R14 part A): the
+        # ``unsellable_remainder`` event is recorded once per change of value
+        # per process run (in-memory only: an unchanged remainder is reported
+        # once more after a restart; observability only, nothing gates on it).
+        self._unsellable_remainder: Dict[str, Decimal] = {}
         self._needs_reconcile = False
 
     @property
@@ -514,13 +573,18 @@ class DemoTradingDriver:
                 quote = self._quote_for(inst, now)
                 meta = self._instrument_meta.get(inst)
                 if meta is not None:
-                    position_size, stop_loss = self._store.position_summary(
-                        self._account_id, inst
-                    )
+                    # Lot-precision gating (R14 part A): only a sellable position
+                    # (lot-floored size >= venue minimum) is an open position for
+                    # the stop check, the FLAT exit and the entry gate. Sub-lot
+                    # dust and an unsellable remainder are never traded and never
+                    # block an entry. Exits still receive the RAW net:
+                    # validate_sell floors it (one place for the flooring).
+                    view = self._position_view(inst, meta)
+                    self._note_unsellable_remainder(inst, view, meta, now)
                     if (
-                        position_size > 0
-                        and stop_loss is not None
-                        and Decimal(str(candle.low)) <= stop_loss
+                        view.sellable > 0
+                        and view.stop is not None
+                        and Decimal(str(candle.low)) <= view.stop
                     ):
                         result = self._runtime.consider_exit(
                             signal_id=f"stop|{inst}|{candle.timestamp.isoformat()}",
@@ -530,7 +594,7 @@ class DemoTradingDriver:
                             feed_status=self._effective_feed_status(
                                 now, require_market_continuity=False
                             ),
-                            base_balance=position_size,
+                            base_balance=view.net,
                             now=now,
                         )
                         if result is not None:
@@ -568,14 +632,16 @@ class DemoTradingDriver:
                                         now=now, data_time=candle.timestamp + self._interval(),
                                         existing_exposure=exposure,
                                         open_positions=open_positions,
-                                        instrument_position_size=position_size,
+                                        instrument_position_size=view.sellable,
                                     )
                                     r = self._runtime.consider_entry(ctx)
                                     if r is not None:
                                         results.append(r)
                             elif signal.action == SignalAction.FLAT:
-                                base, _ = self._store.position_summary(self._account_id, inst)
-                                if base > 0:
+                                # Re-read as before: a fill may have been
+                                # projected since the stop check above.
+                                flat_view = self._position_view(inst, meta)
+                                if flat_view.sellable > 0:
                                     r = self._runtime.consider_exit(
                                         signal_id=self._runtime._signal_id(signal, inst),
                                         instrument=inst,
@@ -584,7 +650,7 @@ class DemoTradingDriver:
                                         feed_status=self._effective_feed_status(
                                             now, require_market_continuity=False
                                         ),
-                                        base_balance=base,
+                                        base_balance=flat_view.net,
                                         now=now,
                                     )
                                     if r is not None:
@@ -594,21 +660,90 @@ class DemoTradingDriver:
         return results
 
     def _equity_exposure(self, now: datetime) -> tuple[Decimal, Decimal, int]:
+        """Marked equity, exposure and the open-position count at lot precision.
+
+        Lot-precision gating (R14 part A): only a sellable position counts as
+        an open position and contributes exposure. Equity still adds the marked
+        value of ANY residue (``net > 0``) when a usable quote exists, so equity
+        stays cash + holdings. Without a usable quote the rule is the
+        fail-closed one from before this change for everything that is not
+        flat at lot precision: a sellable position OR an unsellable remainder
+        (worth up to one venue-minimum order, ``min_size * price``) cannot be
+        marked, so ``(0, Infinity, len(instruments))`` is returned and ``step``
+        records ``equity_unavailable`` (no entry, no daily baseline). Only
+        sub-lot dust (``flat`` with ``net > 0``, worth less than one lot,
+        ``lot_size * price``: about 0.001 USDT on BTC-USDT at a 100,000 USDT
+        price) is marked at zero and skipped, so dust never blocks an entry on
+        another instrument (design goal G3); the resulting error in marked
+        equity, including in a daily baseline created in that state, stays
+        below one lot's value. Without validated metadata (``step`` never
+        trades such an instrument) the raw net keeps the previous behaviour:
+        counted as open, fail closed.
+        """
         equity = self._balances.get(self._quote_ccy, Decimal(0))
         exposure = Decimal(0)
         open_positions = 0
         for inst in self._instruments:
-            size, _ = self._store.position_summary(self._account_id, inst)
-            if size <= 0:
+            meta = self._instrument_meta.get(inst)
+            if meta is not None:
+                view = self._position_view(inst, meta)
+                net, sellable, flat = view.net, view.sellable, view.flat
+            else:
+                net, _ = self._store.position_summary(self._account_id, inst)
+                sellable, flat = net, net <= 0
+            if net <= 0:
                 continue
             quote = self._quote_for(inst, now)
             if quote is None or not quote.is_usable():
-                return Decimal(0), Decimal("Infinity"), len(self._instruments)
-            value = size * Decimal(str(quote.bid))
-            equity += value
-            exposure += value
-            open_positions += 1
+                if not flat:
+                    # A sellable position or an unsellable remainder without a
+                    # usable quote: no complete marked equity, fail closed
+                    # exactly as before this change.
+                    return Decimal(0), Decimal("Infinity"), len(self._instruments)
+                continue  # sub-lot dust only (< one lot): marked at zero
+            bid = Decimal(str(quote.bid))
+            equity += net * bid
+            if sellable > 0:
+                exposure += sellable * bid
+                open_positions += 1
         return equity, exposure, open_positions
+
+    def _position_view(self, inst: str, meta: InstrumentMeta) -> PositionView:
+        """The lot-precision position view used by every gating call site."""
+        net, stop = self._store.position_summary(self._account_id, inst)
+        return PositionView.from_summary(net, stop, meta)
+
+    def _note_unsellable_remainder(
+        self, inst: str, view: PositionView, meta: InstrumentMeta, now: datetime
+    ) -> None:
+        """Record ``unsellable_remainder`` once per change of the remainder value.
+
+        The memory is per process run: after a restart an unchanged remainder
+        is reported once more (observability only; nothing gates on it).
+        Sub-lot dust is not a remainder (it is the normal post-exit state) and
+        records nothing. A remainder that clears (merged into a later entry)
+        forgets its value, so a new remainder is reported again.
+        """
+        if view.remainder <= 0:
+            self._unsellable_remainder.pop(inst, None)
+            return
+        if self._unsellable_remainder.get(inst) == view.remainder:
+            return
+        self._unsellable_remainder[inst] = view.remainder
+        self._store.record_event(
+            self._account_id,
+            "unsellable_remainder",
+            "warning",
+            f"{inst}: unsellable remainder {view.remainder} below the venue minimum "
+            f"{meta.min_size}; reported, not traded, not an open position",
+            payload={
+                "instrument": inst,
+                "net": str(view.net),
+                "floored": str(view.remainder),
+                "min_size": str(meta.min_size),
+            },
+            now=now,
+        )
 
     def _interval(self) -> timedelta:
         from app.strategy.timeframes import parse_timeframe
