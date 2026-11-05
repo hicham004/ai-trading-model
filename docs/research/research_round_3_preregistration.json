@@ -1,0 +1,460 @@
+{
+ "note": "Plan row R19. The hypotheses, rules, variants, protocol variant, tier, markets, timeframes, gates, readings and verdict rules of research round 3, fixed BEFORE the first run. Never edited.",
+ "written_at": "2026-11-05T05:14:14+00:00",
+ "data_end": "2026-10-20T10:00:00+00:00",
+ "gates": {
+  "profit_factor_min": 1.2,
+  "max_drawdown_max": 0.2,
+  "sharpe_min": 0.7,
+  "calmar_min": 0.5,
+  "rolling_12m_positive_min": 0.75,
+  "worst_calendar_year_min": -0.1,
+  "min_trades": 30,
+  "robust_share_min": 0.5,
+  "min_year_days": 60
+ },
+ "tier_gates": {
+  "reference": {
+   "max_drawdown_max": 0.2,
+   "worst_calendar_year_min": -0.1
+  },
+  "higher": {
+   "max_drawdown_max": 0.25,
+   "worst_calendar_year_min": -0.15
+  }
+ },
+ "payoff_min": 2.0,
+ "turnover_ceiling": 40.0,
+ "primary_markets": [
+  "BTC-USDT",
+  "ETH-USDT"
+ ],
+ "replication_markets": [
+  "XRP-USDT",
+  "DOGE-USDT",
+  "LINK-USDT",
+  "TRX-USDT",
+  "ADA-USDT",
+  "LTC-USDT",
+  "SOL-USDT"
+ ],
+ "cells": [
+  {
+   "tier": "reference",
+   "brakes": false,
+   "variant": "none",
+   "key": "reference|nobrakes|none",
+   "label": "vt10/30 crash15/90dh ladder, brakes off"
+  },
+  {
+   "tier": "trader",
+   "brakes": true,
+   "variant": "none",
+   "key": "trader|brakes|none",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes on"
+  }
+ ],
+ "judged_cell": {
+  "tier": "trader",
+  "brakes": true,
+  "variant": "none",
+  "key": "trader|brakes|none",
+  "label": "vt20/30 crash15/90dh cap2 turtle, brakes on"
+ },
+ "tier": {
+  "name": "trader",
+  "label": "vt20/30 crash15/90dh cap2 turtle",
+  "sizing": {
+   "kind": "vol_target",
+   "fraction": 1.0,
+   "target_vol": 0.2,
+   "vol_lookback": 30,
+   "crash_dd": 0.15,
+   "crash_window_days": 90.0,
+   "crash_mode": "half",
+   "ladder": false,
+   "cap": 1.0,
+   "risk_cap": 0.02,
+   "label": "vt20/30 crash15/90dh cap2"
+  },
+  "turtle_ladder": true,
+  "description": "20 % volatility target, at most 2 % of equity at risk on one stop, the same crash de-risking, the Turtle ladder on entries"
+ },
+ "brakes_on": {
+  "ladder": {
+   "kind": "turtle",
+   "steps": [
+    [
+     0.1,
+     0.8
+    ],
+    [
+     0.2,
+     0.64
+    ]
+   ]
+  },
+  "hard_stop_dd": 0.3,
+  "max_entries_per_market_per_day": 1,
+  "max_entries_per_day": 3,
+  "no_entry_bar_after_exit": true,
+  "daily_loss_limit": 0.03,
+  "weekly_loss_limit": 0.06,
+  "monthly_loss_limit": 0.1,
+  "heat_cap": 0.06,
+  "heat_group_share": 0.5,
+  "corr_threshold": 0.7,
+  "corr_lookback_days": 60,
+  "label": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)"
+ },
+ "fixed_rule_protocol": "fixed rule: the exit bracket fixed, never selected; no train-trade qualification (min_trades 0)",
+ "candidates": {
+  "S7": {
+   "label": "trend-pullback continuation: uptrend (close above its 100-day average, 50-day above 100-day), pullback below the 20-day simple average, entry on a close above the previous bar's high, stop under the pullback low floored at 2 x ATR(14), exit on a close below the 50-day average",
+   "params": {
+    "trend_fast_days": 50,
+    "trend_slow_days": 100,
+    "pullback_days": 20,
+    "atr_window": 14,
+    "atr_floor_mult": 2.0
+   },
+   "grid": {
+    "trend_fast_days": [
+     50
+    ],
+    "trend_slow_days": [
+     100
+    ],
+    "pullback_days": [
+     20
+    ],
+    "atr_floor_mult": [
+     2.0
+    ]
+   },
+   "bracket": "none"
+  },
+  "S7e": {
+   "label": "trend-pullback continuation: uptrend (close above its 100-day average, 50-day above 100-day), pullback below the 10-day exponential average, entry on a close above the previous bar's high, stop under the pullback low floored at 2 x ATR(14), exit on a close below the 50-day average (variant: 10-day EMA pullback)",
+   "params": {
+    "trend_fast_days": 50,
+    "trend_slow_days": 100,
+    "pullback_days": 10,
+    "atr_window": 14,
+    "atr_floor_mult": 2.0
+   },
+   "grid": {
+    "trend_fast_days": [
+     50
+    ],
+    "trend_slow_days": [
+     100
+    ],
+    "pullback_days": [
+     10
+    ],
+    "atr_floor_mult": [
+     2.0
+    ]
+   },
+   "bracket": "none"
+  },
+  "S7w": {
+   "label": "trend-pullback continuation: uptrend (close above its 100-day average, 50-day above 100-day), pullback below the 20-day simple average, entry on a close above the previous bar's high, stop under the pullback low floored at 3 x ATR(14), exit on a close below the 50-day average (variant: 3 x ATR stop floor)",
+   "params": {
+    "trend_fast_days": 50,
+    "trend_slow_days": 100,
+    "pullback_days": 20,
+    "atr_window": 14,
+    "atr_floor_mult": 3.0
+   },
+   "grid": {
+    "trend_fast_days": [
+     50
+    ],
+    "trend_slow_days": [
+     100
+    ],
+    "pullback_days": [
+     20
+    ],
+    "atr_floor_mult": [
+     3.0
+    ]
+   },
+   "bracket": "none"
+  },
+  "S7t": {
+   "label": "trend-pullback continuation: uptrend (close above its 100-day average, 50-day above 100-day), pullback below the 20-day simple average, entry on a close above the previous bar's high, stop under the pullback low floored at 2 x ATR(14), exit on a close below the 50-day average (variant: the trail3 exit bracket, +1 R activation, 3 R trail)",
+   "params": {
+    "trend_fast_days": 50,
+    "trend_slow_days": 100,
+    "pullback_days": 20,
+    "atr_window": 14,
+    "atr_floor_mult": 2.0
+   },
+   "grid": {
+    "trend_fast_days": [
+     50
+    ],
+    "trend_slow_days": [
+     100
+    ],
+    "pullback_days": [
+     20
+    ],
+    "atr_floor_mult": [
+     2.0
+    ]
+   },
+   "bracket": "trail3"
+  },
+  "S8": {
+   "label": "slow breakout (Turtle System 2): entry on a close above the prior 55-day high, exit on a close below the prior 20-day low, 5 x ATR(14) stop, no adds, no filters",
+   "params": {
+    "entry_days": 55,
+    "exit_days": 20,
+    "atr_window": 14,
+    "atr_mult": 5.0
+   },
+   "grid": {
+    "entry_days": [
+     55
+    ],
+    "exit_days": [
+     20
+    ],
+    "atr_mult": [
+     5.0
+    ]
+   },
+   "bracket": "none"
+  },
+  "S8g": {
+   "label": "slow breakout (Turtle System 2): entry on a close above the prior 90-day high, exit on a close below the prior 45-day low, 5 x ATR(14) stop, no adds, no filters (variant: Garner's 90/45-day channels)",
+   "params": {
+    "entry_days": 90,
+    "exit_days": 45,
+    "atr_window": 14,
+    "atr_mult": 5.0
+   },
+   "grid": {
+    "entry_days": [
+     90
+    ],
+    "exit_days": [
+     45
+    ],
+    "atr_mult": [
+     5.0
+    ]
+   },
+   "bracket": "none"
+  }
+ },
+ "cost_scenarios": {
+  "measured_btc_eth": [
+   0.0005,
+   0.0005
+  ],
+  "altcoin": [
+   0.001,
+   0.0015
+  ]
+ },
+ "configuration": {
+  "hypotheses": [
+   "H7",
+   "H8"
+  ],
+  "markets": [
+   "BTC-USDT",
+   "ETH-USDT",
+   "XRP-USDT",
+   "DOGE-USDT",
+   "LINK-USDT",
+   "TRX-USDT",
+   "ADA-USDT",
+   "LTC-USDT",
+   "SOL-USDT"
+  ],
+  "timeframes": [
+   "1D",
+   "6H"
+  ],
+  "regime_modes": [
+   "none",
+   "gate"
+  ],
+  "cells": [
+   "reference|nobrakes|none",
+   "trader|brakes|none"
+  ],
+  "barsize": true,
+  "reproduction": true,
+  "data_end": "2026-10-20T10:00:00+00:00",
+  "quick": false,
+  "lake_dir": null
+ },
+ "preregistration": {
+  "fixed_on": "2026-11-05, before any run (plan row R19)",
+  "question": "Do the two asymmetric setups of the Trader Plan, section 5 - the trend-pullback continuation rule S7 and the slow breakout S8, each with its pre-registered variants, written as fixed rules and judged under the fixed-rule protocol variant at the Trader tier with the section 4.3 brakes - pass the section 4.6 gates on the Sprint 2c walk-forward of BTC-USDT and ETH-USDT, replicate on the seven R12 markets, and survive the untouched 12 months; and is 6H the cost-adjusted sweet spot for the S1 and S2 families among 1D, 6H and 4H bars?",
+  "why": "Plan section 2.6: dip buying has no stand-alone edge, and the only version the evidence supports is a pullback inside an uptrend entered when price turns back up with the stop under the dip (S7); the Donchian/Turtle family is the best-documented asymmetric design and the fewer-trades, wider-stop direction is the one that kept working in futures after 1990 and fits the fee budget (S8). Round 2 (R16) could not judge its slow rules because the protocol's selection step silences any window in which a variant traded fewer than 20 times in training (TF traded in 13 of 180 windows, S2+TF in 53); the owner's decision (docs/PLAN_STATUS.md, 'From R16', taken 2026-11-05) answers it both ways - a forward control account (R18) and this pre-registered fixed-rule protocol variant. The bar-size question: one unreviewed 2026 preprint finds 6H bars the cost-adjusted sweet spot for crypto trend rules while our own record is mixed (the S1 family and the R12 confirmations favoured 6H, the S2 family and the volume-confirmation sleeves sit on 4H).",
+  "hypotheses": {
+   "H7": {
+    "title": "trend-pullback continuation (S7)",
+    "rule": "S7: uptrend = the close above its 100-day simple moving average and the 50-day average above the 100-day; pullback = a close below the 20-day simple moving average while the uptrend holds (it arms the rule and starts the pullback low; every later bar's low lowers it, the entry bar's included); entry = a close above the previous bar's high while the uptrend holds (armed on an earlier bar); stop = under the pullback low, floored at 2 x ATR(14) (the stop distance at the decision close is max(close - pullback low, 2 x ATR), fixed at entry as every rule's stop is); exit = a close below the 50-day average, or the stop; the uptrend failing while armed disarms; an exit bar may arm a new pullback at once. No other parameters. Every lookback is in calendar days converted to bars of the timeframe.",
+    "variants": {
+     "S7e": "the pullback average is the 10-day exponential average instead of the 20-day simple one",
+     "S7w": "the stop floor is 3 x ATR(14) instead of 2 x",
+     "S7t": "the same rule under the protocol's trail3 exit bracket (a trailing stop that activates once the running high is +1 R above the entry and then follows it at 3 R), applied through the bracket parameter by the runner and the fleet alike; its exit is the trailing stop, the fast-average cross or the initial stop, whichever comes first"
+    },
+    "candidates": [
+     "S7",
+     "S7e",
+     "S7w",
+     "S7t"
+    ],
+    "markets": [
+     "BTC-USDT",
+     "ETH-USDT",
+     "XRP-USDT",
+     "DOGE-USDT",
+     "LINK-USDT",
+     "TRX-USDT",
+     "ADA-USDT",
+     "LTC-USDT",
+     "SOL-USDT"
+    ],
+    "primary_markets": [
+     "BTC-USDT",
+     "ETH-USDT"
+    ],
+    "replication_markets": [
+     "XRP-USDT",
+     "DOGE-USDT",
+     "LINK-USDT",
+     "TRX-USDT",
+     "ADA-USDT",
+     "LTC-USDT",
+     "SOL-USDT"
+    ],
+    "timeframes": [
+     "1D",
+     "6H"
+    ],
+    "regime_modes": [
+     "none",
+     "gate"
+    ],
+    "comparison": "hold + policy sizing on the same market, timeframe and cell (the always-long control at the Trader tier with the brakes, run in this study; its one mode is 'none', so the [gate] configurations compare with the same control); each variant also beside the base S7 on the same series, mode and cell",
+    "expected_trades_per_year": [
+     10.0,
+     25.0
+    ],
+    "why": "the only version of dip buying the evidence supports: a dip inside an uptrend, entered when price turns back up, stop under the dip"
+   },
+   "H8": {
+    "title": "the slow breakout with wide stops (S8)",
+    "rule": "S8: a slow Turtle System 2 breakout - entry on a close above the prior 55-day high (the channel excludes the current bar), exit on a close below the prior 20-day low, Garner's 5 x ATR(14) stop fixed at entry, no adds, no volume or volatility filter (unlike S2). No other parameters.",
+    "variants": {
+     "S8g": "Garner's own channels: 90-day high entry, 45-day low exit"
+    },
+    "candidates": [
+     "S8",
+     "S8g"
+    ],
+    "markets": [
+     "BTC-USDT",
+     "ETH-USDT",
+     "XRP-USDT",
+     "DOGE-USDT",
+     "LINK-USDT",
+     "TRX-USDT",
+     "ADA-USDT",
+     "LTC-USDT",
+     "SOL-USDT"
+    ],
+    "primary_markets": [
+     "BTC-USDT",
+     "ETH-USDT"
+    ],
+    "replication_markets": [
+     "XRP-USDT",
+     "DOGE-USDT",
+     "LINK-USDT",
+     "TRX-USDT",
+     "ADA-USDT",
+     "LTC-USDT",
+     "SOL-USDT"
+    ],
+    "timeframes": [
+     "1D",
+     "6H"
+    ],
+    "regime_modes": [
+     "none",
+     "gate"
+    ],
+    "comparison": "as H7: hold + policy sizing on the same market, timeframe and cell; the variant beside the base S8",
+    "expected_trades_per_year": [
+     3.0,
+     6.0
+    ],
+    "trade_count_caveat": "stated before the run: at 2-3 entries a year (the trade-count check below) S8 cannot reach the gate of 30 trades over the out-of-sample years on one market, so the 'at least 30 trades' gate will bind on every S8 configuration; the gate stays as the plan fixed it and the report says where it binds; the pooled reading across the nine markets (pooled trades, pooled profit factor, pooled average win / average loss, median Calmar beside hold + policy) is reported as information, never as a verdict and never as a fleet ticket",
+    "why": "the fewer-trades, wider-stop direction kept working in futures after 1990 and fits the fee budget; it could not be judged by the round-2 protocol"
+   }
+  },
+  "protocol": "Sprint 2c's own runner (scripts/run_research_v1c.py loaded as a module, its run_series) with Sprint 2c's defaults for everything the cell and the fixed-rule protocol do not define - the S0 filter with the FOMC calendar, the regime-v2 entry gate (3-state HMM, bear >= 0.5, fitted on every window's train slice; modes none and gate), the walk-forward (train 540 d, purge 7 d, test 180 d), the 0.25 reduce-only rebalance, the +-30 % robustness replay of every grid parameter (the four S7 numbers, the three S8 numbers; the ATR window is a default, as for S1/S2) and the trade-order bootstrap. The FIXED-RULE PROTOCOL VARIANT for S7/S8 and their variants: every parameter is one pre-registered value (one combination), the exit bracket is fixed ('none': the rule's own exit and stop; 'trail3' for S7t) and never selected, and the 20-train-trade qualification is skipped (min_trades 0: every walk-forward window runs the rule's test slice - there is nothing to select, so no window is silenced). The runner's defaults are checked against the stored Sprint 2c run before the study runs; every job's protocol check is recorded with its results and the study stops on any mismatch the job does not explain (a tier is a recorded policy_sizing mismatch, the fixed-rule protocol recorded brackets / min_trades mismatches, 1D bars a recorded timeframes mismatch, never hidden).",
+  "tier": "the Trader Policy v1 Trader tier (plan row R18, section 4.1): a 20 % volatility target over 30 bars, half size in a crash state, at most 2 % of equity at risk on one stop (the cap reads the rule's own stop distance at the decision close), the entries-only Turtle ladder, with the section 4.3 brakes on (the hard stop, the entry caps, the loss limits, the heat cap) - the paper fleet's cell 'trader|brakes|none'. The Reference cell (today's vt10/30 crash15/90dh ladder, no brakes) runs beside it for information and for the reproduction of the stored numbers; it never opens a holdout for a new rule. CAVEAT, stated before the run: the tier's volatility window is 30 BARS (Sprint 2b's definition), i.e. 30 days on 1D bars and 5 days on 4H bars, so the bar-size comparison also compares volatility estimators; the crash window (90 days) and the ladder re-arm (30 days) are in days.",
+  "brakes": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)",
+  "markets": "BTC-USDT and ETH-USDT first (the primary markets: the hypotheses are labelled on them), then the seven replication markets exactly as the R12 pre-registration fixed them (checked against that file): XRP, DOGE, LINK, TRX, ADA, LTC, SOL; a configuration that passes on a replication market opens its holdout there once and, if confirmed, joins the fleet as R12's did; the R12 reading applies to every configuration that passes on BTC-USDT or ETH-USDT: it 'replicates' when it passes on at least 4 of the 7 markets",
+  "timeframes": "1D and 6H bars for S7 and S8 (the plan's expectation names daily bars and 6H for the slow rules); 1D bars are resampled from the stored 1H candles at UTC midnight, exactly as 6H bars are resampled (OKX's own daily bars are UTC+8-aligned and are not used); the S0 filter's one-day volatility leg is inert on 1D bars (a one-bar window), a protocol fact, not a change",
+  "bar_size": "the S1 and S2 families - S1, S2, S1+S5, S2+S5 with Sprint 2c's grids, brackets (none/tp2/trail1/time30; none for the S5 families) and selection (the 20-train-trade qualification applies: these are swept rules) - on 1D, 6H and 4H bars of BTC-USDT and ETH-USDT, modes none and gate, at the Reference cell and at the Trader cell, at the gate cost (0.30 % a round trip) and the measured BTC/ETH cost (0.20 %, the selected rule replayed with the same windows, gate and sizing), one table; the pre-registered reading: '6H is the cost-adjusted sweet spot' holds when 6H has the highest Calmar of the three bar sizes in at least half of the (rule, market, mode) comparisons at the Trader cell both at 0.30 % and at 0.20 %; the table also shows the Sharpe, the trades a year and the fees a year. Never a hypothesis: no holdout is opened for it and nothing from it joins the fleet; a 1D configuration that passes the gates is reported as 'passes walk-forward, holdout not opened' and is a candidate for a future pre-registered row",
+  "data": "OKX public 1H and 4H spot candles of the nine markets (4H stored; 6H and 1D resampled from 1H), frozen in a study lake at Sprint 2c's data end (bar close <= 2026-10-20T10:00:00+00:00) so the walk-forward and the untouched 12 months (2025-10-20 -> 2026-10-20) are the same calendar window as in Sprint 2c, R12, R13, R16 and R18; Binance public funding and open interest for the S5 families and the S0 machinery as before",
+  "reproduction": "before anything is judged, the same code path re-runs, at the Reference cell, hold / S1 / S2 / S1+S5 / S2+S5 on BTC-USDT and ETH-USDT 4H and 6H (Sprint 2c's stored numbers) and hold on the seven replication markets at 6H (the replication study's), and, at the Trader cell, S1+S5 BTC-USDT 6H [none] and the hold controls the Trader Policy study stored at that cell; each must give the stored walk-forward numbers to 6 decimals, the same trade counts, the same most-selected rules and the same gate verdicts, otherwise the study stops",
+  "gates": "the plan's section 4.6 gates at the Trader tier: PF > 1.2, Sharpe > 0.7, Calmar > 0.5, >= 75 % of rolling 12-month windows positive, >= 30 trades over the out-of-sample period, >= 50 % of +-30 % neighbours profitable, max drawdown <= 25 %, worst calendar year >= -15 %, average win / average loss >= 2; expectancy in R reported, not gated; at the Reference cell the Sprint 2c thresholds (20 % / -10 %) apply, for information",
+  "turnover": "plan section 4.2: a new rule or variant that trades more than 40 times a year fails on costs before it is judged; here a fleet condition, not a gate on the verdict (the runner's holdout rule does not know it): a passer above the ceiling is flagged, cannot join the fleet, and its holdout, if the runner opened it, stays in the ledger",
+  "verdicts": "a configuration passes when it passes every section 4.6 gate at the Trader cell; a hypothesis is labelled on the primary markets - 'confirmed' when at least one of its configurations passes there and is confirmed by its holdout, 'passed walk-forward, contradicted by the holdout' when some pass and none is confirmed, 'failed walk-forward' when none passes - and the replication markets get the same label of their own; a confirmed passer anywhere joins the fleet (the R12 rule); the readings beside the label, never replacing it: (a) the directional reading against hold + policy on the same cell (Calmar higher in at least k of n judged configurations, k at the one-sided binomial 0.05 tail; indicative, the configurations share markets), on the primary and the replication markets separately; (b) per variant, the same sign test against its base rule over every series, mode and cell; (c) the R12 replication reading for every configuration that passed on a primary market; (d) trades a year beside the plan's expectation; (e) H8's pooled reading; (f) the Trader cell beside the Reference cell (exposure ratio, risk per trade, cap binding, gaps, re-entries); every hypothesis that does not end 'confirmed' gets a failure analysis computed from the numbers beside its comparison line",
+  "holdout": "the last 12 months (2025-10-20 -> 2026-10-20), opened once, only for a configuration that passes every section 4.6 gate at the Trader cell, only by the full pre-registered study (every hypothesis, market, timeframe, mode and cell, the bar-size comparison, with the reproduction, never --quick); the v1c verdict (positive return, PF > 1, >= 10 trades); the hold + policy control's 12 months at the Trader cell on every series are the comparison line (never judged, as in every study); every opening goes into an append-only ledger the report shows, each beside the earlier look at the same months by the stored hold control of that market (6H when the opening is at 1D, where no stored look at that bar size exists). CAVEAT, stated before the run: the holdout's falling direction is known for every market (hold + policy lost on all nine over those months), and both rules sit out downtrends by construction; a confirmation is necessary, not sufficient, and the paper fleet's forward record is the judge",
+  "fleet": "a confirmed passer at the Trader cell with at most 40 trades a year on a 4H or 6H series joins the paper fleet's shortlist as a NEW account with a source tag naming this study, the tier ('trader'), the brakes, 'no variant', the cell and the fixed-rule protocol variant, through the fleet loader's tier-tagged path (plan row R18b) extended to accept the fixed-rule protocol for registered fixed rules; the fleet must still load the amended shortlist, otherwise the file is restored and the report says so (the R12 rule); a 1D passer is RECORDED, not applied (the fleet runs 4H and 6H bars), as a decision for the owner; existing accounts are untouched; nothing joins demo or live",
+  "parked": {
+   "opening-range breakout": "slippage kills it (two independent replications lose the edge at two cents a share or spread plus slippage) and it needs a wide stock universe (plan section 2.6)",
+   "VCP (Minervini)": "no quantitative evidence; championship returns are top-of-distribution outcomes; a mechanical definition, if ever, is a later fleet test (plan section 2.6)",
+   "naive dip buying": "anti-trend: more than 60 % of 196 buy-the-dip variants had a lower Sharpe than holding over 60 years (AQR 2025), and continuation beats reversal in BTC at every horizon (plan section 2.6)",
+   "intraday rules": "no profitable intraday trend following in the BTC literature, and the fee budget (plan sections 2.6 and 2.9)"
+  },
+  "trade_count_check": {
+   "BTC-USDT 1D": {
+    "S7": 7.4,
+    "S7e": 7.2,
+    "S7w": 7.4,
+    "S8": 2.2,
+    "S8g": 1.5
+   },
+   "BTC-USDT 6H": {
+    "S7": 23.9,
+    "S7e": 22.6,
+    "S7w": 23.9,
+    "S8": 2.4,
+    "S8g": 1.7
+   },
+   "ETH-USDT 1D": {
+    "S7": 10.5,
+    "S7e": 10.3,
+    "S7w": 10.5,
+    "S8": 2.6,
+    "S8g": 1.0
+   },
+   "ETH-USDT 6H": {
+    "S7": 30.1,
+    "S7e": 26.3,
+    "S7w": 30.1,
+    "S8": 2.6,
+    "S8g": 1.0
+   }
+  },
+  "no_changes_after_results": "no gate, parameter, rule, market, threshold, cell or verdict rule changes after the results are in; if a gate looks wrong the report says so"
+ },
+ "sha256": "18e7fc6f91d4052e9d3d951cf321ee05e76cde8ffd28fadfde0002c55e231607"
+}

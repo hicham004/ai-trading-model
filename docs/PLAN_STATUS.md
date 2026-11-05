@@ -302,6 +302,40 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   twins' by construction; read them on return per unit of drawdown, as the weekly report says. The
   Aggressive tier is in no account: adding it would need the study to record its rows first (a new
   research row), not a fleet change. Recommendation: no Aggressive account; decide the tier at G7.
+- From R19: the slow breakout S8 (Turtle System 2: 55-day high entry, 20-day low exit, 5 x ATR stop)
+  could not be judged by the gates as the plan fixed them — it fires a median 3.2 times a year, so the
+  'at least 30 trades' gate bound in 72 of 72 configurations — yet pooled over the nine markets it has
+  exactly the shape the plan asked for (on 6H bars: 167 trades, profit factor 1.62, an average win
+  2.74 x the average loss, 37 % winners, +0.24 R a trade) while sitting below hold + policy at the
+  same Trader budget on Calmar in 61 of 72 configurations (it is in the market a third of the time).
+  Decision: whether to run ONE forward control account for it in the paper fleet — S8 on BTC-USDT 6H
+  without a gate (its best primary configuration: Calmar 0.44, +3.9 % a year at an 8.8 % drawdown,
+  Sharpe 0.78, 17 trades in 4.3 years) at the Trader tier, never judged, beside the 200-day control —
+  which is a fleet scope change (a new control account through the loader's fixed-rule path, built and
+  tested in R19 but unused) and therefore a new plan row, not the runner's call. Recommendation: yes,
+  it is free and the only honest way to judge a rule that trades three times a year; expect it to
+  say nothing for the first year, and do not add S7, which is refuted (worse than holding the market
+  at the same budget in 139 of 144 configurations, expectancy -0.07 R).
+- From R19, for information: the bar-size comparison found no cost-adjusted sweet spot — 6H led the
+  S1 family at the gate cost (5 of 8 comparisons) but not at the measured cost (3 of 8), 4H led the S2
+  family (6 of 8), and daily bars are untested for the S2 family because the protocol's 20-train-trade
+  qualification silenced every window there (0 trades, not a loss). The fleet already runs both bar
+  sizes side by side (`c13`/`c19` on 4H beside `c01`/`c17` on 6H), which is the forward answer.
+  Recommendation: no change to any account; a future bar-size study should pre-register a gate-cost
+  replay of the same fixed rule beside the 0.20 % replay (the replay removes the per-window selection
+  for a swept family) and a fixed-rule protocol for a family the qualification silences — not now.
+- From R19, for information: the first full run crashed before writing anything because the Sprint 2c
+  runner's regime-threshold sensitivity replay sized a gated S1/S2 bar-size job with the Trader tier's
+  per-trade cap but no stop (the Trader Policy study never ran plain S1/S2 at that cell); the replay was
+  made stop-aware in `scripts/run_research_v1c.py`, Sprint 2c's own policy takes the path it always
+  did (49 of 49 reproductions exact), and the study was re-run with the pre-registration unchanged
+  (written 05:14 UTC, hashed; the report's method notes carry the honesty note). The results file is
+  10.9 MB (568 results with their per-window records, the R16 form). Nothing to decide.
+- From R19, for information: the S7 variants replicate in direction beside the base rule (the EMA-10
+  pullback raised Calmar in 57 of 72 series, the 3-ATR floor in 50 of 72; the trail-3R exit lowered it
+  in 54 of 72, consistent with R18a's trailing-exit result) but the whole family sits below holding,
+  so none is worth a retest; the four parked ideas (opening-range breakout, VCP, naive dip buying,
+  intraday rules) stay parked with their reasons in the report. Nothing to decide.
 
 ### Decided — the owner, 2026-11-05
 

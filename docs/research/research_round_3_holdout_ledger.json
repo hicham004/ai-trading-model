@@ -1,0 +1,266 @@
+{
+ "note": "Every opening of the untouched 12 months by research round 3 (plan row R19), in order; entries are appended, never edited. The report shows all of them, each beside the earlier look at the same months by the stored hold + policy control of its market. The hold + policy control's 12 months at the Trader cell are a comparison line, not a configuration under test.",
+ "entries": [
+  {
+   "generated_at": "2026-11-05 05:52 UTC",
+   "started_at": "2026-11-05 05:34 UTC",
+   "preregistration_sha256": "d94982fe2186de2121b479ef2644a40e33172fa88cb2a878db7e84345d84692d",
+   "results_file": "docs/research/research_round_3_results.json",
+   "openings": [
+    {
+     "configuration": "hold ADA-USDT 1D [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-19->2026-10-19",
+     "total_return": -0.059728,
+     "max_drawdown": 0.073339,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ADA-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.073022,
+     "max_drawdown": 0.087536,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 1D [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-19->2026-10-19",
+     "total_return": -0.084217,
+     "max_drawdown": 0.137293,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.07698,
+     "max_drawdown": 0.114669,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 1D [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-19->2026-10-19",
+     "total_return": -0.049518,
+     "max_drawdown": 0.0581,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.062827,
+     "max_drawdown": 0.071238,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 1D [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-19->2026-10-19",
+     "total_return": -0.049655,
+     "max_drawdown": 0.080796,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.058189,
+     "max_drawdown": 0.080547,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold LINK-USDT 1D [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-19->2026-10-19",
+     "total_return": -0.026965,
+     "max_drawdown": 0.058249,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold LINK-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.034666,
+     "max_drawdown": 0.067636,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold LTC-USDT 1D [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-19->2026-10-19",
+     "total_return": -0.033733,
+     "max_drawdown": 0.068061,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold LTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.02187,
+     "max_drawdown": 0.052206,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 1D [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-19->2026-10-19",
+     "total_return": -0.044234,
+     "max_drawdown": 0.07279,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.05074,
+     "max_drawdown": 0.07662,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold TRX-USDT 1D [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-19->2026-10-19",
+     "total_return": -0.008628,
+     "max_drawdown": 0.068579,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold TRX-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.002092,
+     "max_drawdown": 0.067508,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold XRP-USDT 1D [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-19->2026-10-19",
+     "total_return": -0.055218,
+     "max_drawdown": 0.07898,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold XRP-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.054845,
+     "max_drawdown": 0.078366,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    }
+   ],
+   "earlier_looks": []
+  }
+ ]
+}

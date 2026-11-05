@@ -382,7 +382,7 @@ def test_a_tier_tagged_row_is_refused_on_any_mismatch_with_the_study_record(tmp_
         (lambda d: d["configurations"][14]["source"].update(cell="trader|brakes|add", variant="add"), "variant"),
         (lambda d: d["configurations"][14]["source"]["brakes"].update(hard_stop_dd=0.5), "brakes recorded with the row are not"),
         (lambda d: d["configurations"][14]["sizing_config"].update(risk_cap=0.03), "sizing is not the result's"),
-        (lambda d: d["configurations"][14]["source"].update(protocol_variant="fixed rule"), "cannot carry a protocol variant"),
+        (lambda d: d["configurations"][14]["source"].update(protocol_variant="fixed rule"), "only for a registered fixed rule"),  # plan row R19: a fixed rule may; a swept rule may not
         (lambda d: d["configurations"][14]["source"].update(role="control"), "belongs under 'controls'"),
         (lambda d: d["configurations"][14]["params"].update(vote=2), "does not match"),
         (lambda d: d["controls"][8]["source"].update(tier="trader", cell="trader|brakes|none"), "brakes recorded with the row are not"),

@@ -534,7 +534,9 @@ def run_series(args_dict: Dict[str, Any], instrument: str, timeframe: str) -> Di
         context = positioning_context(layout, instrument, timeframe, source=args.positioning_source)
         frames = build_frames(candidate, df_in, [lead["selected_params"]], context, no_trade=_no_trade(args))
         policy = _policy_spec(args)
-        pf = fraction_matrix(df_in, [policy], timeframe, ppy)
+        # Plan row R19: a stop-aware tier (a per-trade cap or a risk-sized kind) reads the lead rule's own stop; Sprint 2c's policy reads no
+        # stop and takes exactly the path it always did. The sensitivity replay carries no brakes (it is the regime-threshold reading only).
+        pf = rule_fraction_matrix(df_in, policy, frames.stop, timeframe, ppy) if policy.needs_stop else fraction_matrix(df_in, [policy], timeframe, ppy)
         ladder = LadderConfig(recovery_bars=days_to_bars(args.ladder_recovery_days, timeframe))
         for thr in args.sensitivity_thresholds:
             regs = regimes_for_windows(df_in, windows, _regime_cfg(args, "gate", bear_prob_max=thr), timeframe, ppy)

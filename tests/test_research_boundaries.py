@@ -33,7 +33,7 @@ def test_research_package_and_runner_stay_in_the_sandbox():
                                                        ROOT / "scripts" / "run_paper_fleet.py", ROOT / "scripts" / "run_allocator_v2.py",
                                                        ROOT / "scripts" / "run_long_short_study.py", ROOT / "scripts" / "run_replication_v1d.py",
                                                        ROOT / "scripts" / "run_research_round_1.py", ROOT / "scripts" / "run_research_round_2.py",
-                                                       ROOT / "scripts" / "run_trader_policy_v1.py"]
+                                                       ROOT / "scripts" / "run_trader_policy_v1.py", ROOT / "scripts" / "run_research_round_3.py"]
     assert files
     for path in files:
         for module in _imports(path):
@@ -150,6 +150,28 @@ def test_research_round_2_stays_in_the_sandbox_and_opens_no_network_path():
     for path in (ROOT / "app").rglob("*.py"):
         content = path.read_text(encoding="utf-8")
         assert "research.round2" not in content and "research.strategies.round2" not in content, path
+
+
+def test_research_round_3_stays_in_the_sandbox_and_opens_no_network_path():
+    """Plan row R19: research round 3 is research code - no risk, database, broker, execution or exchange code, no network path of its
+    own (it reads a frozen study lake built from the research lake), and the trading runtime never imports it or its rules."""
+    stricter = FORBIDDEN + ("app.risk", "app.db", "app.broker", "app.backtest")
+    study_files = [ROOT / "research" / name for name in ("round3.py", "report_round3.py")]
+    study_files += [ROOT / "research" / "strategies" / "round3.py", ROOT / "scripts" / "run_research_round_3.py"]
+    for path in study_files:
+        assert path.exists(), path
+        modules = list(_imports(path))
+        for module in modules:
+            for forbidden in stricter:
+                assert not (module == forbidden or module.startswith(forbidden + ".")), f"{path.relative_to(ROOT)} imports {module}"
+        network = [m for m in modules if m.split(".")[0] in ("requests", "httpx", "urllib", "websocket", "websockets", "aiohttp", "socket")]
+        assert not network, f"{path.relative_to(ROOT)} opens its own network path: {network}"
+    text = chr(10).join(p.read_text(encoding="utf-8") for p in study_files)
+    for needle in ("/api/v5/", "x-simulated-trading", "OK-ACCESS", "place_order", ".post(", "requests.post", "OKXPublicRest("):
+        assert needle not in text, needle
+    for path in (ROOT / "app").rglob("*.py"):
+        content = path.read_text(encoding="utf-8")
+        assert "research.round3" not in content and "research.strategies.round3" not in content, path
 
 
 def test_the_r17_positioning_feed_stays_in_the_sandbox_and_widens_no_app_allowlist():

@@ -648,3 +648,101 @@ pre-registration `trader_policy_v1_preregistration.json`; ledger `trader_policy_
   bar on one day, so the one-entry-per-day cap blocked almost everything); its own brake counts
   exposed it, the calendar was fixed and the whole study re-run with the pre-registration
   unchanged; both runs' holdout openings are in the ledger.
+
+## Research round 3 — asymmetric setups: trend-pullback continuation, the slow breakout, the bar size after costs (plan row R19)
+
+The Trader Plan's section 5 (`docs/TRADER_PLAN_2026-11-05.md`): two new rule families written
+as FIXED rules (one pre-registered parameter set each, nothing for the walk-forward to select)
+and judged under a pre-registered fixed-rule protocol variant — the 20-train-trade qualification
+that silenced round 2's slow rules is skipped (`--min-trades 0`: every window runs the rule's
+test slice) and the exit bracket is fixed (`none`, or `trail3` for the S7 trail variant) — at the
+Trader Policy's Trader tier with its brakes (the paper fleet's cell `trader|brakes|none`), under
+the plan's section 4.6 gates; the Reference cell runs beside it for information. BTC-USDT and
+ETH-USDT are the primary markets, the seven R12 markets the replication, on 1D and 6H bars.
+Plus the bar-size comparison: the S1 and S2 families (Sprint 2c's grids and selection) on 1D,
+6H and 4H bars at the Trader tier, at the 0.30 % gate cost and the measured 0.20 % replay.
+Nothing here changes the demo shadow run, its caps or the 0.60 floor; nothing reaches demo or live.
+
+| Module | Purpose |
+|---|---|
+| `research/strategies/round3.py` | `TrendPullback` (S7: uptrend = close above its 100-day SMA and the 50-day above the 100-day; pullback = a close below the 20-day SMA, variant `S7e` the 10-day EMA; entry = a close above the previous bar's high while the uptrend holds; stop = under the pullback low floored at 2 x ATR(14), variant `S7w` 3 x; exit = a close below the 50-day SMA or the stop; `S7t` = the same rule under the `trail3` bracket, which the runner and the fleet apply through the `bracket` parameter) and `SlowBreakout` (S8: Turtle System 2, 55-day high entry, 20-day low exit, 5 x ATR(14) stop, no adds, no filters; `S8g` Garner's 90/45 channels). Registered as `FIXED_RULES`; `VARIANT_OF` names each variant's base. |
+| `research/round3.py` | The pre-registration (`PREREGISTRATION`, written once with a hash; the committed file must match the module, the rules' numbers, the cell and the brakes), the jobs (control / fixed / fixed_trail / barsize per series and cell), Sprint 2c's command line per job (`job_argv`), the per-job protocol check with its explained deviations (a tier, the fixed-rule protocol, 1D bars), the reproduction targets (Sprint 2c, the replication study, the Trader Policy study's judged cell), the bookkeeping (comparisons with hold + policy at the same cell, with the variant's base, with the Reference cell), the readings (sign tests, the R12 replication reading, the variants, H8's pooled reading), the bar-size table and its reading, the holdout openings, earlier looks, ledger, the shortlist rows (applied / recorded only). |
+| `research/report_round3.py` | The report, every sentence computed from the numbers (also renders the pre-registration-only stub before the first run). |
+| `scripts/run_research_round_3.py` | The command line: `--preregister`, the study, `--render-from-json`, `--apply-shortlist-from-json` (the R12 restore rule). |
+| `research/paper_fleet/config.py` (change) | A candidate row may name the fixed-rule protocol variant — only for a rule in `FIXED_RULES`, only when the study's recorded check of that cell names the same variant, with the same two explained deviations (`brackets`, `min_trades`) the slow-trend control already has. Existing accounts and fingerprints unchanged. |
+
+### Running
+
+```bash
+python scripts/run_research_round_3.py --preregister                   # once; writes the JSON and the report stub; refuses a second write
+python scripts/run_research_round_3.py --evaluate-holdout --workers 12  # the full study
+python scripts/run_research_round_3.py --hypotheses H8 --markets BTC-USDT --timeframes 6H --regime-modes none --no-barsize --skip-reproduction --report - --json - --holdout-ledger - --shortlist -
+python scripts/run_research_round_3.py --render-from-json docs/research/research_round_3_results.json
+```
+
+The study lake (`data/lake_research_round_3`) is the research lake's nine markets cut at Sprint
+2c's data end, built on first use; 6H and 1D bars are resampled from the stored 1H candles at
+UTC midnight. `--evaluate-holdout` needs the full pre-registered study (every hypothesis,
+market, timeframe, mode and cell, the bar-size comparison, with the reproduction, never `--quick`).
+
+### Result (2026-11-05)
+
+Report: `docs/research/RESEARCH_ROUND_3_REPORT.md`; results `research_round_3_results.json`;
+pre-registration `research_round_3_preregistration.json` (written 05:14 UTC, before the first run);
+ledger `research_round_3_holdout_ledger.json`. 124 jobs, 568 results, 216 judged configurations,
+18.7 minutes on 12 workers.
+
+- Reproduction: 49 of 49 stored results exact (Sprint 2c's and the replication study's at the
+  Reference cell; the Trader Policy study's at the judged cell; same trades, rules and verdicts).
+- **H7, trend-pullback continuation (S7 and its three variants): failed walk-forward** on the primary
+  markets (0 of 32) and on the replication markets (0 of 112). Beside hold + policy sizing at the
+  same Trader budget it ended with a higher Calmar in 5 of 144 configurations (all on SOL-USDT 1D):
+  median Calmar -0.11 against 0.34, median yearly return -1.2 % against +5.0 %, a median average
+  win of 1.86 x the average loss, expectancy -0.07 R, 30 % winners, in the market 17 % of the time,
+  10.9 trades a year (6.6 on daily bars, 18.4 on 6H; the plan guessed fewer on 6H). The EMA-10
+  pullback and the 3-ATR floor raised Calmar beside the base rule in 57 and 50 of 72 series
+  (+0.06 and +0.01 median), the trail-3R exit lowered it (18 of 72), and none of it lifts the family
+  above holding: refuted on these markets under this protocol, not merely untested.
+- **H8, the slow breakout (S8 and Garner's 90/45 variant): failed walk-forward** everywhere (0 of 16
+  and 0 of 56), and the 'at least 30 trades' gate bound in 72 of 72: the rule fires a median 3.2
+  times a year, so one market cannot produce 30 trades over 4.3 out-of-sample years. Its shape is
+  the asymmetric one the plan asked for - pooled over the nine markets S8 on 6H made 167 trades
+  with profit factor 1.62, an average win 2.74 x the average loss, 37 % winners and +0.24 R a trade
+  (S8g on daily bars: 85 trades, PF 1.93, 2.51 x, +0.29 R) - but beside hold + policy at the same
+  budget its Calmar was higher in only 11 of 72 configurations (median 0.20 against 0.34; it is in
+  the market a third of the time and misses the rest of the trend). Best single configuration:
+  S8 BTC-USDT 6H without a gate, Calmar 0.44, +3.9 % a year at an 8.8 % drawdown, Sharpe 0.78,
+  17 trades.
+- **Bar size:** the claim '6H is the cost-adjusted sweet spot' does not hold under the
+  pre-registered reading (6H best in 7 of 16 comparisons at the 0.30 % gate cost and 6 of 16 at the
+  measured 0.20 %; 8 needed). Clarified after the run with the verdict unchanged: the S2 family
+  produced no trade on daily bars at either cell because the 20-train-trade qualification silenced
+  every window there (untested, not beaten), which gives 7 of 16 and 7 of 16; by family, 6H is the
+  best bar size for the S1 family at the gate cost (5 of 8) but not at the measured cost (3 of 8),
+  and 4H beats 6H for the S2 family (6 of 8). Median Calmar at the Trader budget: 1D 0.02, 6H 0.39,
+  4H 0.46 at 0.30 %, with 6, 20 and 24 trades a year and 0.2, 1.3 and 1.6 % of fees a year.
+- Holdout: nothing passed, so the untouched 12 months were opened only for the hold + policy controls
+  at the judged cell (18 comparison lines, all negative: -0.2 % to -8.4 %). No fleet row applied; the
+  fleet loader's fixed-rule path is built and tested but unused.
+- Honesty notes (in the report's method notes): the first full run crashed before writing anything
+  because the runner's regime-threshold sensitivity replay sized a gated S1/S2 bar-size job with a
+  per-trade-cap tier but no stop; fixed in `scripts/run_research_v1c.py` (stop-aware; Sprint 2c's own
+  policy takes the path it always did, the reproduction proves it) and the study re-run with the
+  pre-registration unchanged.
+
+### Reading the R19 report honestly
+
+- A fixed rule under the fixed-rule protocol is judged exactly once per window with no selection,
+  so a failure is a failure of the rule as written, not of the selection step; the 20-train-trade
+  qualification still applies to the swept bar-size families, which is why the S2 family is untested
+  on daily bars here.
+- The 30-trade gate cannot be met by a rule that fires three times a year on one market; the gate
+  stayed as the plan fixed it and the report says where it binds. S8's pooled nine-market numbers are
+  information, never a verdict and never a fleet ticket.
+- The 0.20 % column of the bar-size table is a replay of the most-often-selected rule over every
+  window (the Trader Policy study's construction); for a swept family that also removes the
+  per-window selection, so read the 0.30 % column as the protocol's number.
+- The tier's volatility window is 30 bars (30 days at 1D, 5 days at 4H): the bar-size comparison
+  also compares volatility estimators, as pre-registered.
+- 216 judged configurations at Sprint 2c's own pass rate would give about 8 passes by chance; the
+  study found none, which is the strongest statement a backtest can make about these two setups.

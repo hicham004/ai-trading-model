@@ -49,6 +49,15 @@ whose ``source.role`` is ``control`` (the "always long above the 200-day
 average, policy sizing" forward control) becomes a control account. Everything
 else about the loader, every existing account and the shared rules are
 unchanged.
+
+Plan row R19 (research round 3): a candidate row may also name the FIXED-RULE
+protocol variant (``source.protocol_variant``: the exit bracket fixed and never
+selected, no train-trade qualification) - only for a rule registered in
+``research.strategies.FIXED_RULES``, only when the study's recorded protocol
+check of that cell names the same variant, and with the same two explained
+deviations (``brackets``, ``min_trades``) the slow-trend control already has.
+Such a row becomes an ordinary tier-tagged candidate account; the fleet runs
+the rule's one parameter set with the bracket the row carries.
 """
 
 from __future__ import annotations
@@ -68,7 +77,7 @@ from research.engine import Costs
 from research.markets import REPLICATION_CANDIDATES
 from research.regime_v2 import RegimeV2Config
 from research.sizing import LadderConfig, SizingSpec
-from research.strategies import get_candidate
+from research.strategies import FIXED_RULES, get_candidate
 from research.strategies.base import days_to_bars
 from research.strategies.s0_filters import NoTradeConfig
 
@@ -116,6 +125,9 @@ TF_CONTROL_CANDIDATE = "TF"  # the "always long above the 200-day average, polic
 # by design; the fixed-rule control runs without an exit bracket and without the 20-train-trade qualification. Anything else refuses.
 _EXPLAINED_MISMATCHES_CANDIDATE = frozenset({"policy_sizing"})
 _EXPLAINED_MISMATCHES_CONTROL = frozenset({"policy_sizing", "brackets", "min_trades"})
+#: Plan row R19: a candidate row may name the fixed-rule protocol variant (the exit bracket fixed, no train-trade qualification) only for a
+#: registered fixed rule (``research.strategies.FIXED_RULES``: one parameter set, nothing selected); it explains the same two deviations.
+_EXPLAINED_MISMATCHES_FIXED_RULE = _EXPLAINED_MISMATCHES_CONTROL
 
 
 def _slug(text: str) -> str:
@@ -389,15 +401,25 @@ def _tier_checks(row: Mapping[str, Any], result: Mapping[str, Any], src: Mapping
     unexplained = check.get("unexplained_mismatches")
     if unexplained is None or unexplained or not check.get("ok_for_cell", False):
         raise ValueError(f"{name}: the study's protocol check of cell {src.get('cell')!r} is not clean ({unexplained!r})")
-    allowed = _EXPLAINED_MISMATCHES_CONTROL if src.get("role") == "control" else _EXPLAINED_MISMATCHES_CANDIDATE
+    fixed_rule = src.get("role") != "control" and bool(src.get("protocol_variant"))
+    if fixed_rule and row["candidate"] not in FIXED_RULES:
+        raise ValueError(f"{name}: a candidate row may carry a protocol variant only for a registered fixed rule ({sorted(FIXED_RULES)}), "
+                         f"not {row['candidate']!r}")
+    allowed = (_EXPLAINED_MISMATCHES_CONTROL if src.get("role") == "control" else
+               _EXPLAINED_MISMATCHES_FIXED_RULE if fixed_rule else _EXPLAINED_MISMATCHES_CANDIDATE)
     explained = set((check.get("expected_mismatches") or {}).keys())
     if not explained <= allowed:
         raise ValueError(f"{name}: the study explained protocol mismatches the fleet does not accept ({sorted(explained - allowed)})")
     if src.get("role") == "control":
         if not src.get("protocol_variant"):
             raise ValueError(f"{name}: a control row needs its protocol variant named")
-    elif src.get("protocol_variant"):
-        raise ValueError(f"{name}: a candidate row cannot carry a protocol variant ({src.get('protocol_variant')!r})")
+    elif fixed_rule:
+        # Plan row R19: the study's own record of the cell must name the same protocol variant, and the row's bracket must be the one it fixed.
+        recorded = check.get("protocol_variant")
+        if recorded != src.get("protocol_variant"):
+            raise ValueError(f"{name}: the row names the protocol variant {src.get('protocol_variant')!r}, the study recorded {recorded!r}")
+        if {"brackets", "min_trades"} & explained != {"brackets", "min_trades"} & set(check.get("mismatches") or {}):
+            raise ValueError(f"{name}: the fixed-rule protocol's recorded deviations do not match the study's protocol check")
     raw_brakes = src.get("brakes")
     ran_with = (result.get("r18") or {}).get("brakes")
     if raw_brakes != ran_with:
@@ -525,6 +547,8 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
             label += f" — {tier} tier ({sleeve.sizing.label}{', brakes on' if brakes is not None and brakes.active else ''})"
         if src:
             exp["source"] = dict(src)
+            if src.get("protocol_variant"):  # plan row R19: a fixed rule under the fixed-rule protocol variant
+                exp["protocol_variant"] = src.get("protocol_variant")
             label += f" — from {src.get('study')}"
         accounts.append(AccountSpec(aid, "candidate", "sleeve", label, sleeve=sleeve, instrument=row["instrument"], timeframe=row["timeframe"],
                                     shortlist_rank=int(row["rank"]), expectations=exp, tier=tier))

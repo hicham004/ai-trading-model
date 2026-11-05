@@ -98,7 +98,7 @@ def test_round2_candidates_are_registered_as_fixed_pre_registered_rules():
     s2tf, tf, s2 = get_candidate("S2+TF"), get_candidate("TF"), get_candidate("S2")
     assert isinstance(s2tf, SlowTrendGated) and s2tf.base.key == "S2" and s2tf.sma_days == 200.0 and s2tf.grid == s2.grid and s2tf.default_params == s2.default_params
     assert isinstance(tf, SlowTrendExposure) and tf.grid == {"sma_days": [200.0]} and tf.default_params == {"sma_days": 200.0}
-    assert FIXED_RULES == ("TF",) and TREND_SMA_DAYS == 200.0
+    assert FIXED_RULES[0] == "TF" and "TF" in FIXED_RULES and TREND_SMA_DAYS == 200.0  # round 3 (plan row R19) adds its fixed rules after TF
     assert s2tf.warmup_days == 200.0 and tf.warmup_days == 200.0 and get_candidate("S2").warmup_days is None
     assert len(param_grid(tf.grid, base=tf.default_params)) == 1
     assert perturbed_params(dict(tf.default_params, bracket="none"), list(tf.grid)) == [{"sma_days": 140.0, "bracket": "none"}, {"sma_days": 260.0, "bracket": "none"}]
