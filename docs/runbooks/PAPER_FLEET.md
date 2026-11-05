@@ -480,6 +480,19 @@ C:\Users\Admin\Desktop\ai-trading-fleet\.venv\Scripts\python.exe C:\Users\Admin\
 # next 6H bar closes (00, 06, 12, 18 h UTC) "S5 data current" under c11-s1s5-sol-6h-none
 ```
 
+### Breadth and rotation (plan row R20): nothing joined
+
+The breadth study (`docs/research/BREADTH_V1_REPORT.md`, 2026-11-05) ran the S1 family on the nine
+liquid OKX markets as ONE Trader-tier account with the plan's brakes at book level, and one
+pre-registered rotation test (the top 3 of the nine by 3-week return, weekly, under the BTC 200-day
+filter). Both failed their pre-registered rules: the book lost 6.7 % a year and hit the −30 % hard
+stop in April 2022 (the heat cap's equal trimming of every open position in one correlated bet sold the
+winners down at every new signal), and the rotation halved BTC's drawdown but not its return. No
+account was added, the fleet has no account type for a multi-market book or a weekly rotation, and
+none was built; the 31 accounts and their fingerprints are unchanged. Two single sleeves the study
+found passing and confirmed at the Trader tier but absent from the fleet (S1 BTC-USDT 6H, S1+VC
+SOL-USDT 6H) are an owner decision in `docs/PLAN_STATUS.md`, section 2, not a change here.
+
 ### A configuration at the Trader tier (plan row R18)
 
 The Trader Plan (`docs/TRADER_PLAN_2026-11-05.md`, section 4) fixes three risk budgets. Every

@@ -201,3 +201,28 @@ def test_the_r17_positioning_feed_stays_in_the_sandbox_and_widens_no_app_allowli
 
     assert SWAP_INSTRUMENTS == ("BTC-USDT-SWAP", "ETH-USDT-SWAP") and ALLOWED_INSTRUMENTS == ("BTC-USDT", "ETH-USDT") and SYMBOLS == ("BTCUSDT", "ETHUSDT")
     assert RESEARCH_SWAPS and not set(RESEARCH_SWAPS) & set(SWAP_INSTRUMENTS)
+
+
+def test_the_breadth_study_stays_in_the_sandbox_widens_no_allowlist_and_opens_no_network_path():
+    """Plan row R20: the breadth book and the rotation test are research code - no risk, database, broker, execution or exchange code, no
+    network path of their own (they read a frozen study lake built from the research lake), the app's instrument allowlist is untouched, and
+    the trading runtime and the paper fleet never import them."""
+    stricter = FORBIDDEN + ("app.risk", "app.db", "app.broker", "app.backtest")
+    study_files = [ROOT / "research" / name for name in ("breadth.py", "breadth_study.py", "report_breadth.py")] + [ROOT / "scripts" / "run_breadth_v1.py"]
+    for path in study_files:
+        assert path.exists(), path
+        modules = list(_imports(path))
+        for module in modules:
+            for forbidden in stricter:
+                assert not (module == forbidden or module.startswith(forbidden + ".")), f"{path.relative_to(ROOT)} imports {module}"
+        network = [m for m in modules if m.split(".")[0] in ("requests", "httpx", "urllib", "websocket", "websockets", "aiohttp", "socket")]
+        assert not network, f"{path.relative_to(ROOT)} opens its own network path: {network}"
+    text = chr(10).join(p.read_text(encoding="utf-8") for p in study_files)
+    for needle in ("/api/v5/", "x-simulated-trading", "OK-ACCESS", "place_order", ".post(", "requests.post", "OKXPublicRest("):
+        assert needle not in text, needle
+    for path in list((ROOT / "app").rglob("*.py")) + list((ROOT / "research" / "paper_fleet").rglob("*.py")):
+        content = path.read_text(encoding="utf-8")
+        assert "research.breadth" not in content and "report_breadth" not in content, path
+    from app.okx.client import ALLOWED_INSTRUMENTS
+
+    assert ALLOWED_INSTRUMENTS == ("BTC-USDT", "ETH-USDT")

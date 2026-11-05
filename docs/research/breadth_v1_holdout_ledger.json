@@ -1,0 +1,1469 @@
+{
+ "note": "Every opening of the untouched 12 months by the breadth study (plan row R20), in order; entries are appended, never edited. The report shows all of them, each beside the earlier looks at the same months by the stored studies. The hold + policy controls at the Trader cell are a comparison line, not a configuration under test.",
+ "entries": [
+  {
+   "generated_at": "2026-11-05 07:09 UTC",
+   "started_at": "2026-11-05 07:05 UTC",
+   "preregistration_sha256": "22d968e90547ce7ad24cfee495803df2631bdec412e7208c75ba84febd361559",
+   "results_file": "docs/research/breadth_v1_results.json",
+   "openings": [
+    {
+     "configuration": "S1 BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "sleeve",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.038343,
+     "max_drawdown": 0.072895,
+     "profit_factor": 1.401628,
+     "n_trades": 32,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "sleeve",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "time30"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.085372,
+     "max_drawdown": 0.035547,
+     "profit_factor": 3.514392,
+     "n_trades": 11,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "sleeve",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.034127,
+     "max_drawdown": 0.076659,
+     "profit_factor": 1.362265,
+     "n_trades": 30,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "sleeve",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.085372,
+     "max_drawdown": 0.035547,
+     "profit_factor": 3.514392,
+     "n_trades": 11,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+VC ETH-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "sleeve",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "tp2"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.058049,
+     "max_drawdown": 0.099358,
+     "profit_factor": 0.423867,
+     "n_trades": 20,
+     "confirmed": false
+    },
+    {
+     "configuration": "S1+VC SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "sleeve",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 1,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.049779,
+     "max_drawdown": 0.086962,
+     "profit_factor": 1.501207,
+     "n_trades": 23,
+     "confirmed": true
+    },
+    {
+     "configuration": "hold ADA-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.073022,
+     "max_drawdown": 0.087536,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.07698,
+     "max_drawdown": 0.114669,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.062827,
+     "max_drawdown": 0.071238,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.058189,
+     "max_drawdown": 0.080547,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold LINK-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.034666,
+     "max_drawdown": 0.067636,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold LTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.02187,
+     "max_drawdown": 0.052206,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.05074,
+     "max_drawdown": 0.07662,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold TRX-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.002092,
+     "max_drawdown": 0.067508,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold XRP-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.054845,
+     "max_drawdown": 0.078366,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    }
+   ],
+   "earlier_looks": [
+    {
+     "configuration": "S1 BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_opened": true,
+     "earlier_looks": [
+      {
+       "study": "Sprint 2c",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R13 research round 1",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.07698,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R19 research round 3",
+       "cell": "trader",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.07698,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      }
+     ]
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_opened": true,
+     "earlier_looks": [
+      {
+       "study": "R12 replication",
+       "cell": "reference",
+       "configuration": "S1 SOL-USDT 6H [none]",
+       "total_return": 0.095279,
+       "profit_factor": 5.485294,
+       "n_trades": 12,
+       "confirmed": true
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "S1 SOL-USDT 6H [none]",
+       "total_return": 0.095279,
+       "profit_factor": 5.485294,
+       "n_trades": 12,
+       "confirmed": true
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "S1 SOL-USDT 6H [none]",
+       "total_return": 0.095279,
+       "profit_factor": 5.485294,
+       "n_trades": 12,
+       "confirmed": true
+      },
+      {
+       "study": "R12 replication",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "S1 SOL-USDT 6H [none]",
+       "total_return": 0.085372,
+       "profit_factor": 3.514392,
+       "n_trades": 11,
+       "confirmed": true
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.05074,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R19 research round 3",
+       "cell": "trader",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.05074,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      }
+     ]
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_opened": true,
+     "earlier_looks": [
+      {
+       "study": "Sprint 2c",
+       "cell": "reference",
+       "configuration": "S1+S5 BTC-USDT 6H [none]",
+       "total_return": 0.022704,
+       "profit_factor": 1.475736,
+       "n_trades": 32,
+       "confirmed": true
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "S1+S5 BTC-USDT 6H [none]",
+       "total_return": 0.022704,
+       "profit_factor": 1.475736,
+       "n_trades": 32,
+       "confirmed": true
+      },
+      {
+       "study": "Sprint 2c",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R13 research round 1",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "S1+S5 BTC-USDT 6H [none]",
+       "total_return": 0.034127,
+       "profit_factor": 1.362265,
+       "n_trades": 30,
+       "confirmed": true
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.07698,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R19 research round 3",
+       "cell": "trader",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.07698,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      }
+     ]
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_opened": true,
+     "earlier_looks": [
+      {
+       "study": "R12 replication",
+       "cell": "reference",
+       "configuration": "S1+S5 SOL-USDT 6H [none]",
+       "total_return": 0.095279,
+       "profit_factor": 5.485294,
+       "n_trades": 12,
+       "confirmed": true
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "S1+S5 SOL-USDT 6H [none]",
+       "total_return": 0.095279,
+       "profit_factor": 5.485294,
+       "n_trades": 12,
+       "confirmed": true
+      },
+      {
+       "study": "R12 replication",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "S1+S5 SOL-USDT 6H [none]",
+       "total_return": 0.085372,
+       "profit_factor": 3.514392,
+       "n_trades": 11,
+       "confirmed": true
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.05074,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R19 research round 3",
+       "cell": "trader",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.05074,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      }
+     ]
+    },
+    {
+     "configuration": "S1+VC ETH-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_opened": true,
+     "earlier_looks": [
+      {
+       "study": "Sprint 2c",
+       "cell": "reference",
+       "configuration": "hold ETH-USDT 6H [none]",
+       "total_return": -0.029095,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R13 research round 1",
+       "cell": "reference",
+       "configuration": "hold ETH-USDT 6H [none]",
+       "total_return": -0.029095,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "hold ETH-USDT 6H [none]",
+       "total_return": -0.029095,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "hold ETH-USDT 6H [none]",
+       "total_return": -0.029095,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "hold ETH-USDT 6H [none]",
+       "total_return": -0.058189,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R19 research round 3",
+       "cell": "trader",
+       "configuration": "hold ETH-USDT 6H [none]",
+       "total_return": -0.058189,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      }
+     ]
+    },
+    {
+     "configuration": "S1+VC SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_opened": true,
+     "earlier_looks": [
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "S1+VC SOL-USDT 6H [none]",
+       "total_return": -0.016469,
+       "profit_factor": 0.682659,
+       "n_trades": 23,
+       "confirmed": false
+      },
+      {
+       "study": "R12 replication",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.05074,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R19 research round 3",
+       "cell": "trader",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.05074,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "generated_at": "2026-11-05 07:23 UTC",
+   "started_at": "2026-11-05 07:19 UTC",
+   "preregistration_sha256": "22d968e90547ce7ad24cfee495803df2631bdec412e7208c75ba84febd361559",
+   "results_file": "docs/research/breadth_v1_results.json",
+   "openings": [
+    {
+     "configuration": "S1 BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "sleeve",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.038343,
+     "max_drawdown": 0.072895,
+     "profit_factor": 1.401628,
+     "n_trades": 32,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "sleeve",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "time30"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.085372,
+     "max_drawdown": 0.035547,
+     "profit_factor": 3.514392,
+     "n_trades": 11,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "sleeve",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.034127,
+     "max_drawdown": 0.076659,
+     "profit_factor": 1.362265,
+     "n_trades": 30,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "sleeve",
+     "selected_params": {
+      "lookbacks_days": [
+       14,
+       30,
+       60
+      ],
+      "vote": 3,
+      "atr_window": 14,
+      "atr_mult": 4.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "funding_z_max": 1.5,
+      "funding_z_window": 90,
+      "oi_change_max": 0.15,
+      "oi_change_window_days": 1,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.085372,
+     "max_drawdown": 0.035547,
+     "profit_factor": 3.514392,
+     "n_trades": 11,
+     "confirmed": true
+    },
+    {
+     "configuration": "S1+VC ETH-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "sleeve",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 2,
+      "atr_window": 14,
+      "atr_mult": 3.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "tp2"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.058049,
+     "max_drawdown": 0.099358,
+     "profit_factor": 0.423867,
+     "n_trades": 20,
+     "confirmed": false
+    },
+    {
+     "configuration": "S1+VC SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "sleeve",
+     "selected_params": {
+      "lookbacks_days": [
+       7,
+       14,
+       30
+      ],
+      "vote": 1,
+      "atr_window": 14,
+      "atr_mult": 2.0,
+      "vol_window_days": 30,
+      "entry_band": 0.0,
+      "exit_band": 0.0,
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": 0.049779,
+     "max_drawdown": 0.086962,
+     "profit_factor": 1.501207,
+     "n_trades": 23,
+     "confirmed": true
+    },
+    {
+     "configuration": "hold ADA-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.073022,
+     "max_drawdown": 0.087536,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.07698,
+     "max_drawdown": 0.114669,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold DOGE-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.062827,
+     "max_drawdown": 0.071238,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold ETH-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.058189,
+     "max_drawdown": 0.080547,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold LINK-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.034666,
+     "max_drawdown": 0.067636,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold LTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.02187,
+     "max_drawdown": 0.052206,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.05074,
+     "max_drawdown": 0.07662,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold TRX-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.002092,
+     "max_drawdown": 0.067508,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    },
+    {
+     "configuration": "hold XRP-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "role": "control",
+     "selected_params": {
+      "bracket": "none"
+     },
+     "span": "2025-10-20->2026-10-20",
+     "total_return": -0.054845,
+     "max_drawdown": 0.078366,
+     "profit_factor": 0.0,
+     "n_trades": 1,
+     "confirmed": null
+    }
+   ],
+   "earlier_looks": [
+    {
+     "configuration": "S1 BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_opened": true,
+     "earlier_looks": [
+      {
+       "study": "Sprint 2c",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R13 research round 1",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.07698,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R19 research round 3",
+       "cell": "trader",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.07698,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      }
+     ]
+    },
+    {
+     "configuration": "S1 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_opened": true,
+     "earlier_looks": [
+      {
+       "study": "R12 replication",
+       "cell": "reference",
+       "configuration": "S1 SOL-USDT 6H [none]",
+       "total_return": 0.095279,
+       "profit_factor": 5.485294,
+       "n_trades": 12,
+       "confirmed": true
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "S1 SOL-USDT 6H [none]",
+       "total_return": 0.095279,
+       "profit_factor": 5.485294,
+       "n_trades": 12,
+       "confirmed": true
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "S1 SOL-USDT 6H [none]",
+       "total_return": 0.095279,
+       "profit_factor": 5.485294,
+       "n_trades": 12,
+       "confirmed": true
+      },
+      {
+       "study": "R12 replication",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "S1 SOL-USDT 6H [none]",
+       "total_return": 0.085372,
+       "profit_factor": 3.514392,
+       "n_trades": 11,
+       "confirmed": true
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.05074,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R19 research round 3",
+       "cell": "trader",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.05074,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      }
+     ]
+    },
+    {
+     "configuration": "S1+S5 BTC-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_opened": true,
+     "earlier_looks": [
+      {
+       "study": "Sprint 2c",
+       "cell": "reference",
+       "configuration": "S1+S5 BTC-USDT 6H [none]",
+       "total_return": 0.022704,
+       "profit_factor": 1.475736,
+       "n_trades": 32,
+       "confirmed": true
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "S1+S5 BTC-USDT 6H [none]",
+       "total_return": 0.022704,
+       "profit_factor": 1.475736,
+       "n_trades": 32,
+       "confirmed": true
+      },
+      {
+       "study": "Sprint 2c",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R13 research round 1",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.039948,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "S1+S5 BTC-USDT 6H [none]",
+       "total_return": 0.034127,
+       "profit_factor": 1.362265,
+       "n_trades": 30,
+       "confirmed": true
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.07698,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R19 research round 3",
+       "cell": "trader",
+       "configuration": "hold BTC-USDT 6H [none]",
+       "total_return": -0.07698,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      }
+     ]
+    },
+    {
+     "configuration": "S1+S5 SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_opened": true,
+     "earlier_looks": [
+      {
+       "study": "R12 replication",
+       "cell": "reference",
+       "configuration": "S1+S5 SOL-USDT 6H [none]",
+       "total_return": 0.095279,
+       "profit_factor": 5.485294,
+       "n_trades": 12,
+       "confirmed": true
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "S1+S5 SOL-USDT 6H [none]",
+       "total_return": 0.095279,
+       "profit_factor": 5.485294,
+       "n_trades": 12,
+       "confirmed": true
+      },
+      {
+       "study": "R12 replication",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "S1+S5 SOL-USDT 6H [none]",
+       "total_return": 0.085372,
+       "profit_factor": 3.514392,
+       "n_trades": 11,
+       "confirmed": true
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.05074,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R19 research round 3",
+       "cell": "trader",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.05074,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      }
+     ]
+    },
+    {
+     "configuration": "S1+VC ETH-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_opened": true,
+     "earlier_looks": [
+      {
+       "study": "Sprint 2c",
+       "cell": "reference",
+       "configuration": "hold ETH-USDT 6H [none]",
+       "total_return": -0.029095,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R13 research round 1",
+       "cell": "reference",
+       "configuration": "hold ETH-USDT 6H [none]",
+       "total_return": -0.029095,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "hold ETH-USDT 6H [none]",
+       "total_return": -0.029095,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "hold ETH-USDT 6H [none]",
+       "total_return": -0.029095,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "hold ETH-USDT 6H [none]",
+       "total_return": -0.058189,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R19 research round 3",
+       "cell": "trader",
+       "configuration": "hold ETH-USDT 6H [none]",
+       "total_return": -0.058189,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      }
+     ]
+    },
+    {
+     "configuration": "S1+VC SOL-USDT 6H [none]",
+     "cell": "trader|brakes|none",
+     "earlier_opened": true,
+     "earlier_looks": [
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "S1+VC SOL-USDT 6H [none]",
+       "total_return": -0.016469,
+       "profit_factor": 0.682659,
+       "n_trades": 23,
+       "confirmed": false
+      },
+      {
+       "study": "R12 replication",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R16 research round 2",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "reference",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.02537,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R18 Trader Policy v1",
+       "cell": "trader",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.05074,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      },
+      {
+       "study": "R19 research round 3",
+       "cell": "trader",
+       "configuration": "hold SOL-USDT 6H [none]",
+       "total_return": -0.05074,
+       "profit_factor": 0.0,
+       "n_trades": 1,
+       "confirmed": null
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

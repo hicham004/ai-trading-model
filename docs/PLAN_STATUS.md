@@ -336,6 +336,46 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   in 54 of 72, consistent with R18a's trailing-exit result) but the whole family sits below holding,
   so none is worth a retest; the four parked ideas (opening-range breakout, VCP, naive dip buying,
   intraday rules) stay parked with their reasons in the report. Nothing to decide.
+- From R20 (nothing to decide): the breadth book — the S1 family (26 sleeves) on the nine liquid OKX
+  markets as ONE account at the Trader tier under the plan's brakes at book level — FAILED its
+  pre-registered gates: -6.7 % a year, a 30.1 % worst fall, profit factor 0.68 over 460 trades; it hit the
+  -30 % hard stop on 2022-04-26 and, as pre-registered for a simulated account, never traded again
+  (`docs/research/BREADTH_V1_REPORT.md`). The cause is the construction, not the halt (without the hard
+  stop, post hoc, -8.3 % a year at a 43 % fall): nine markets that move together form one bet, so the heat
+  cap's "scale every open and new position of the bet down equally" sold the winners down at almost every
+  new signal (4.8 trims per trade; the average win fell to 1.12 x the average loss against 2.68 x for the
+  same sleeves alone). The brakes still cut the fall from 87 % (no brakes) to 30 %. Six of the 26 sleeves
+  pass on their own at the Trader cell; the fleet already runs three of them. Nothing joins the fleet; no
+  book account type was built. The rotation test (top 3 of the nine by 3-week return, weekly, BTC 200-day
+  filter, 20 % volatility target) did not beat holding BTC with the same sizing, as pre-registered: it
+  halved the drawdown (20 % against 41 %) but returned +20.6 % a year against +28.1 %; closed with our own
+  numbers.
+- From R20: two single sleeves the study found passing the section 4.6 gates at the Trader tier with a
+  confirming holdout but NOT in the paper fleet — S1 BTC-USDT 6H (walk-forward Calmar 0.61, +8.6 % a year
+  at a 14.3 % fall; holdout +3.8 %, PF 1.40, 32 trades; at the Reference tier its Calmar was 0.38, below the gate) and S1+VC
+  SOL-USDT 6H (Calmar 1.55; holdout +5.0 %, PF 1.50, 23 trades; the round-2 study contradicted the same rule
+  at the Reference tier, -1.6 %). The study's pre-registration lists a fleet ticket only for the book and
+  the rotation, so neither was added. Decision: add them as Trader-tier accounts through the R18 loader
+  path (a small new row)? Recommendation: yes for S1 BTC-USDT 6H (one small account, judged at G7 with the
+  rest; its holdout months were looked at before for every BTC rule, so read it as a hypothesis); no for
+  S1+VC SOL-USDT 6H for now (the same rule, two tiers, two opposite verdicts on one year of data is noise,
+  and the fleet already runs the SOL S1 and S1+S5 sleeves at both tiers).
+- From R20: whether a future portfolio study should be pre-registered at all, and if so with a heat cap
+  that acts on NEW entries only (never trimming an open position), one sleeve per market, and a re-arm rule
+  for the hard stop in simulation (the Reference ladder's form: re-arm after 30 flat days with the peak
+  reset). Recommendation: not before G7 has judged the Trader-tier sleeves forward; the fleet's 31 accounts
+  are the breadth we have, one sleeve at a time.
+- From R20, for information: the equal-weight hold of the nine at a 20 % volatility target, a pre-registered
+  comparison line of the rotation test (never a candidate), made +35.4 % a year at a 31.3 % fall (Calmar
+  1.13) over 2020-07 to 2025-10, more than holding BTC at the same target (Calmar 0.69) and more than the
+  rotation (1.02). Recommendation: nothing to build; keep it as a yardstick when reading the fleet at G7
+  (a long-only basket's return in 2020-25 is a bull-market number: its 2022 was -21.7 %).
+- From R20, for information: the first full run had two bugs — the book's clock started at the data's first
+  bar (1.5 flat years diluted its figures) and the daily baskets booked costs against a negative cash balance
+  (a hair of leverage); both were fixed, the whole study re-run with the pre-registration unchanged, and the
+  first run's holdout openings stay in the ledger as its first entry (the six sleeves' openings are second
+  looks). The post-hoc "hard stop off" diagnostic was added after the first run and is labelled not
+  pre-registered everywhere; no gate, threshold or verdict rule changed. Nothing to decide.
 
 ### Decided — the owner, 2026-11-05
 

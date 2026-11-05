@@ -4,7 +4,62 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
-## Unreleased — R19: research round 3 — the asymmetric setups (trend-pullback continuation S7, the slow breakout S8, the bar size after costs), pre-registered (plan row R19)
+## Unreleased — R20: breadth v1 — the S1 family on nine OKX markets as ONE Trader-tier book, and one pre-registered rotation test (plan row R20)
+
+Research code, tests and docs only (`research/`, `scripts/run_breadth_v1.py`, `tests/`, `docs/`): nothing under `app/`, `config/`, `migrations/`
+or `research/paper_fleet/` changed; `app/execution`, `app/risk`, `app/exchange` and `app/shadow` are untouched, the app's `ALLOWED_INSTRUMENTS`
+is untouched. The demo shadow run, its caps and the 0.60 confidence floor are untouched; nothing reaches demo, live or the paper fleet.
+Simulation only: nothing here places, sizes or approves an order. Public data only (the frozen study lake built from the research lake); no
+network path of its own.
+
+### Added
+- `research/breadth.py`: `run_book`, a multi-market book simulator — several sleeves (a rule on a market, with the bar-by-bar signals the research
+  engine trades) share ONE equity; each entry is sized by the Trader tier on the book's equity at the previous close and takes at most the cash
+  left (spot, no leverage; an open position is never sold to make room for a new one); the section 4.3 brakes act at BOOK level (the Turtle
+  ladder, the hard stop and the 24-hour / weekly / monthly loss limits read the R18 `EntryBrakes` state machine on the book's equity; one new
+  entry per market per UTC day across the market's sleeves, three per day across the book, none in a market on the bar after an exit there, ties
+  by the rules' strength then a fixed market order; the heat cap over the correlation groups scales every open and new position of a bet equally,
+  only when a new entry is wanted in that bet, leaving a position whose stop sits above the price alone); allocator v2's correlation cap at the
+  first bar of every UTC day and its daily record; a `start` bar before which the bars only warm up the correlations. On one sleeve with no brakes
+  it is `research.engine.run_vectorized` bit for bit (tested on four exit brackets, with and without the brakes). `run_weekly_basket`: the
+  daily-booked weekly-rebalanced basket of the rotation test and its benchmarks (decided at a day's close, filled at the next day's first open,
+  costs out of the money invested, a volatility target, an optional daily filter), with `top_n_selector`, `fixed_selector`, `sma_filter`.
+- `research/breadth_study.py`, `research/report_breadth.py`, `scripts/run_breadth_v1.py`: the pre-registered study — the nine markets (the
+  replication study's fixed list plus BTC/ETH, checked), the S1 family (S1, S1+VC, S1+S5 where funding covers 90 % of the in-sample bars), 6H bars,
+  no gate; one job per market and cell through Sprint 2c's own `run_series` (hold, S1, S1+VC, S1+S5 at the Reference and the Trader cell), the
+  per-job protocol check (a tier is the only explained mismatch), the reproduction of the stored numbers first (Sprint 2c, R12, R13, R16 at the
+  Reference cell; R18, R19 at the Trader cell; the study stops on any difference), every sleeve's own verdict at the Trader cell, the book from
+  each sleeve's per-window selected rule (a replay, never a selection), its five pre-registered ablations and one post-hoc diagnostic (the hard
+  stop off; added after the first run and labelled not pre-registered everywhere), the comparison lines (the Trader-cell hold control, the hold
+  through the book simulator, BTC buy-and-hold, the equal-weight hold of the nine at the same volatility target), the diversification reading,
+  the market and sleeve correlations, the R5b candidate rule, the holdout construction (the most-often rule, starting flat) behind the gates,
+  the rotation test (top 3 of the nine by trailing 3-week return, weekly, BTC 200-day filter, 20 % volatility target, altcoin costs) with its
+  benchmarks and pass rule, the append-only ledger with the earlier looks, the fleet rows RECORDED only (the fleet has no book or rotation
+  account type), the report with every sentence computed from the numbers.
+- `docs/research/breadth_v1_preregistration.json` (written before the first run, hashed; the committed file must match the module, the gates,
+  the markets, the cell, the brakes, the book configuration and the rotation rule), `docs/research/BREADTH_V1_REPORT.md`,
+  `breadth_v1_results.json`, `breadth_v1_holdout_ledger.json`.
+- Tests: `tests/test_research_breadth.py` (the engine parity on one sleeve, the cross-sleeve entry caps, the heat cap's equal scaling per bet and
+  its entries-only rule, the correlation cap, the cash constraint, the loss limits and the ladder on the book's equity, the daily records, the
+  basket's fills, costs, volatility target, filter and no-look-ahead, the pre-registration write-once-and-check, the jobs and the protocol check,
+  every sleeve's stored reproduction target, the verdict rules, an end-to-end run on a synthetic lake, the report, the command line's refusals);
+  `tests/test_research_boundaries.py` (the breadth study stays in the sandbox, opens no network path, widens no allowlist, is not imported by the
+  app or the paper fleet).
+- `docs/RESEARCH_LAB.md` (the breadth section), `docs/PLAN_STATUS.md` (row R20, section 2), `docs/runbooks/PAPER_FLEET.md` (one paragraph).
+
+### Result (2026-11-05; `docs/research/BREADTH_V1_REPORT.md`)
+- 51 of 51 reproductions exact; 27 sleeves run, 26 in the book; 4.0 minutes on 12 workers.
+- The breadth book FAILS: -6.7 % a year, a 30.1 % worst fall, Calmar -0.22, profit factor 0.68 over 460 funded trades; its equity fell 30 % by
+  2022-04-26 and the pre-registered hard stop ended its entries for good; without the hard stop (post hoc) -8.3 % a year, a 43 % fall, 9.4 % of
+  equity a year in costs. The construction loses: nine correlated markets form one bet, the heat cap trimmed every open position at almost every
+  new signal (4.8 trims per trade), the average win fell to 1.12 x the average loss against 2.68 x for the sleeves alone. Not a candidate; nothing
+  joins the fleet.
+- 6 of 26 sleeves pass alone at the Trader cell; the holdout confirmed five (S1 and S1+S5 BTC; S1, S1+VC and S1+S5 SOL) and contradicted S1+VC ETH.
+  S1 BTC-USDT 6H and S1+VC SOL-USDT 6H are confirmed but not in the fleet and had no fleet ticket here: an owner decision.
+- The rotation does not beat BTC, as pre-registered: +20.6 % a year at a 20.3 % fall (Calmar 1.02) against +28.1 % at a 40.5 % fall (Calmar 0.69)
+  for holding BTC at the same volatility target — the drawdown halved, the return did not follow. Question closed.
+
+ — the asymmetric setups (trend-pullback continuation S7, the slow breakout S8, the bar size after costs), pre-registered (plan row R19)
 
 Research code, tests and docs only (`research/`, `scripts/run_research_round_3.py`, `tests/`, `docs/`) plus one validation extension of the paper
 fleet's loader (`research/paper_fleet/config.py`): nothing under `app/`, `config/` or `migrations/` changed; `app/execution`, `app/risk`,
