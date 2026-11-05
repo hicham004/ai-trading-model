@@ -214,7 +214,7 @@ see what your account may do:
 3. Tell the next agent session both answers in one line ("I see XNVDA, 0.10 %
    taker" or "hidden"). No screenshots of account pages.
 
-## 10. Your risk budget (optional; the default is Trader)
+## 10. Your risk budget (decided 2026-11-05: Trader beside Reference)
 
 `docs/TRADER_PLAN_2026-11-05.md`, section 4.1, describes three risk budgets:
 Reference (today's), Trader (a 20 % volatility target with at most 2 % of the
@@ -226,21 +226,34 @@ confirmed rules pass the plan's gates at the Trader tier with the brakes on,
 and the Trader version of each is recorded for the paper fleet; plan row R18b
 adds those accounts beside the existing ones (the fleet's loader has to learn
 the tier-tagged rows first). Nothing moves to the demo account without your
-separate go. If you also want to watch the Aggressive tier in the fleet (it
-passed on all five too, at about 1.2 times the Trader drawdowns), say so in one
-line; otherwise nothing is needed.
+separate go. Your "do what you recommend" of 2026-11-05 settled this: the Trader
+tier runs beside the Reference accounts (seven accounts since the 19:05 UTC
+restart, two more coming from plan row R23), the Aggressive tier does not. If you
+ever want to watch the Aggressive tier too (it passed on all five, at about 1.2
+times the Trader drawdowns), say so in one line; otherwise nothing is needed.
 
-## 11. A one-line go for the small demo fix (R14 part A)
+## 11. The small demo fix (R14 part A): given the go on 2026-11-05, two steps left for you
 
 The demo shadow run on the VPS has very likely been unable to open a trade
 since June 21: after its one round trip, fee crumbs smaller than one lot made it
 believe it still holds a position (`docs/PLAN_STATUS.md`, section 2, "From
 R14"). Part A of the R14 design fixes that in the reviewed safety core (dust no
-longer counts as an open position). It is a small change, but it touches
-`app/execution`, so an agent may not build it under the blanket go: it needs
-your one-line go, then an independent review, the merge (step 2) and the VPS
-update (step 3). Until then no demo evidence is being produced. One line is
-enough: "go for R14 part A".
+longer counts as an open position; releasing a dead process's lock also disarms).
+Your "do what you recommend" of 2026-11-05 was taken as the go. It is being
+built on its own small branch from `main`, `sprint-6/position-persistence`, with
+an independent review recorded in that branch (`docs/R14A_PART_A_REVIEW_NOTES.md`),
+and pushed when its tests and review pass. Then two things only you can do:
+
+1. **Merge it** (step 2's mechanics, but this branch first: it is small and does
+   not wait for the big `plan/auto` merge): open
+   `https://github.com/hicham004/ai-trading-model/compare/main...sprint-6/position-persistence`,
+   press "Create pull request", wait for the `tests` check, press "Merge".
+2. **Update the VPS** (step 3, `docs/runbooks/VPS_8443_UPDATE.md`'s update steps),
+   only while the heartbeat says the account is flat at lot precision. The first
+   LONG that clears the 0.60 floor afterwards is the proof (design section 10,
+   check V2): its decision reason is anything but `position_already_open`.
+
+Until both are done, no demo evidence is being produced.
 
 ---
 
@@ -251,9 +264,10 @@ enough: "go for R14 part A".
   Trader Plan rows: fleet hygiene, Trader Policy v1, research round 3, breadth,
   tokenized-stocks data and design, fill costs) on 2026-11-05, one chat at a
   time on `plan/auto`, pushing that branch after each clean step; it never
-  touches `main`. It stopped at 12:47 Beirut time on 2026-11-05 because the next
-  row, R10, needs your go; it starts again at logon and has nothing to do until
-  a new row is opened. Progress: `docs/PLAN_STATUS.md`, section 0; details:
+  touches `main`. It stopped at 12:47 Beirut time on 2026-11-05 at R10, which
+  needs your go; your "do what you recommend" that evening opened rows R23 (two
+  more fleet accounts) and R24 (the measured cost profile for future studies), so
+  it runs again and then stops at R10 once more. Progress: `docs/PLAN_STATUS.md`, section 0; details:
   `artifacts/plan-runner/summary.md`. Stop it after the current step by
   creating the file `artifacts\plan-runner\STOP`.
 - **The paper fleet** (Windows task "AI Trading paper fleet") runs 31 pretend

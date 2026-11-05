@@ -97,6 +97,15 @@ Status log:
   (breadth across nine OKX markets plus one pre-registered rotation test), R21 (tokenized
   stocks: log-only collector, feasibility, design) and R22 (fill-cost replay from OKX's
   public archive). The safety contract and the demo shadow are untouched.
+- 2026-11-05, evening: R17 to R22 are done (one runner day). The laptop fleet was updated to
+  078a609 and restarted at 19:05 UTC with 31 accounts (the seven Trader-tier accounts joined, the
+  SOL/DOGE positioning data went live) and the tokenized-stocks collector task started at 19:12 UTC.
+  The owner's "do what you recommend" opened rows R23 (the S8 forward control and S1 BTC-USDT 6H at
+  the Trader tier, two fleet accounts) and R24 (a named 2 bps slippage profile for future BTC/ETH
+  studies), and gave the go for R14 part A, built by the planning session on
+  `sprint-6/position-persistence` from `main` with an independent review; the merge and the VPS
+  update stay the owner's (`docs/OWNER_CHECKLIST.md`, step 11). Details: `docs/PLAN_STATUS.md`,
+  section 2, "Decided, 2026-11-05 evening".
 
 ---
 
