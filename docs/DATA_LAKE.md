@@ -210,6 +210,39 @@ the atomic replace and the resumable collector picked up at the last good
 day. The OKX series were topped up the same day (`collect_derivatives.py`),
 so the forward period keeps both sources.
 
+## Tokenized US stocks (plan row R21, research only, log-only)
+
+`research/xstocks_data.py` with `scripts/collect_xstocks.py` collects OKX's tokenized
+US stock pairs (Backed's xStocks: `XNVDA-USDT`, `XQQQ-USDT`, ...; `instCategory` 3)
+into their own subtree of the lake, in the lake's layout, through the same GET-only
+public client (no key, no header; instruments, tickers, candles, history-candles,
+books, price-limit). The app's `ALLOWED_INSTRUMENTS` and the lake's own candle tree
+are untouched; nothing trades these pairs.
+
+```
+xstocks/
+  instruments/<YYYY-MM-DD>.json, latest.json      the venue's parameters of the 15 pairs, once a day, as OKX returns them
+  candles/<pair>/1H/<year>.parquet                1H candles back to the pair's listTime (CANDLE_SCHEMA + quote_volume)
+  candles/<pair>/1Dutc/<year>.parquet             daily candles on the UTC day (OKX's 1D bar at 16:00 UTC would split the US session)
+  books/<pair>/<YYYY-MM-DD>.jsonl                 order-book snapshots: 400 levels requested, the levels within 2 % of mid stored,
+                                                  spread, depth within 0.5 % per side, band coverage, the venue's price limits, the slot
+  _state/candles__<pair>__<bar>.json              resumable walker cursors (as the lake's)
+  _state/books.json                               the snapshot slots already taken (45 days kept)
+```
+
+The 15 pairs are fixed in `docs/research/xstocks_universe.json` (chosen once on
+2026-11-05 by 24-hour quote volume among the live X-prefixed USDT stock pairs; XRP,
+XLM and XAUT fail the category filter). Snapshot slots: 09:30 and 16:00 New York on
+weekdays (converted at run time; US holidays labelled), 03:00 UTC daily, 12:00 UTC on
+Saturdays. Runbook: `docs/runbooks/XSTOCKS_DATA.md`; findings:
+`docs/research/TOKENIZED_STOCKS_FEASIBILITY.md`.
+
+Evidence — first live run (2026-11-05 08:11-08:15 UTC, this laptop, public endpoints):
+15 pairs, all listed 2026-07-16; 1H 2,688-2,693 candles each with no missing hour, 112
+daily candles each; 42,024 candles in 3.5 minutes at 0.15 s between requests (26
+requests per 1H series, 1 per daily series); 15 books. The lake for the 15 pairs is
+1.7 MB of candles; a snapshot record is 5-12 KB.
+
 ## Boundaries
 
 - Public data only; no API key is read or sent by anything in this package.

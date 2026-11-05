@@ -193,7 +193,14 @@ step 2 so the VPS has the R4d news rules.
 ## 9. Tokenized US stocks: two minutes in the OKX app
 
 Plan row R21 collects data on OKX's tokenized US stocks (pairs such as
-XNVDA/USDT); nothing trades them. Only you can see what your account may do:
+XNVDA/USDT); nothing trades them. Built 2026-11-05: the collector, its first run
+(the 15 most traded pairs, 112 days of hourly candles, one order book each), the
+feasibility report (`docs/research/TOKENIZED_STOCKS_FEASIBILITY.md`) and the design
+note (`docs/design/TOKENIZED_STOCKS.md`). What keeps collecting (the open and close
+order books the decision needs) is a laptop task next to the paper fleet that
+needs starting once (`docs/runbooks/XSTOCKS_DATA.md`, about ten minutes, free; an
+agent session can do it with the fleet's next update-and-restart). Only you can
+see what your account may do:
 
 1. In the OKX app or website, search for `XNVDA` (or `XQQQ`) under Spot. Do
    you see the pair and its order book, and does the order form open (do not
@@ -261,6 +268,11 @@ enough: "go for R14 part A".
   too: it gives the SOL and DOGE accounts their funding and open-interest data;
   until the restart, `c11` runs as plain S1 and the weekly report labels its bars
   "S5 running without data".
+- **The tokenized-stocks collector** (plan row R21, built 2026-11-05) is NOT running
+  by itself yet: its first run filled the history on this laptop, and the task that
+  keeps taking the US-open and US-close order books (`AI Trading xstocks data`)
+  waits for step 9's start (`docs/runbooks/XSTOCKS_DATA.md`). Free, public data,
+  nothing trades.
 - The laptop must stay on and plugged in (it does not sleep on power; keep
   the lid open, closing it may put it to sleep). After a sleep both tasks
   simply continue and the fleet catches up bar by bar. After a reboot both

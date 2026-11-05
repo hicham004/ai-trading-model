@@ -226,3 +226,35 @@ def test_the_breadth_study_stays_in_the_sandbox_widens_no_allowlist_and_opens_no
     from app.okx.client import ALLOWED_INSTRUMENTS
 
     assert ALLOWED_INSTRUMENTS == ("BTC-USDT", "ETH-USDT")
+
+
+def test_the_tokenized_stocks_collector_stays_in_the_sandbox_reads_only_public_pages_and_widens_no_allowlist():
+    """Plan row R21: the tokenized-stocks collector is research code - no risk, database, broker, execution or exchange code; its only
+    network path is the data lake's GET-only public client on six public endpoints; it never carries the demo header; the app's
+    instrument allowlist stays BTC/ETH; the app and the paper fleet never import it."""
+    stricter = FORBIDDEN + ("app.risk", "app.db", "app.broker", "app.backtest")
+    files = [ROOT / "research" / "xstocks_data.py", ROOT / "scripts" / "collect_xstocks.py"]
+    for path in files:
+        assert path.exists(), path
+        modules = list(_imports(path))
+        for module in modules:
+            for forbidden in stricter:
+                assert not (module == forbidden or module.startswith(forbidden + ".")), f"{path.relative_to(ROOT)} imports {module}"
+        network = [m for m in modules if m.split(".")[0] in ("requests", "httpx", "urllib", "websocket", "websockets", "aiohttp", "socket")]
+        assert not network, f"{path.relative_to(ROOT)} opens its own network path: {network}"
+    text = chr(10).join(p.read_text(encoding="utf-8") for p in files)
+    for needle in ("/api/v5/trade", "/api/v5/account", "/api/v5/asset", "x-simulated-trading", "OK-ACCESS", "place_order", ".post(", "requests.post",
+                   "headers="):
+        assert needle not in text, needle
+    paths = set(re.findall(r'"(/api/v5/[\w/\-]+)"', text))
+    assert paths == {"/api/v5/public/instruments", "/api/v5/market/tickers", "/api/v5/market/candles", "/api/v5/market/history-candles",
+                     "/api/v5/market/books", "/api/v5/public/price-limit"}, paths
+    for path in list((ROOT / "app").rglob("*.py")) + list((ROOT / "research" / "paper_fleet").rglob("*.py")):
+        content = path.read_text(encoding="utf-8")
+        assert "xstocks" not in content, path
+    from app.datalake.okx_public_rest import assert_public_path
+    from app.okx.client import ALLOWED_INSTRUMENTS
+
+    assert ALLOWED_INSTRUMENTS == ("BTC-USDT", "ETH-USDT")
+    for p in paths:
+        assert_public_path(p)  # every path the collector names is one the GET-only client would accept

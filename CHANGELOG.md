@@ -4,6 +4,67 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — R21: tokenized US stocks on OKX — feasibility, log-only data collector, design note (plan row R21)
+
+Research code, tests and docs only (`research/xstocks_data.py`, `scripts/collect_xstocks.py`, `scripts/xstocks-task.ps1`, `tests/`,
+`docs/`): nothing under `config/`, `migrations/` or `research/paper_fleet/` changed, and under `app/` only `app/ops/okx_usage.py`, the
+OKX changelog watcher's list of used endpoints, gains the two public paths the collector reads (books, price-limit) so the watcher
+covers them, as plan row R12 did for the tickers path; `app/execution`, `app/risk`, `app/exchange` and `app/shadow` are untouched;
+the app's `ALLOWED_INSTRUMENTS` stays BTC-USDT / ETH-USDT. Public data only, through the data lake's
+GET-only public client (no key, no header) on six public endpoints (instruments, tickers, candles, history-candles, books, price-limit).
+Nothing here trades, sizes or approves anything; nothing is authorized by it. The demo shadow run and its caps are untouched.
+
+### Added
+- `research/xstocks_data.py`: the log-only collector for OKX's tokenized US stock pairs. The universe rule (the 15 most liquid live SPOT
+  instruments with `instCategory` 3 and an `X...-USDT` id, by 24-hour quote volume, ties by id; chosen ONCE and kept in a committed file,
+  so every machine collects the same list; XRP, XLM, XAUT and XPL fail the category); the daily instrument-parameter record (`lotSz`,
+  `minSz`, `tickSz`, `maxMktAmt`, the three price-band percentages, `groupId`, `listTime`, `state`, `upcChg`, ... exactly as OKX returns
+  them); resumable 1H and `1Dutc` candles back to each pair's `listTime` through the lake's `BackwardWalker` (OKX's `1D` opens at 16:00 UTC
+  and would cut the US session in two; the quote volume is stored beside the base volume); order-book snapshots on the New York schedule
+  (09:30 and 16:00 America/New_York on weekdays, converted at run time, 03:00 UTC daily, 12:00 UTC on Saturdays; a slot missed by less
+  than 30 minutes is still taken; taken slots are recorded so a restart never repeats one; US holidays and early closes labelled from a
+  2026-2027 NYSE calendar); 400 levels requested (50 reach only 0.2-0.45 % from mid on XQQQ, XSPY and XGOOGL, which would cut the plan's
+  "depth within 0.5 %" short), the levels within 2 % of mid stored with the spread, the depth within 0.5 % per side and whether the band
+  was covered, plus the venue's price limits; the metrics of the feasibility report (days of history, coverage, weekday against weekend
+  volume, US-hours share, weekend gaps, open jumps, weekend deviations and falls, spreads and depth per slot) and the Markdown tables;
+  `run_once` / `run_loop` (snapshots at their slots, 1H top-up 90 s after every hour, 1Dutc and the parameters once a day); `lake_status`.
+- `scripts/collect_xstocks.py`: `--select-universe` (once; refuses to overwrite without `--force`), `--once [--snapshot-now]`, `--loop
+  [--max-minutes]`, `--status`, `--report [--out]`; exit codes 0 / 1 (errors in the pass) / 2 (setup); the fleet's dotenv guard (no `.env`
+  secrets in the process). `scripts/xstocks-task.ps1`: the Windows scheduled-task wrapper (the fleet's pattern: STOP file, leftover
+  process, no restart on exit code 2).
+- `docs/research/xstocks_universe.json` (the 15 pairs chosen 2026-11-05 08:11:15 UTC with the whole 165-pair ranking and the summary),
+  `docs/research/tokenized_stocks_feasibility.json` (the per-pair numbers), `docs/research/TOKENIZED_STOCKS_FEASIBILITY.md` (the
+  report: the universe, plan 2.8's facts re-checked, the first data, the reading against the Trader policy's stops, caveats, next),
+  `docs/design/TOKENIZED_STOCKS.md` (the design note: what the code assumes today and where, the six reviewed changes — allowlist and
+  identity, rebasing-aware reconciliation, lot flatness via R14 part A, the session rule, price-band-aware orders, instrument-state
+  watch and corporate actions — the 19 demo pairs, the fail-closed table, tests, the order of work, the review path, the demo validation
+  plan, the owner's decisions), `docs/runbooks/XSTOCKS_DATA.md` (the laptop task next to the fleet, checks, troubleshooting, disk).
+- Tests: `tests/test_research_xstocks_data.py` (25 tests on recorded public responses and a synthetic candle history: the universe
+  rule and its exclusions, the file's write-once and tamper checks, the parameter record, the candle parser's grids, the resumable walk
+  back to listing, the New York schedule in winter and summer with holidays and the grace window, the book parser, metrics and trim, the
+  snapshot writer and its slot ledger, a failing pair, `run_once` end to end and idempotent, `run_loop` on a fake clock with a stop
+  request, the history metrics on a constructed series, the report tables, the command line, the committed universe file);
+  `tests/test_research_boundaries.py` (the collector stays in the sandbox, names only the six public paths, never the demo header, is
+  not imported by the app or the fleet, and the allowlist is unchanged); `tests/fixtures/xstocks/recorded_2026-11-05.json`.
+- `docs/DATA_LAKE.md` (the `xstocks/` subtree), `docs/RESEARCH_LAB.md` (the R21 section), `docs/OWNER_CHECKLIST.md` (step 9 pointer and
+  the "meanwhile" note), `docs/PLAN_STATUS.md` (row R21, section 2).
+
+### Result (2026-11-05; `docs/research/TOKENIZED_STOCKS_FEASIBILITY.md`)
+- First live run 08:11-08:15 UTC: 165 live X-USDT stock pairs ranked (141.7 M USDT a day, top 10 = 79 %, 19 above 1 M, 53 below 10 K);
+  the 15 chosen (XCRCL, XGOOGL, XQQQ, XINTC, XSOXL, XMSTR, XSNDK, XNVDA, XSPCX, XMU, XAMD, XSKHY, XSPY, XMRVL, XTSLA; XSKHY and XMRVL
+  replace the XMETA and XAAPL of the 2026-11-04 list, which rank 16th and 21st) all listed 2026-07-16; 42,024 candles, no gaps, 15 books,
+  0 errors; a 52-minute live `--loop` run afterwards (hourly top-up).
+- About half of weekday volume trades while the US market is shut (US-hours share 43-60 %); weekends carry 16-36 % of a weekday's volume
+  (XSPY's figure is three launch-week days). Over 16 weekends the token fell more than 2.4 % below Friday's close in 22 % of the 240
+  pair-weekends (5 % more than 5 %); the index trackers never more than 1.8 %, XSOXL (a 3x leveraged ETF token) up to 17.9 %. One
+  pre-market snapshot: spreads 0.8-8 bps, depth within 0.5 % of mid 3-126 K USDT per side. Nothing is a candidate; the decision gate is
+  the plan's section 6.2 step 4 after 60-90 days of the laptop task's data.
+
+### Deviations from the row text, with reasons
+- 400 book levels requested and the levels within 2 % of mid stored, not 50 (the 0.5 % band would be cut short on the tightest books);
+  `1Dutc` daily candles, not OKX's `1D` (a UTC day holds one whole US session; the 16:00 UTC bar does not); the universe is one day's
+  ranking, as the row asked, so it differs from the row's 2026-11-04 example by two names.
+
 ## Unreleased — R20: breadth v1 — the S1 family on nine OKX markets as ONE Trader-tier book, and one pre-registered rotation test (plan row R20)
 
 Research code, tests and docs only (`research/`, `scripts/run_breadth_v1.py`, `tests/`, `docs/`): nothing under `app/`, `config/`, `migrations/`

@@ -376,6 +376,34 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   first run's holdout openings stay in the ledger as its first entry (the six sleeves' openings are second
   looks). The post-hoc "hard stop off" diagnostic was added after the first run and is labelled not
   pre-registered everywhere; no gate, threshold or verdict rule changed. Nothing to decide.
+- From R21: the tokenized-stocks collector is built and its first run is done (the universe of 15 chosen
+  2026-11-05 08:11 UTC, 112 days of hourly candles, one book per pair), but it keeps collecting only as a
+  laptop task next to the paper fleet, which nobody has started: the open and close snapshots the decision
+  gate needs begin with it. Decision: start it (`docs/runbooks/XSTOCKS_DATA.md`: the fleet checkout's
+  update-and-restart, one `--once` pass, one task registration; about ten minutes; free; public data; an
+  agent session can do it). Recommendation: yes, with the next fleet update-and-restart, so the 60-90 days
+  of plan section 6.2 start counting.
+- From R21, for information: the first data confirms the plan's product risks in numbers. About half of
+  the weekday volume trades while the US market is shut; over 16 weekends the token fell more than 2.4 %
+  below Friday's close (the size of the plan's 3-ATR BTC stop) in 22 % of the 240 pair-weekends and more
+  than 5 % in 5 %, the index trackers (XSPY, XQQQ) never more than 1.8 %, the 3x leveraged ETF token XSOXL
+  up to 17.9 %; the Monday 09:00-10:00 hour moved the tokens by up to 10.7 %; one pre-market snapshot
+  showed spreads of 0.8-8 bps and 3-126 K USDT within 0.5 % of mid per side. Nothing is a candidate and no
+  strategy work is proposed; the gate is plan section 6.2, step 4, with the regenerated report.
+  Recommendation for that gate, pre-registered in the design note: exclude leveraged ETF tokens (XSOXL and
+  the like) from any candidate list.
+- From R21, for information: three technical choices inside the row's scope — 400 book levels requested
+  and the levels within 2 % of mid stored (50 levels reach only 0.2-0.45 % from mid on XQQQ, XSPY and
+  XGOOGL, which would cut the plan's "depth within 0.5 %" short); `1Dutc` daily candles rather than OKX's
+  `1D` (a UTC day holds one whole US session, the 16:00 UTC bar splits it); and the universe is one day's
+  ranking as the row asked (XSKHY and XMRVL in, XMETA and XAAPL out against the 2026-11-04 example).
+  Nothing to decide.
+- From R21, for information: the design note (`docs/design/TOKENIZED_STOCKS.md`) finds nine assumptions
+  an X-pair breaks, all failing closed today (a dividend rebase would read as an unexplained balance and
+  disarm the run for good; an exit deeper than the venue's 1 % band would be rejected; nothing watches a
+  pair's `state` after arming; the demo rows differ from the live ones with a 10 % opening band). Every
+  change is safety-core and is not the runner's; the order of work puts R14 part A first and a demo
+  observation of a dividend before the rebasing change. Nothing to decide before the data gate.
 
 ### Decided — the owner, 2026-11-05
 

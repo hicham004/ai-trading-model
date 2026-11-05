@@ -850,3 +850,47 @@ covers 89.5 % of the in-sample bars), 4.0 minutes on 12 workers.
 - The rotation's Calmar advantage is the BTC 200-day filter's drawdown cut (plan section 2.7), not a return
   edge; the plan's rule asked for both and the return was not there.
 - Every number is a simulation at the modelled costs on historical public data.
+
+## Tokenized US stocks on OKX — feasibility, log-only data collector, design note (plan row R21)
+
+The Trader Plan (`docs/TRADER_PLAN_2026-11-05.md`, sections 2.8 and 6.2) puts tokenized US stocks
+on a staged path whose first step is months of log-only data and a design of everything that must
+change before one is traded. Row R21 (2026-11-05) built that step: research and docs only, nothing
+under `app/` or `config/`, the app's `ALLOWED_INSTRUMENTS` untouched, no key, no header, no order.
+
+| Module | Purpose |
+|---|---|
+| `research/xstocks_data.py` | The collector: the universe rule (the 15 most liquid live X-prefixed USDT stock pairs by 24-hour quote volume, chosen once and committed in `docs/research/xstocks_universe.json`); the daily parameter record; resumable 1H and `1Dutc` candles back to each listing; order-book snapshots at the US open and close (New York time, converted at run time), 03:00 UTC daily and Saturday 12:00 UTC, 400 levels requested and the levels within 2 % of mid stored with the spread, the depth within 0.5 % and the venue's price limits; the feasibility metrics and tables; all through the data lake's GET-only public client. |
+| `scripts/collect_xstocks.py`, `scripts/xstocks-task.ps1` | `--select-universe` (once), `--once`, `--loop`, `--status`, `--report`; the Windows task wrapper for the laptop (`docs/runbooks/XSTOCKS_DATA.md`). |
+| `docs/research/TOKENIZED_STOCKS_FEASIBILITY.md`, `tokenized_stocks_feasibility.json` | The report: the universe, plan 2.8's facts re-checked on 2026-11-05, the first data (history, where the volume is, weekend gaps and falls, open jumps, spread and depth), the reading against the Trader policy's stops, caveats, next steps. |
+| `docs/design/TOKENIZED_STOCKS.md` | What the code assumes today and where it breaks on an X-pair; the six reviewed changes; the 19 demo pairs; the fail-closed table; tests; the order of work; the review path; the demo validation plan. Design only; every change is safety-core and needs the owner's go and an independent review. |
+
+### Running
+
+```bash
+python scripts/collect_xstocks.py --status                     # files only
+python scripts/collect_xstocks.py --once --snapshot-now        # one pass (the first fills the history: about 4 minutes)
+python scripts/collect_xstocks.py --loop                       # the service (the laptop task runs this)
+python scripts/collect_xstocks.py --report                     # the report's tables and their JSON, files only
+```
+
+### Result (2026-11-05)
+
+165 live X-USDT stock pairs traded 141.7 M USDT in 24 hours, 79 % of it in the top 10; the 15
+chosen all listed on 2026-07-16 (112 days, 2,688-2,693 hourly candles each, no gap). About half
+of the weekday volume trades while the US market is shut; weekends carry 16-36 % of a weekday's
+volume. Over 16 weekends the token fell more than 2.4 % below Friday's close in 22 % of the 240
+pair-weekends and more than 5 % in 5 % (XSPY and XQQQ never more than 1.8 %; XSOXL, a 3x leveraged
+ETF token, up to 17.9 %); the Monday 09:00-10:00 hour moved the tokens by a median 0.1-2.8 % and up
+to 10.7 %. One pre-market snapshot: spreads 0.8-8 bps, 3-126 K USDT within 0.5 % of mid per side.
+
+### Reading the R21 report honestly
+
+- Nothing here is a strategy result or a candidate; it is a description of a product, from 112
+  days and one order-book snapshot per pair. The open and close snapshots the plan asked for
+  start when the laptop task is started; the decision gate is plan section 6.2, step 4, after
+  60-90 days, with the tables regenerated.
+- The weekend measures are hourly proxies (Friday's 15:00 New York candle close; the 09:00 price
+  for "pre-open"; the 09:00-10:00 hour for the open); the NYSE holiday calendar in the code was
+  written from the published calendar and should be verified before 2027.
+- The design note's changes are all in the reviewed safety core; the runner builds none of them.
