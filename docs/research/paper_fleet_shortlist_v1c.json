@@ -1699,6 +1699,129 @@
         "role": "candidate"
       },
       "rank": 19
+    },
+    {
+      "holdout": {
+        "total_return": 0.038343,
+        "cagr": 0.03837,
+        "ann_vol": 0.076736,
+        "sharpe": 0.528907,
+        "sortino": 0.846625,
+        "max_drawdown": 0.072895,
+        "calmar": 0.526371,
+        "bars": 1461,
+        "n_trades": 32,
+        "trades_per_year": 32.0,
+        "win_rate": 0.28125,
+        "profit_factor": 1.401628,
+        "avg_win": 148.68044,
+        "avg_loss": -41.508382,
+        "expectancy": 11.982224,
+        "avg_bars_held": 20.9375,
+        "fees_total": 205.659615,
+        "fees_pct_of_start": 0.020566,
+        "fees_pct_per_year": 0.020566,
+        "turnover_notional": 20.575538,
+        "avg_allocation": 0.135165
+      },
+      "holdout_confirmed": true,
+      "candidate": "S1",
+      "instrument": "BTC-USDT",
+      "timeframe": "6H",
+      "regime": "no regime gate",
+      "regime_config": {
+        "mode": "none",
+        "n_states": 3,
+        "vol_window_days": 7.0,
+        "bear_prob_max": 0.5,
+        "bear_scale": 0.25,
+        "n_iter": 200,
+        "tol": 1e-05,
+        "min_train_bars": 200,
+        "label": "no regime gate"
+      },
+      "sizing": "vt20/30 crash15/90dh cap2 turtle",
+      "sizing_config": {
+        "kind": "vol_target",
+        "fraction": 1.0,
+        "target_vol": 0.2,
+        "vol_lookback": 30,
+        "crash_dd": 0.15,
+        "crash_window_days": 90.0,
+        "crash_mode": "half",
+        "ladder": false,
+        "cap": 1.0,
+        "risk_cap": 0.02,
+        "label": "vt20/30 crash15/90dh cap2"
+      },
+      "bracket": "none",
+      "params": {
+        "lookbacks_days": [
+          14,
+          30,
+          60
+        ],
+        "vote": 2,
+        "atr_window": 14,
+        "atr_mult": 3.0,
+        "vol_window_days": 30,
+        "entry_band": 0.0,
+        "exit_band": 0.0,
+        "bracket": "none"
+      },
+      "cagr": 0.08645,
+      "sharpe": 0.866826,
+      "calmar": 0.606091,
+      "max_drawdown": 0.142636,
+      "profit_factor": 1.641472,
+      "n_trades": 140,
+      "fees_pct_per_year": 0.019357,
+      "rolling_12m_positive_share": 0.780488,
+      "worst_calendar_year_return": -0.090943,
+      "passed": true,
+      "failed_gates": [],
+      "dsr": 0.136888,
+      "source": {
+        "study": "R20 breadth v1",
+        "report": "docs/research/BREADTH_V1_REPORT.md",
+        "results": "docs/research/breadth_v1_results.json",
+        "generated_at": "2026-11-05 07:23 UTC",
+        "tier": "trader",
+        "brakes": {
+          "ladder": {
+            "kind": "turtle",
+            "steps": [
+              [
+                0.1,
+                0.8
+              ],
+              [
+                0.2,
+                0.64
+              ]
+            ]
+          },
+          "hard_stop_dd": 0.3,
+          "max_entries_per_market_per_day": 1,
+          "max_entries_per_day": 3,
+          "no_entry_bar_after_exit": true,
+          "daily_loss_limit": 0.03,
+          "weekly_loss_limit": 0.06,
+          "monthly_loss_limit": 0.1,
+          "heat_cap": 0.06,
+          "heat_group_share": 0.5,
+          "corr_threshold": 0.7,
+          "corr_lookback_days": 60,
+          "label": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)"
+        },
+        "variant": "none",
+        "cell": "trader|brakes|none",
+        "protocol_variant": null,
+        "role": "candidate",
+        "decided": "the owner, 2026-11-05 evening: 'do what you recommend, cause i dont understand these matters best, and go with what you find makes sense best' (docs/PLAN_STATUS.md, section 2, 'Decided - the owner, 2026-11-05 evening'), taken as the go for the R19 recommendation (the S8 forward control) and the R20 recommendation (S1 BTC-USDT 6H at the Trader tier; S1+VC SOL-USDT 6H not added)",
+        "note": "the R20 pre-registration listed no fleet ticket for this single sleeve (only for the book and the rotation), so it was recorded, not applied; the owner added the account on 2026-11-05 (plan row R23) on R20's recommendation. Read it as a hypothesis under forward test: its holdout months were looked at before for every BTC rule (a near-second look), and at the Reference tier the same rule never passed (Calmar 0.38, below the gate). It has no Reference twin in the fleet; the weekly report shows it beside the other BTC-USDT 6H accounts and that market's controls."
+      },
+      "rank": 20
     }
   ],
   "controls": [
@@ -2183,6 +2306,105 @@
         "role": "control"
       },
       "control_label": "always long above the 200-day average, policy sizing (forward control)"
+    },
+    {
+      "holdout": null,
+      "holdout_confirmed": null,
+      "candidate": "S8",
+      "instrument": "BTC-USDT",
+      "timeframe": "6H",
+      "regime": "no regime gate",
+      "regime_config": {
+        "mode": "none",
+        "n_states": 3,
+        "vol_window_days": 7.0,
+        "bear_prob_max": 0.5,
+        "bear_scale": 0.25,
+        "n_iter": 200,
+        "tol": 1e-05,
+        "min_train_bars": 200,
+        "label": "no regime gate"
+      },
+      "sizing": "vt20/30 crash15/90dh cap2 turtle",
+      "sizing_config": {
+        "kind": "vol_target",
+        "fraction": 1.0,
+        "target_vol": 0.2,
+        "vol_lookback": 30,
+        "crash_dd": 0.15,
+        "crash_window_days": 90.0,
+        "crash_mode": "half",
+        "ladder": false,
+        "cap": 1.0,
+        "risk_cap": 0.02,
+        "label": "vt20/30 crash15/90dh cap2"
+      },
+      "bracket": "none",
+      "params": {
+        "entry_days": 55,
+        "exit_days": 20,
+        "atr_window": 14,
+        "atr_mult": 5.0,
+        "bracket": "none"
+      },
+      "cagr": 0.039139,
+      "sharpe": 0.780785,
+      "calmar": 0.443397,
+      "max_drawdown": 0.088271,
+      "profit_factor": 2.566066,
+      "n_trades": 17,
+      "fees_pct_per_year": 0.001874,
+      "rolling_12m_positive_share": 0.902439,
+      "worst_calendar_year_return": -0.046684,
+      "passed": false,
+      "failed_gates": [
+        "calmar_gt_0_5",
+        "enough_trades"
+      ],
+      "dsr": 0.949429,
+      "source": {
+        "study": "R19 research round 3",
+        "report": "docs/research/RESEARCH_ROUND_3_REPORT.md",
+        "results": "docs/research/research_round_3_results.json",
+        "generated_at": "2026-11-05 05:52 UTC",
+        "tier": "trader",
+        "brakes": {
+          "ladder": {
+            "kind": "turtle",
+            "steps": [
+              [
+                0.1,
+                0.8
+              ],
+              [
+                0.2,
+                0.64
+              ]
+            ]
+          },
+          "hard_stop_dd": 0.3,
+          "max_entries_per_market_per_day": 1,
+          "max_entries_per_day": 3,
+          "no_entry_bar_after_exit": true,
+          "daily_loss_limit": 0.03,
+          "weekly_loss_limit": 0.06,
+          "monthly_loss_limit": 0.1,
+          "heat_cap": 0.06,
+          "heat_group_share": 0.5,
+          "corr_threshold": 0.7,
+          "corr_lookback_days": 60,
+          "label": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)"
+        },
+        "variant": "none",
+        "cell": "trader|brakes|none",
+        "protocol_variant": "fixed rule: the exit bracket fixed, never selected; no train-trade qualification (min_trades 0)",
+        "role": "control",
+        "hypothesis": "H8",
+        "fixed_bracket": "none",
+        "decided": "the owner, 2026-11-05 evening: 'do what you recommend, cause i dont understand these matters best, and go with what you find makes sense best' (docs/PLAN_STATUS.md, section 2, 'Decided - the owner, 2026-11-05 evening'), taken as the go for the R19 recommendation (the S8 forward control) and the R20 recommendation (S1 BTC-USDT 6H at the Trader tier; S1+VC SOL-USDT 6H not added)",
+        "note": "a forward control the owner added on 2026-11-05 (plan row R23) on R19's recommendation: S8 fires about four times a year on BTC-USDT 6H, so the plan's 30-trade gate bound in every configuration and the rule could not be judged by backtest (R19: walk-forward Calmar 0.44, +3.9 % a year at an 8.8 % drawdown, Sharpe 0.78, 17 trades in 4.3 years; pooled over nine markets it has the asymmetric shape the plan asked for). Never judged, no holdout; expect it to say nothing for about a year. Its backtest-consistency checks in the weekly report are information, not a verdict."
+      },
+      "control_label": "slow breakout S8 (Turtle System 2: 55-day high entry, 20-day low exit, 5 x ATR stop, forward control)"
     }
   ],
   "amendments": [
@@ -2219,6 +2441,14 @@
         "S1+VC BTC-USDT 4H [gate] @ trader",
         "TF ETH-USDT 6H [none] (control)",
         "TF BTC-USDT 6H [none] (control)"
+      ]
+    },
+    {
+      "added_at": "2026-11-05 20:33 UTC",
+      "note": "plan row R23: two accounts the owner added on 2026-11-05 ('do what you recommend'): the slow breakout S8 on BTC-USDT 6H at the Trader tier with the brakes on as a forward CONTROL (R19's record under the fixed-rule protocol; never judged, no holdout; its backtest numbers are information), and S1 BTC-USDT 6H at the Trader tier with the brakes on as a candidate read as a hypothesis (R20's record; section 4.6 gates passed, holdout confirmed; the R20 pre-registration listed no fleet ticket for single sleeves); S1+VC SOL-USDT 6H NOT added, as R20 recommended",
+      "added": [
+        "S8 BTC-USDT 6H [none] (control)",
+        "S1 BTC-USDT 6H [none] @ trader"
       ]
     }
   ]

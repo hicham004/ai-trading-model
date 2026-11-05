@@ -58,6 +58,20 @@ check of that cell names the same variant, and with the same two explained
 deviations (``brackets``, ``min_trades``) the slow-trend control already has.
 Such a row becomes an ordinary tier-tagged candidate account; the fleet runs
 the rule's one parameter set with the bracket the row carries.
+
+Plan row R23 (two accounts the owner added on 2026-11-05): a control row of a
+registered fixed rule other than the slow-trend ``TF`` control may run at a
+documented tier (``CONTROL_TIERS``: the three budgets of the Trader Plan's
+section 4.1) with the brakes its study cell ran with, when that cell's recorded
+protocol check has no unexplained mismatch and names the fixed-rule protocol
+variant the row names; the ``TF`` controls keep the Reference sizing without
+brakes. Such a row becomes a control account whose id carries the tier
+(``ctl-s8-btc-6h-trader``): never judged, listed with the controls, its
+backtest-consistency checks shown as information. A candidate row may point at
+any study whose results carry the protocol check (``source.results``), so the
+R20 breadth study's single-sleeve record serves ``c20-s1-btc-6h-none-trader``
+through the R18b path unchanged. Rows the owner decides on are built from the
+study's own record by ``research.fleet_rows`` (``scripts/apply_fleet_rows.py``).
 """
 
 from __future__ import annotations
@@ -128,6 +142,9 @@ _EXPLAINED_MISMATCHES_CONTROL = frozenset({"policy_sizing", "brackets", "min_tra
 #: Plan row R19: a candidate row may name the fixed-rule protocol variant (the exit bracket fixed, no train-trade qualification) only for a
 #: registered fixed rule (``research.strategies.FIXED_RULES``: one parameter set, nothing selected); it explains the same two deviations.
 _EXPLAINED_MISMATCHES_FIXED_RULE = _EXPLAINED_MISMATCHES_CONTROL
+#: Plan row R23: the tiers a fixed-rule forward control other than ``TF`` may run at — the documented budgets of the Trader Plan's section
+#: 4.1 (``research.trader_policy.TIERS``), never a comparison tier; the ``TF`` controls stay at the Reference sizing without brakes.
+CONTROL_TIERS: Tuple[str, ...] = ("reference", "trader", "aggressive")
 
 
 def _slug(text: str) -> str:
@@ -401,19 +418,21 @@ def _tier_checks(row: Mapping[str, Any], result: Mapping[str, Any], src: Mapping
     unexplained = check.get("unexplained_mismatches")
     if unexplained is None or unexplained or not check.get("ok_for_cell", False):
         raise ValueError(f"{name}: the study's protocol check of cell {src.get('cell')!r} is not clean ({unexplained!r})")
-    fixed_rule = src.get("role") != "control" and bool(src.get("protocol_variant"))
+    control = src.get("role") == "control"
+    fixed_rule = not control and bool(src.get("protocol_variant"))
     if fixed_rule and row["candidate"] not in FIXED_RULES:
         raise ValueError(f"{name}: a candidate row may carry a protocol variant only for a registered fixed rule ({sorted(FIXED_RULES)}), "
                          f"not {row['candidate']!r}")
-    allowed = (_EXPLAINED_MISMATCHES_CONTROL if src.get("role") == "control" else
+    allowed = (_EXPLAINED_MISMATCHES_CONTROL if control else
                _EXPLAINED_MISMATCHES_FIXED_RULE if fixed_rule else _EXPLAINED_MISMATCHES_CANDIDATE)
     explained = set((check.get("expected_mismatches") or {}).keys())
     if not explained <= allowed:
         raise ValueError(f"{name}: the study explained protocol mismatches the fleet does not accept ({sorted(explained - allowed)})")
-    if src.get("role") == "control":
-        if not src.get("protocol_variant"):
-            raise ValueError(f"{name}: a control row needs its protocol variant named")
-    elif fixed_rule:
+    if control and not src.get("protocol_variant"):
+        raise ValueError(f"{name}: a control row needs its protocol variant named")
+    # Plan row R23: a forward control of a fixed rule other than the slow-trend TF control (whose study recorded no variant string) is held
+    # to the same record check as a fixed-rule candidate.
+    if fixed_rule or (control and row["candidate"] != TF_CONTROL_CANDIDATE):
         # Plan row R19: the study's own record of the cell must name the same protocol variant, and the row's bracket must be the one it fixed.
         recorded = check.get("protocol_variant")
         if recorded != src.get("protocol_variant"):
@@ -563,8 +582,9 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
             accounts.append(AccountSpec(f"ctl-hold-{_inst(inst)}-{tf.lower()}", "control", "sleeve",
                                         f"control: always long, policy sizing — {inst} {tf}", sleeve=sleeve, instrument=inst,
                                         timeframe=tf, expectations=_expectations(result, tf)))
-        elif row["candidate"] == TF_CONTROL_CANDIDATE and src:
-            # Plan row R18b: the slow-trend forward control, recorded by the Trader Policy study at the Reference sizing (fixed rule).
+        elif row["candidate"] in FIXED_RULES and src:
+            # Plan row R18b: the slow-trend forward control (TF), recorded by the Trader Policy study at the Reference sizing (fixed rule).
+            # Plan row R23: any other registered fixed rule as a forward control at a documented tier, with the brakes its study cell ran with.
             if src.get("role") != "control":
                 raise ValueError(f"control {row['candidate']} {inst} {tf}: its source tag must name the control role")
             path, pool = _source_results(src, source_docs)
@@ -572,20 +592,28 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
             regime = _regime(row["regime_config"])
             result = _result_for(pool, row["candidate"], inst, tf, regime.mode, cell=src.get("cell"))
             tier, brakes = _tier_checks(row, result, src)
-            if tier != REFERENCE_TIER or brakes is not None:
-                raise ValueError(f"control {row['candidate']} {inst} {tf}: a forward control runs at the Reference sizing without brakes")
+            if row["candidate"] == TF_CONTROL_CANDIDATE:
+                if tier != REFERENCE_TIER or brakes is not None:
+                    raise ValueError(f"control {row['candidate']} {inst} {tf}: the slow-trend forward control runs at the Reference sizing without brakes")
+            elif tier not in CONTROL_TIERS:
+                raise ValueError(f"control {row['candidate']} {inst} {tf}: a forward control runs at a documented tier ({CONTROL_TIERS}), not {tier!r}")
             params = _params(row["params"])
             if _params(result["selected_params"]) != params or not math.isclose(float(result["oos"]["cagr"]), float(row["cagr"]), abs_tol=1e-9):
                 raise ValueError(f"control {row['candidate']} {inst} {tf} does not match the results file")
-            sleeve = SleeveSpec(row["candidate"], inst, tf, params, regime, _sizing(row["sizing_config"]), REBALANCE_THRESHOLD)
+            sleeve = SleeveSpec(row["candidate"], inst, tf, params, regime, _sizing(row["sizing_config"]), REBALANCE_THRESHOLD, brakes)
             exp = _expectations(result, tf, tier=tier)
             exp["holdout_confirmed"] = row.get("holdout_confirmed")  # None: a control is never judged
             exp["source"] = dict(src)
             exp["protocol_variant"] = src.get("protocol_variant")
-            label = row.get("control_label") or "always long above the 200-day average, policy sizing (forward control)"
-            accounts.append(AccountSpec(f"ctl-{_slug(row['candidate'])}-{_inst(inst)}-{tf.lower()}", "control", "sleeve",
-                                        f"control: {label} — {inst} {tf} — from {src.get('study')}", sleeve=sleeve, instrument=inst,
-                                        timeframe=tf, expectations=exp, tier=tier))
+            default_label = ("always long above the 200-day average, policy sizing (forward control)" if row["candidate"] == TF_CONTROL_CANDIDATE
+                             else f"{row['candidate']} fixed rule (forward control)")
+            label = f"control: {row.get('control_label') or default_label} — {inst} {tf}"
+            aid = f"ctl-{_slug(row['candidate'])}-{_inst(inst)}-{tf.lower()}"
+            if tier != REFERENCE_TIER:
+                aid += f"-{_slug(tier)}"  # the same control at another tier would be another account (plan row R23)
+                label += f" — {tier} tier ({sleeve.sizing.label}{', brakes on' if brakes is not None and brakes.active else ''})"
+            label += f" — from {src.get('study')}"
+            accounts.append(AccountSpec(aid, "control", "sleeve", label, sleeve=sleeve, instrument=inst, timeframe=tf, expectations=exp, tier=tier))
         elif row["candidate"] == "buy_and_hold":
             wf = {k: row.get(k) for k in ("cagr", "sharpe", "calmar", "max_drawdown", "total_return")}
             accounts.append(AccountSpec(f"ctl-bh-{_inst(inst)}-{tf.lower()}", "control", "buy_and_hold",

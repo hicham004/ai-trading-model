@@ -41,6 +41,13 @@ the policy sizing, plain buy-and-hold, and the slow-trend forward control):
 return, worst fall, average money invested, the money at risk per trade and
 every brake that acted, with the study's backtest expectation under it. The
 bands and verdicts above apply to those accounts unchanged.
+
+Since plan row R23 that section also lists, for a Trader-tier account without
+a Reference twin (its rule never passed at the Reference tier), the other
+rules the fleet runs on the same market and bars; and a fixed-rule forward
+control run at a tier (the slow breakout S8 at the Trader tier) is listed with
+the controls — in the controls table with its backtest numbers as information,
+never judged, and under every Trader-tier account of its market.
 """
 
 from __future__ import annotations
@@ -444,13 +451,51 @@ def _is_tier(account: Mapping[str, Any]) -> bool:
     return account.get("kind") == "sleeve" and account.get("tier") not in (None, "reference")
 
 
+TF_CANDIDATE = "TF"  # the slow-trend forward control (plan row R18b); every other fixed-rule control is a plan row R23 kind
+
+
+def _is_fixed_control(account: Mapping[str, Any]) -> bool:
+    """Plan row R23: a forward control of a fixed rule other than the slow-trend TF control (the slow breakout S8 at the Trader tier)."""
+    cand = (account.get("sleeve") or {}).get("candidate")
+    return account.get("role") == "control" and account.get("kind") == "sleeve" and cand not in (None, "hold", TF_CANDIDATE)
+
+
+def _control_words(account: Mapping[str, Any]) -> str:
+    """A control's words from its label (``control: <words> — <market> …``): what the shortlist's ``control_label`` says."""
+    first = str(account.get("label") or "").split(" — ")[0]
+    words = first[len("control: "):] if first.startswith("control: ") else first
+    return words or str((account.get("sleeve") or {}).get("candidate"))
+
+
+def _tier_words(account: Mapping[str, Any]) -> str:
+    """`` (trader tier, brakes on)`` for an account at a tier, nothing for a Reference account."""
+    if not _is_tier(account):
+        return ""
+    return f" ({account.get('tier')} tier{', brakes on' if (account.get('sleeve') or {}).get('brakes') else ''})"
+
+
+def _rule_words(account: Mapping[str, Any]) -> str:
+    return f"{(account.get('sleeve') or {}).get('candidate')} {account.get('instrument')} {account.get('timeframe')}"
+
+
 def tier_pairs(rows: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
-    """Each Trader-tier account with its Reference twin (same rule, same market, no tier) and that market's controls."""
+    """Each Trader-tier account with its Reference twin (same rule, same market, no tier) and that market's controls.
+
+    Plan row R23: an account without a Reference twin (its rule never passed at the Reference tier) gets the other rules the fleet runs on
+    its market and bars as ``peers`` (each at its own tier); the fixed-rule forward controls of that market (``fixed_controls``, the slow
+    breakout S8 at the Trader tier) sit with the controls.
+    """
     out: List[Dict[str, Any]] = []
     by_rule: Dict[Tuple[Any, ...], List[Mapping[str, Any]]] = {}
+    by_market: Dict[Tuple[Any, Any], List[Mapping[str, Any]]] = {}
+    fixed: Dict[Tuple[Any, Any], List[Mapping[str, Any]]] = {}
     for r in rows:
-        if r["account"].get("kind") == "sleeve" and r["account"].get("role") == "candidate":
-            by_rule.setdefault(_rule_key(r["account"]), []).append(r)
+        acc = r["account"]
+        if acc.get("kind") == "sleeve" and acc.get("role") == "candidate":
+            by_rule.setdefault(_rule_key(acc), []).append(r)
+            by_market.setdefault((acc.get("instrument"), acc.get("timeframe")), []).append(r)
+        elif _is_fixed_control(acc):
+            fixed.setdefault((acc.get("instrument"), acc.get("timeframe")), []).append(r)
     ctl = {(r["account"].get("instrument"), r["account"].get("timeframe"), ((r["account"].get("sleeve") or {}).get("candidate") or r["account"].get("kind")))
            : r for r in rows if r["account"].get("role") == "control"}
     for r in rows:
@@ -459,8 +504,9 @@ def tier_pairs(rows: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
             continue
         twin = next((t for t in by_rule.get(_rule_key(acc), []) if t is not r and not _is_tier(t["account"])), None)
         key = (acc.get("instrument"), acc.get("timeframe"))
-        out.append({"row": r, "twin": twin, "hold": ctl.get(key + ("hold",)), "buy_and_hold": ctl.get(key + ("buy_and_hold",)),
-                    "tf": ctl.get(key + ("TF",))})
+        peers = [] if twin is not None else [p for p in by_market.get(key, []) if p is not r and _rule_key(p["account"]) != _rule_key(acc)]
+        out.append({"row": r, "twin": twin, "peers": peers, "hold": ctl.get(key + ("hold",)), "buy_and_hold": ctl.get(key + ("buy_and_hold",)),
+                    "tf": ctl.get(key + (TF_CANDIDATE,)), "fixed_controls": list(fixed.get(key, []))})
     return out
 
 
@@ -580,20 +626,24 @@ def render(data: Mapping[str, Any]) -> str:
                  f"shortlisted configurations, {portfolios} and {n_ctl} control{'' if n_ctl == 1 else 's'}. Public data "
                  f"{'is STALE (no fresh candles)' if health.get('stale') else 'is fresh'} as of the last cycle ({state.get('last_cycle')}).")
     hold_ctl = [r for r in ctl_rows if r["account"]["kind"] == "sleeve" and (r["account"].get("sleeve") or {}).get("candidate") == "hold"]
-    tf_ctl = [r for r in ctl_rows if r["account"]["kind"] == "sleeve" and (r["account"].get("sleeve") or {}).get("candidate") == "TF"]
+    tf_ctl = [r for r in ctl_rows if r["account"]["kind"] == "sleeve" and (r["account"].get("sleeve") or {}).get("candidate") == TF_CANDIDATE]
     bh_ctl = [r for r in ctl_rows if r["account"]["kind"] == "buy_and_hold"]
+    fixed_ctl = [r for r in ctl_rows if _is_fixed_control(r["account"])]  # plan row R23: the slow breakout S8 at the Trader tier
     if hold_ctl:
         lines.append("- Controls: always long with the policy sizing made " + ", ".join(
             f"{_pct(r['metrics'].total_return)} ({r['account']['instrument']} {r['account']['timeframe']})" for r in hold_ctl)
             + "; plain buy-and-hold made " + ", ".join(f"{_pct(r['metrics'].total_return)} ({r['account']['instrument']} {r['account']['timeframe']})" for r in bh_ctl)
             + ("; long only above the 200-day average (policy sizing) made " + ", ".join(
-                f"{_pct(r['metrics'].total_return)} ({r['account']['instrument']} {r['account']['timeframe']})" for r in tf_ctl) if tf_ctl else "") + ".")
+                f"{_pct(r['metrics'].total_return)} ({r['account']['instrument']} {r['account']['timeframe']})" for r in tf_ctl) if tf_ctl else "")
+            + ("".join(f"; {_control_words(r['account'])}{_tier_words(r['account'])} made {_pct(r['metrics'].total_return)} "
+                       f"({r['account']['instrument']} {r['account']['timeframe']})" for r in fixed_ctl)) + ".")
     pairs = tier_pairs(rows)
     if pairs:
         lines.append(f"- Trader tier (plan row R18): {len(pairs)} account{'' if len(pairs) == 1 else 's'} run a confirmed rule at the Trader budget "
                      "beside the same rule at today's Reference budget — see \"Trader tier beside the Reference tier\" below; "
                      + ", ".join(f"`{p['row']['account']['account_id']}` {_pct(p['row']['metrics'].total_return)}"
-                                 + (f" against `{p['twin']['account']['account_id']}` {_pct(p['twin']['metrics'].total_return)}" if p["twin"] else "") for p in pairs) + ".")
+                                 + (f" against `{p['twin']['account']['account_id']}` {_pct(p['twin']['metrics'].total_return)}" if p["twin"]
+                                    else " (no Reference twin: its rule never passed at the Reference tier)") for p in pairs) + ".")
     can_rank = days >= MIN_DAYS_FOR_VERDICT
     if can_rank:
         ranked = sorted([r for r in others if r["metrics"].sharpe is not None], key=lambda r: (r["metrics"].sharpe, r["metrics"].total_return), reverse=True)
@@ -832,20 +882,43 @@ def _tier_section(pairs: Sequence[Mapping[str, Any]]) -> List[str]:
                  "it a little above or below 2 %); *brakes* counts every entry a brake cut or blocked. Their research: "
                  "`docs/research/TRADER_POLICY_V1_REPORT.md`.")
     lines.append("")
+    if any(p["twin"] is None for p in pairs) or any(p["fixed_controls"] for p in pairs):
+        lines.append("Plan row R23: an account without a Reference twin (its rule never passed at the Reference tier) is listed beside the other "
+                     "rules the fleet runs on its market and bars, each at its own tier, so it is read against them and the controls, not against "
+                     "a twin; a forward control run at the Trader tier (the slow breakout S8) is listed with that market's controls — never judged, "
+                     "its brakes shown like a candidate's.")
+        lines.append("")
     lines.append("| Rule | Account | Tier | Days | Return | Max DD | Sharpe | Avg invested | Entries | Risk per trade | Brakes acted | Status |")
     lines.append("|---|---|---|---:|---:|---:|---:|---:|---:|---|---|---|")
     for p in pairs:
         r, acc = p["row"], p["row"]["account"]
-        rule = f"{(acc.get('sleeve') or {}).get('candidate')} {acc.get('instrument')} {acc.get('timeframe')}"
-        for label, row, text in ((rule, r, str(acc.get("tier"))), ("Reference twin", p["twin"], "reference"),
-                                 ("always long, policy sizing", p["hold"], "reference"), ("plain buy-and-hold", p["buy_and_hold"], "all in"),
-                                 ("long above the 200-day average, policy sizing", p["tf"], "reference")):
+        shown: List[Tuple[str, Optional[Mapping[str, Any]], str]] = [(_rule_words(acc), r, str(acc.get("tier")))]
+        if p["twin"] is not None:
+            shown.append(("Reference twin", p["twin"], "reference"))
+        else:
+            shown.append(("no Reference twin (the rule never passed at the Reference tier)", None, "-"))
+            shown += [(f"same market: {_rule_words(q['account'])}", q, str(q["account"].get("tier") or "reference")) for q in p["peers"]]
+        shown += [("always long, policy sizing", p["hold"], "reference"), ("plain buy-and-hold", p["buy_and_hold"], "all in"),
+                  ("long above the 200-day average, policy sizing", p["tf"], "reference")]
+        shown += [(f"{_control_words(c['account'])} (forward control)" if "forward control" not in _control_words(c["account"]) else _control_words(c["account"]),
+                   c, str(c["account"].get("tier") or "reference")) for c in p["fixed_controls"]]
+        for label, row, text in shown:
+            if row is None and text == "-":
+                lines.append(f"| {label} | - | - | - | - | - | - | - | - | - | - | - |")
+                continue
             line = _tier_line(label, row, tier_text=text)
             if line:
                 lines.append(line)
     lines.append("")
-    for p in pairs:
-        r, acc = p["row"], p["row"]["account"]
+    seen_controls: set = set()
+    bullets = [p["row"] for p in pairs]
+    for p in pairs:  # plan row R23: a forward control at a tier has brakes too; its activity is told once, after the candidates
+        for c in p["fixed_controls"]:
+            if _is_tier(c["account"]) and c["account"]["account_id"] not in seen_controls:
+                seen_controls.add(c["account"]["account_id"])
+                bullets.append(c)
+    for r in bullets:
+        acc = r["account"]
         act = (r.get("tier_activity") or {}).get("since_start") or {}
         week = (r.get("tier_activity") or {}).get("this_week") or {}
         exp = (acc.get("expectations") or {}).get("tier") or {}
@@ -860,7 +933,8 @@ def _tier_section(pairs: Sequence[Mapping[str, Any]]) -> List[str]:
             for key, word in (("week_blocked", "weekly loss limit blocking entries this week"), ("month_blocked", "monthly loss limit blocking entries this month")):
                 if last.get(key):
                     now.append(word)
-        lines.append(f"- **`{acc['account_id']}`** since its start ({act.get('bars', 0)} bars, {act.get('entries', 0)} entries): {_brake_words(act.get('cuts') or {}, act.get('blocks') or {})}"
+        who = f"**`{acc['account_id']}`**" + (" (forward control, never judged)" if acc.get("role") == "control" else "")
+        lines.append(f"- {who} since its start ({act.get('bars', 0)} bars, {act.get('entries', 0)} entries): {_brake_words(act.get('cuts') or {}, act.get('blocks') or {})}"
                      + (f"; limits tripped: " + ", ".join(f"{_TRIP_WORDS.get(k, k)} {_times(int(n))}" for k, n in sorted(trips.items()) if n) if any(trips.values()) else "; no limit tripped")
                      + (f"; this week: {_brake_words(week.get('cuts') or {}, week.get('blocks') or {})}" if week.get("bars") else "")
                      + (f". Now: {', '.join(now)}." if now else "."))

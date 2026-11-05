@@ -1,0 +1,42 @@
+{
+  "plan_row": "R23",
+  "decided": "the owner, 2026-11-05 evening: 'do what you recommend, cause i dont understand these matters best, and go with what you find makes sense best' (docs/PLAN_STATUS.md, section 2, 'Decided - the owner, 2026-11-05 evening'), taken as the go for the R19 recommendation (the S8 forward control) and the R20 recommendation (S1 BTC-USDT 6H at the Trader tier; S1+VC SOL-USDT 6H not added)",
+  "amendment_note": "plan row R23: two accounts the owner added on 2026-11-05 ('do what you recommend'): the slow breakout S8 on BTC-USDT 6H at the Trader tier with the brakes on as a forward CONTROL (R19's record under the fixed-rule protocol; never judged, no holdout; its backtest numbers are information), and S1 BTC-USDT 6H at the Trader tier with the brakes on as a candidate read as a hypothesis (R20's record; section 4.6 gates passed, holdout confirmed; the R20 pre-registration listed no fleet ticket for single sleeves); S1+VC SOL-USDT 6H NOT added, as R20 recommended",
+  "rows": [
+    {
+      "results": "docs/research/research_round_3_results.json",
+      "study": "R19 research round 3",
+      "report": "docs/research/RESEARCH_ROUND_3_REPORT.md",
+      "candidate": "S8",
+      "instrument": "BTC-USDT",
+      "timeframe": "6H",
+      "mode": "none",
+      "cell": "trader|brakes|none",
+      "role": "control",
+      "control_label": "slow breakout S8 (Turtle System 2: 55-day high entry, 20-day low exit, 5 x ATR stop, forward control)",
+      "note": "a forward control the owner added on 2026-11-05 (plan row R23) on R19's recommendation: S8 fires about four times a year on BTC-USDT 6H, so the plan's 30-trade gate bound in every configuration and the rule could not be judged by backtest (R19: walk-forward Calmar 0.44, +3.9 % a year at an 8.8 % drawdown, Sharpe 0.78, 17 trades in 4.3 years; pooled over nine markets it has the asymmetric shape the plan asked for). Never judged, no holdout; expect it to say nothing for about a year. Its backtest-consistency checks in the weekly report are information, not a verdict."
+    },
+    {
+      "results": "docs/research/breadth_v1_results.json",
+      "study": "R20 breadth v1",
+      "report": "docs/research/BREADTH_V1_REPORT.md",
+      "candidate": "S1",
+      "instrument": "BTC-USDT",
+      "timeframe": "6H",
+      "mode": "none",
+      "cell": "trader|brakes|none",
+      "role": "candidate",
+      "note": "the R20 pre-registration listed no fleet ticket for this single sleeve (only for the book and the rotation), so it was recorded, not applied; the owner added the account on 2026-11-05 (plan row R23) on R20's recommendation. Read it as a hypothesis under forward test: its holdout months were looked at before for every BTC rule (a near-second look), and at the Reference tier the same rule never passed (Calmar 0.38, below the gate). It has no Reference twin in the fleet; the weekly report shows it beside the other BTC-USDT 6H accounts and that market's controls."
+    }
+  ],
+  "not_added": [
+    {
+      "candidate": "S1+VC",
+      "instrument": "SOL-USDT",
+      "timeframe": "6H",
+      "mode": "none",
+      "cell": "trader|brakes|none",
+      "why": "the owner followed the R20 recommendation: the same rule at two tiers has two opposite verdicts on one year of data (the round-2 study contradicted it at the Reference tier, -1.6 %), which is noise, and the fleet already runs the SOL S1 and S1+S5 sleeves at both tiers"
+    }
+  ]
+}

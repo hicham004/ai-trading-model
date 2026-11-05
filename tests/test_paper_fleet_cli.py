@@ -174,3 +174,32 @@ def test_status_names_a_trader_tier_accounts_brakes(cli, tmp_path, capsys):
     assert payload["accounts"]["c17-s1s5-btc-6h-none-trader"]["tier"] == "trader" and "brakes" not in payload["accounts"]["c01-s1s5-btc-6h-none"]
     assert cli.main(["--status", "--fleet-dir", str(tmp_path)], env={}) == 0
     assert "HALTED by the hard stop until its window restarts" in capsys.readouterr().out
+
+
+def test_status_names_a_forward_controls_tier_and_brakes_too(cli, tmp_path, capsys):
+    """Plan row R23: the S8 forward control runs at the Trader tier with the brakes, so --status prints its tier line like a candidate's."""
+    from research.paper_fleet.store import FleetPaths, write_state
+
+    paths = FleetPaths(tmp_path)
+    paths.ensure()
+    accounts = [{"account_id": "ctl-s8-btc-6h-trader", "role": "control", "kind": "sleeve", "label": "control: slow breakout S8 — trader tier", "tier": "trader"},
+                {"account_id": "ctl-tf-btc-6h", "role": "control", "kind": "sleeve", "label": "control: long above the 200-day average", "tier": "reference"}]
+    base = {"equity": 10_000.0, "in_pos": False, "alloc": 0.0, "last_bar_time": "2026-11-06T06:00:00Z", "trades_closed": 0, "fees_paid": 0.0, "lad_level": 0}
+    brakes = {"peak": 10_000.0, "lad_mult": 1.0, "halted": False, "bars_blocked": 0, "trips": {"hard_stop": 0, "daily_loss": 0, "weekly_loss": 0, "monthly_loss": 0}}
+    state = {"version": 2, "created_at": "2026-11-06T00:00:00Z", "last_cycle": "2026-11-06T06:00:56Z", "cycles": 7, "fingerprint": "f", "positioning_source": "okx",
+             "manifest": {"init_cash": 10_000.0, "accounts": accounts}, "series": {}, "fits": {}, "portfolios": {},
+             "accounts": {"ctl-s8-btc-6h-trader": {"seq": 3, "engine": dict(base, brakes=brakes), "created_at": "2026-11-06T00:00:00Z", "retired_at": None},
+                          "ctl-tf-btc-6h": {"seq": 3, "engine": dict(base), "created_at": "2026-11-06T00:00:00Z", "retired_at": None}},
+             "health": {"stale": False, "newest_candle": {"BTC-USDT": "2026-11-06T06:00:00Z"}, "last_errors": []}}
+    write_state(paths.state_file, state)
+    assert cli.main(["--status", "--fleet-dir", str(tmp_path)], env={}) == 0
+    lines = capsys.readouterr().out.splitlines()
+    i = next(k for k, line in enumerate(lines) if line.strip().startswith("ctl-s8-btc-6h-trader"))
+    assert "equity 10,000.00  flat" in lines[i]
+    assert lines[i + 1].strip() == "trader tier: Turtle multiplier 1.0, no hard stop, entries blocked so far 0, no limit tripped"
+    j = next(k for k, line in enumerate(lines) if line.strip().startswith("ctl-tf-btc-6h"))
+    assert j == len(lines) - 1 or "tier:" not in lines[j + 1]
+    assert cli.main(["--status", "--fleet-dir", str(tmp_path), "--json"], env={}) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["accounts"]["ctl-s8-btc-6h-trader"]["role"] == "control" and payload["accounts"]["ctl-s8-btc-6h-trader"]["tier"] == "trader"
+    assert payload["accounts"]["ctl-s8-btc-6h-trader"]["brakes"]["halted"] is False and "brakes" not in payload["accounts"]["ctl-tf-btc-6h"]

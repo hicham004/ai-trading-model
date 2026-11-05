@@ -4,6 +4,61 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — R23: two paper-fleet accounts the owner added — the S8 forward control and S1 BTC-USDT 6H, both at the Trader tier (plan row R23)
+
+Fleet code, research-side row tooling, tests and docs only (`research/paper_fleet/config.py`, `research/paper_fleet/report.py`,
+`research/fleet_rows.py`, `scripts/apply_fleet_rows.py`, `docs/`, `tests/`): nothing under `app/`, `config/` or `migrations/` changed;
+`app/execution`, `app/risk`, `app/exchange` and `app/shadow` are untouched; the app's `ALLOWED_INSTRUMENTS` stays BTC-USDT / ETH-USDT and
+the fleet's own allowed markets did not widen; no study was run, no holdout opened, no gate, rule or verdict changed. The authority for the
+two rows is the owner's decision of 2026-11-05 ("do what you recommend": `docs/PLAN_STATUS.md`, section 2, "Decided — the owner,
+2026-11-05 evening"), recorded in `docs/research/paper_fleet_additions_r23.json`. Simulation only, public data only; nothing here is an
+order and nothing approves demo or live trading for any configuration.
+
+### Added
+- `ctl-s8-btc-6h-trader` (a forward CONTROL, never judged): the slow breakout S8 (Turtle System 2: 55-day high entry, 20-day low exit,
+  5 × ATR stop) on BTC-USDT 6H without a regime gate, at the Trader tier with the brakes on, under the fixed-rule protocol variant — the
+  cell research round 3 ran it in (`docs/research/research_round_3_results.json`, candidate S8, hypothesis H8: walk-forward Calmar 0.44,
+  +3.9 % a year at an 8.8 % drawdown, 17 trades in 4.3 years, silenced by the 30-trade gate). No holdout; its backtest-consistency checks
+  in the weekly report are information. R19's recommendation, the owner's go.
+- `c20-s1-btc-6h-none-trader` (a candidate read as a hypothesis): plain S1 on BTC-USDT 6H without a gate, at the Trader tier with the
+  brakes on, from the breadth study's single-sleeve record (`docs/research/breadth_v1_results.json`, candidate S1 at the Trader cell with
+  brakes: section 4.6 gates passed, walk-forward Calmar 0.61, +8.6 % a year at a 14.3 % drawdown; holdout +3.8 %, PF 1.40, 32 trades,
+  confirmed). The R20 pre-registration listed no fleet ticket for single sleeves (`source.note` says so); at the Reference tier the same
+  rule never passed, so it has no Reference twin. R20's recommendation, the owner's go. S1+VC SOL-USDT 6H was NOT added, as R20 recommended.
+- `research/fleet_rows.py` and `scripts/apply_fleet_rows.py`: owner-decided rows built from a study's stored record exactly as the studies
+  build theirs (`_row` plus the R18b source tag read from the record's cell, brakes and protocol check), appended with
+  `research.replication.append_to_shortlist` under an amendment naming the plan row and the decision, with the fleet-can-load check (the
+  R12 rule: the file is restored when the fleet cannot load the amended shortlist); `--check` validates on a copy; a row already there is
+  never added twice; exit codes 0 / 1 / 2. `docs/research/paper_fleet_additions_r23.json` is the decision record (the committed shortlist
+  rows reproduce from it, tested).
+
+### Changed
+- Loader (`research/paper_fleet/config.py`): a control row of a registered fixed rule other than the slow-trend `TF` control may run at a
+  documented tier (`CONTROL_TIERS`: Reference, Trader, Aggressive — the Trader Plan's section 4.1) with the brakes its study cell ran with,
+  when that cell's recorded protocol check has no unexplained mismatch and names the fixed-rule protocol variant the row names (the same
+  record check a fixed-rule candidate passes); its account id carries the tier. The `TF` controls keep the Reference sizing without brakes
+  (refused otherwise, as before); a candidate row's `source.results` may name any study whose results carry the protocol check, so the R20
+  record serves `c20` through the R18b path unchanged.
+- Weekly report (`research/paper_fleet/report.py`): the S8 control is listed with the controls (the "In short" controls line, the controls
+  table with its backtest numbers, and under each Trader-tier account of its market in the "Trader tier beside the Reference tier" section
+  with its brakes); a Trader-tier account without a Reference twin is listed beside the other rules the fleet runs on its market and bars
+  (`c20` beside `c01` and `c17`) with a "no Reference twin" line, and the "In short" tier line says so. Nothing changes for the fleets
+  without such accounts.
+- `docs/research/paper_fleet_shortlist_v1c.json`: 20 configurations and 11 controls (33 fleet accounts); amendment "plan row R23 …" of
+  2026-11-05 20:23 UTC. The 31 running accounts' fingerprints and the shared rules are unchanged (pinned).
+- `docs/runbooks/PAPER_FLEET.md` ("Two accounts the owner added (plan row R23)", the report-reading bullet, the expected account count);
+  `docs/PLAN_STATUS.md` (row R23, section 2).
+
+### Tests
+- `tests/test_paper_fleet_config.py`: 33 accounts, both new accounts' rules, labels, sources and expectations, the two new fingerprints
+  pinned beside every earlier one, the S8 control refused on any mismatch with its record (role, protocol variant, cell, brakes, sizing,
+  tier, parameters, a different rule, a control row under the configurations), the TF controls refused off the Reference sizing, a control
+  tier outside the documented ones refused, expectations outside every fingerprint. `tests/test_fleet_rows.py`: the committed spec
+  reproduces the committed rows, the builder's refusals, the R12 rule for the apply path and the command line (check, apply once, the exit
+  codes). `tests/test_paper_fleet_report.py`, `tests/test_paper_fleet_cli.py`, `tests/test_paper_fleet_runner.py`: the report's placement
+  of the two accounts, `--status` for a control at a tier, and the S8 control running with its brakes on the synthetic market beside its
+  hold control and `c20`, invariants intact.
+
 ## Unreleased — R22: fill-cost replay from OKX's public tick and order-book archive (plan row R22)
 
 Research code, tests and docs only (`research/fill_replay.py`, `scripts/run_fill_replay.py`, `tests/`, `docs/`): nothing under

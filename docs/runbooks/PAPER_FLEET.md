@@ -226,7 +226,7 @@ there. The fleet resumes from the copied state; the laptop task stays stopped
 
 ```bash
 journalctl -u paper-fleet.service -n 30 --no-pager      # VPS; option B: the PowerShell window; B2: logs\paper_fleet\console.log
-# expect "paper fleet created: …/logs/paper_fleet (31 accounts, …)" (20 on code from before plan row R12, 22 before R13, 23 before R16, 24 before R18b) and, once a 4H or 6H bar closes
+# expect "paper fleet created: …/logs/paper_fleet (33 accounts, …)" (20 on code from before plan row R12, 22 before R13, 23 before R16, 24 before R18b, 31 before R23) and, once a 4H or 6H bar closes
 # (00, 04, 08, 12, 16, 20 h UTC), a line "cycle N: bars {…} …"
 .venv/bin/python scripts/run_paper_fleet.py --status
 # every account with its equity (10,000.00 at the start), "flat"/"long", data "fresh"; since plan row R17 also one line
@@ -273,7 +273,13 @@ Sunday, UTC), rewritten every hour during the week ("week to date") and marked
   the budget alone) and that market's controls: return, worst fall, average
   money invested, the money at risk per trade (mean and largest since the
   start) and every brake that acted, with the research's backtest expectation
-  under it. Its research: `docs/research/TRADER_POLICY_V1_REPORT.md`.
+  under it. Its research: `docs/research/TRADER_POLICY_V1_REPORT.md`. Since
+  plan row R23 an account without a Reference twin (`c20-s1-btc-6h-none-trader`:
+  its rule never passed at the Reference budget) is listed beside the other
+  rules on its market and bars instead, and the S8 forward control at the
+  Trader budget (`ctl-s8-btc-6h-trader`) appears with the controls — in the
+  controls table with its backtest checks as information, and under each
+  Trader-tier account of its market with its brakes; it is never judged.
 - **Allocator v2** — the allocator-v2 account next to *v1 on the same
   sleeves* (the old rules booked inside the same journal, so the difference is
   the brakes alone) and the v1 portfolio account; every brake that acted (on
@@ -536,6 +542,45 @@ not on return alone, and the owner decides the budget at plan row G7, never the 
 ```powershell
 C:\Users\Admin\Desktop\ai-trading-fleet\.venv\Scripts\python.exe C:\Users\Admin\Desktop\ai-trading-fleet\scripts\run_paper_fleet.py --status
 # 31 accounts; under each -trader account a "tier" and its brakes (Turtle multiplier 1.0, halted False at the start)
+```
+
+### Two accounts the owner added (plan row R23)
+
+On 2026-11-05 the owner's "do what you recommend" took the two recommendations waiting in
+`docs/PLAN_STATUS.md`, section 2, and plan row R23 added two accounts, each built from a study's own
+record and validated by the loader against that record (the R12 rule: a row the fleet cannot reconcile
+is put back). **`ctl-s8-btc-6h-trader`** is a forward CONTROL: the slow breakout S8 (Turtle System 2:
+a close above the prior 55-day high enters, a close below the prior 20-day low exits, a 5 × ATR stop,
+no adds, no filters) on BTC-USDT 6H without a regime gate, at the Trader budget with the brakes on,
+exactly the cell research round 3 ran it in (`docs/research/RESEARCH_ROUND_3_REPORT.md`, plan row
+R19). The rule fires about four times a year, so the plan's 30-trade gate silenced it in every backtest
+configuration (walk-forward Calmar 0.44, +3.9 % a year at an 8.8 % fall, 17 trades in 4.3 years); a
+forward control is the only honest way to judge it, and expect it to say nothing for about a year. It
+is never judged and has no holdout: it sits in the controls table with its backtest numbers as
+information, and under each Trader-tier BTC-USDT 6H account in the "Trader tier beside the Reference
+tier" section with its brakes shown like a candidate's. **`c20-s1-btc-6h-none-trader`** is a
+candidate: plain S1 (the multi-lookback time-series momentum rule, the same rule as the portfolio's
+S1/BTC/6H sleeve) on BTC-USDT 6H without a gate, at the Trader budget with the brakes on, from the
+breadth study's single-sleeve record (`docs/research/BREADTH_V1_REPORT.md`, plan row R20: the section
+4.6 gates passed, walk-forward Calmar 0.61, +8.6 % a year at a 14.3 % fall; the untouched 12 months
++3.8 %, PF 1.40, 32 trades). Read it as a hypothesis under forward test: its holdout months were
+looked at before for every BTC rule, and at the Reference budget the same rule never passed (Calmar
+0.38), so it has no Reference twin — the report lists it beside the other BTC-USDT 6H accounts
+(`c01`, `c17`) and that market's controls instead. S1+VC SOL-USDT 6H was NOT added, as R20
+recommended. The fleet loads 33 accounts; the 31 running accounts, their fingerprints and the shared
+rules are untouched (pinned in `tests/test_paper_fleet_config.py`). The rows were built and applied by
+`scripts/apply_fleet_rows.py` from the decision record `docs/research/paper_fleet_additions_r23.json`
+(`--check` validates on a copy; a second run adds nothing), and the loader learned that a fixed-rule
+forward control other than the TF control may run at a documented budget with the brakes its study
+cell ran with; the TF controls stay at the Reference budget without brakes. The laptop fleet takes the
+two accounts at the update-and-restart step ("Updating the fleet's code" above: the STOP file, `git
+pull`, `--dry-run` — which must list 33 accounts and end with every line `check: … ok` — then start the
+task); the record of that restart is in `docs/PLAN_STATUS.md`, section 2 ("From R23"). Their first
+verdicts come 30 days later for `c20`, never for the control. Check:
+
+```powershell
+C:\Users\Admin\Desktop\ai-trading-fleet\.venv\Scripts\python.exe C:\Users\Admin\Desktop\ai-trading-fleet\scripts\run_paper_fleet.py --status
+# 33 accounts; c20-s1-btc-6h-none-trader and ctl-s8-btc-6h-trader at 10,000.00 and flat at the start, each with a "trader tier" line
 ```
 
 ## Troubleshooting

@@ -26,8 +26,9 @@ def manifest():
 def test_one_account_per_shortlist_row_control_and_the_two_portfolios(manifest):
     shortlist = json.loads(DEFAULT_SHORTLIST.read_text(encoding="utf-8"))
     ids = [a.account_id for a in manifest.accounts]
-    # 20 from Sprint 2c / R5b, 2 from R12, 1 from R13, 1 from R16, 5 Trader-tier accounts and 2 slow-trend controls from R18 (plan row R18b)
-    assert len(ids) == len(shortlist["configurations"]) + len(shortlist["controls"]) + 2 == 31
+    # 20 from Sprint 2c / R5b, 2 from R12, 1 from R13, 1 from R16, 5 Trader-tier accounts and 2 slow-trend controls from R18 (plan row R18b),
+    # 1 Trader-tier candidate and 1 forward control at the Trader tier the owner added (plan row R23)
+    assert len(ids) == len(shortlist["configurations"]) + len(shortlist["controls"]) + 2 == 33
     assert ids[0] == "c01-s1s5-btc-6h-none" and ids[-2:] == ["pf-s1s2s4-btceth-vt15", ALLOCATOR_V2_ACCOUNT]
     roles = {a.role for a in manifest.accounts}
     assert roles == {"candidate", "control", "portfolio"}
@@ -321,7 +322,7 @@ def test_the_trader_tier_rows_of_the_trader_policy_study_join_as_new_accounts_be
     section 4.3 brakes; the slow-trend forward control joins as two control accounts at the Reference sizing. Every row is validated
     against the study's own record of that cell. Existing accounts, their fingerprints and the shared rules are untouched."""
     ids = [a.account_id for a in manifest.accounts]
-    assert ids[14:19] == list(TRADER_TWINS) and ids[27:29] == ["ctl-tf-eth-6h", "ctl-tf-btc-6h"]
+    assert ids[14:19] == list(TRADER_TWINS) and ids[28:30] == ["ctl-tf-eth-6h", "ctl-tf-btc-6h"]  # ids[19] is c20 since plan row R23
     for aid, twin_id in TRADER_TWINS.items():
         acc, twin = manifest.account(aid), manifest.account(twin_id)
         assert acc.role == "candidate" and acc.kind == "sleeve" and acc.tier == "trader" and twin.tier is None
@@ -414,4 +415,111 @@ def test_a_tier_tagged_row_is_refused_on_any_mismatch_with_the_study_record(tmp_
         load_manifest(_edited(tmp_path, lambda d: d["configurations"][14]["source"].update(results=str(bad))), DEFAULT_RESULTS)
     # The untouched file still loads, and the tier accounts' expectations are not in any fingerprint.
     changed = _edited(tmp_path, lambda d: d["configurations"][14]["holdout"].update(total_return=0.5), "exp.json")
+    assert load_manifest(changed, DEFAULT_RESULTS).fingerprint() == load_manifest().fingerprint()
+
+
+# -- plan row R23: the S8 forward control at the Trader tier and S1 BTC-USDT 6H at the Trader tier, both the owner's decision ------------
+
+# Taken when the rows were applied (2026-11-05): the laptop fleet stores these when it takes the two accounts, and resumes only while they hold.
+R23_FINGERPRINTS = {
+    "c20-s1-btc-6h-none-trader": "10a09a9222457281d07534d53781feccddb7d5f206de75855818fbfd8ad81450",
+    "ctl-s8-btc-6h-trader": "26fd553d0d79617530ac52ac859e9d1c670f0ee8ae015c8df23767c27eebb702",
+}
+
+
+def test_the_two_accounts_the_owner_added_join_and_every_running_account_is_untouched(manifest):
+    """Plan row R23: `ctl-s8-btc-6h-trader` (the slow breakout S8 at the Trader tier with the brakes on, a forward control from research round
+    3's record, never judged) and `c20-s1-btc-6h-none-trader` (plain S1 at the Trader tier with the brakes on, from the breadth study's record,
+    holdout confirmed, no Reference twin). Both validated against their study's record of that cell; the 31 running accounts, their
+    fingerprints and the shared rules are exactly what the laptop fleet stored."""
+    from research.paper_fleet.config import CONTROL_TIERS, FIXED_RULES
+    from research.trader_policy import TIERS
+
+    # The documented budgets of the Trader Plan's section 4.1 (TIERS also lists `risk1.5`, which the plan reports for information only).
+    assert CONTROL_TIERS == ("reference", "trader", "aggressive") and set(CONTROL_TIERS) < set(TIERS) and "S8" in FIXED_RULES
+    ids = [a.account_id for a in manifest.accounts]
+    assert len(ids) == 33 and ids[19] == "c20-s1-btc-6h-none-trader" and ids[28:31] == ["ctl-tf-eth-6h", "ctl-tf-btc-6h", "ctl-s8-btc-6h-trader"]
+    c20 = manifest.account("c20-s1-btc-6h-none-trader")
+    assert c20.role == "candidate" and c20.kind == "sleeve" and c20.tier == "trader" and c20.shortlist_rank == 20 and c20.sleeve.candidate == "S1"
+    assert c20.instrument == "BTC-USDT" and c20.timeframe == "6H" and c20.sleeve.regime.mode == "none" and c20.sleeve.bracket == "none"
+    assert c20.sleeve.sizing == SIZING_TIERS["trader"] and c20.sleeve.brakes == TRADER_BRAKES and c20.sleeve.ladder() is None
+    assert c20.sleeve.rebalance_threshold == 0.25 and not c20.sleeve.uses_positioning
+    assert c20.sleeve.params == dict(manifest.account("pf-s1s2s4-btceth-vt15").portfolio.sleeves)["S1/BTC/6H"].params  # the same rule as the portfolio's sleeve
+    exp = c20.expectations
+    assert exp["source"]["study"] == "R20 breadth v1" and exp["source"]["results"] == "docs/research/breadth_v1_results.json"
+    assert exp["source"]["cell"] == "trader|brakes|none" and exp["source"]["tier"] == "trader" and exp["source"]["role"] == "candidate"
+    assert "no fleet ticket" in exp["source"]["note"] and exp["source"]["protocol_variant"] is None and "protocol_variant" not in exp
+    assert exp["gates"] == "section 4.6 at the trader tier" and exp["passed_walk_forward"] is True and exp["failed_gates"] == []
+    assert exp["walk_forward"]["calmar"] == pytest.approx(0.606091) and exp["walk_forward"]["cagr"] == pytest.approx(0.08645)
+    assert exp["walk_forward"]["max_drawdown"] == pytest.approx(0.142636) and exp["walk_forward"]["n_trades"] == 140
+    assert exp["holdout_confirmed"] is True and exp["holdout"]["total_return"] == pytest.approx(0.038343) and exp["holdout"]["n_trades"] == 32
+    assert exp["tier"]["name"] == "trader" and 0.01 < exp["tier"]["risk_pct_mean"] < 0.02 and exp["tier"]["brakes_per_year"]
+    assert "trader tier" in c20.label and "brakes on" in c20.label and "from R20 breadth v1" in c20.label and c20.to_dict()["tier"] == "trader"
+    # No Reference twin: plain S1 on BTC-USDT 6H never passed at the Reference sizing, so no account runs it there (the portfolio's sleeve is full size).
+    assert not any(a.role == "candidate" and a.tier is None and a.sleeve.candidate == "S1" and a.instrument == "BTC-USDT" and a.timeframe == "6H"
+                   for a in manifest.accounts)
+    s8 = manifest.account("ctl-s8-btc-6h-trader")
+    assert s8.role == "control" and s8.kind == "sleeve" and s8.tier == "trader" and s8.sleeve.candidate == "S8" and s8.shortlist_rank is None
+    assert s8.instrument == "BTC-USDT" and s8.timeframe == "6H" and s8.sleeve.regime.mode == "none"
+    assert s8.sleeve.params == {"entry_days": 55, "exit_days": 20, "atr_window": 14, "atr_mult": 5.0, "bracket": "none"}
+    assert s8.sleeve.sizing == SIZING_TIERS["trader"] and s8.sleeve.brakes == TRADER_BRAKES and s8.sleeve.ladder() is None and s8.sleeve.rebalance_threshold == 0.25
+    rules = s8.rules_dict()["sleeve"]
+    assert rules["brakes"]["hard_stop_dd"] == 0.3 and "label" not in rules["brakes"] and rules["sizing"]["risk_cap"] == 0.02 and rules["ladder"] is None
+    exp = s8.expectations
+    assert exp["source"]["study"] == "R19 research round 3" and exp["source"]["results"] == "docs/research/research_round_3_results.json"
+    assert exp["source"]["role"] == "control" and exp["source"]["cell"] == "trader|brakes|none" and exp["source"]["hypothesis"] == "H8"
+    assert exp["protocol_variant"].startswith("fixed rule") and exp["holdout"] is None and exp["holdout_confirmed"] is None
+    assert exp["gates"] == "section 4.6 at the trader tier" and exp["passed_walk_forward"] is False and exp["failed_gates"] == ["calmar_gt_0_5", "enough_trades"]
+    assert exp["walk_forward"]["calmar"] == pytest.approx(0.443397) and exp["walk_forward"]["cagr"] == pytest.approx(0.039139)
+    assert exp["walk_forward"]["n_trades"] == 17 and exp["walk_forward"]["trades_per_year"] == pytest.approx(3.942381)
+    assert exp["tier"]["name"] == "trader" and exp["tier"]["expectancy_r"] == pytest.approx(0.541689) and exp["tier"]["brake_counts"]["entry_after_exit"] == 3
+    assert s8.label.startswith("control: slow breakout S8") and "forward control" in s8.label and "trader tier" in s8.label
+    assert "brakes on" in s8.label and "from R19 research round 3" in s8.label and s8.to_dict()["tier"] == "trader"
+    tf = manifest.account("ctl-tf-btc-6h")
+    assert tf.tier == "reference" and tf.sleeve.brakes is None and account_fingerprint(s8) != account_fingerprint(tf)
+    assert manifest.sources["results_r19researchround3"].endswith("docs/research/research_round_3_results.json")
+    assert manifest.sources["results_r20breadthv1"].endswith("docs/research/breadth_v1_results.json") and manifest.sources["results_r20breadthv1_sha256"]
+    assert manifest.series() == [("BTC-USDT", "4H"), ("BTC-USDT", "6H"), ("DOGE-USDT", "4H"), ("ETH-USDT", "4H"), ("ETH-USDT", "6H"), ("SOL-USDT", "6H")]
+    assert manifest.instruments() == ["BTC-USDT", "DOGE-USDT", "ETH-USDT", "SOL-USDT"]
+    assert {aid: account_fingerprint(manifest.account(aid)) for aid in R23_FINGERPRINTS} == R23_FINGERPRINTS
+    assert manifest.fleet_fingerprint() == R5A_FLEET_FINGERPRINT
+    assert {a.account_id: account_fingerprint(a) for a in manifest.accounts if a.account_id in R5A_FINGERPRINTS} == R5A_FINGERPRINTS
+    assert {aid: account_fingerprint(manifest.account(aid)) for aid in R12_R16_FINGERPRINTS} == R12_R16_FINGERPRINTS
+    assert {aid: account_fingerprint(manifest.account(aid)) for aid in R18B_FINGERPRINTS} == R18B_FINGERPRINTS
+
+
+def test_a_fixed_rule_control_at_a_tier_is_refused_on_any_mismatch_and_the_tf_controls_stay_at_the_reference_sizing(tmp_path, monkeypatch):
+    """The S8 control row (controls[10]) is held to its study's record of the cell exactly as a fixed-rule candidate is; the slow-trend TF
+    controls (controls[8], [9]) may not move off the Reference sizing; a control tier outside the documented ones is refused."""
+    s8 = json.loads(DEFAULT_SHORTLIST.read_text(encoding="utf-8"))["controls"][10]
+    assert s8["candidate"] == "S8" and s8["source"]["tier"] == "trader"
+    probes = [
+        (lambda d: d["controls"][10]["source"].update(role="candidate"), "must name the control role"),
+        (lambda d: d["controls"][10]["source"].update(protocol_variant="fixed rule"), "the study recorded"),
+        (lambda d: d["controls"][10]["source"].update(protocol_variant=None), "needs its protocol variant"),
+        (lambda d: d["controls"][10]["source"].update(cell="reference|nobrakes|none", tier="reference"), "brakes recorded with the row are not"),
+        (lambda d: d["controls"][10]["source"].update(cell="trader|nobrakes|none"), "found 0"),  # round 3 ran the Reference and the Trader cell only
+        (lambda d: d["controls"][10]["source"]["brakes"].update(hard_stop_dd=0.5), "brakes recorded with the row are not"),
+        (lambda d: d["controls"][10]["sizing_config"].update(risk_cap=0.03), "sizing is not the result's"),
+        (lambda d: d["controls"][10]["source"].update(tier="aggressive"), "describe 'trader'"),
+        (lambda d: d["controls"][10]["params"].update(entry_days=20), "does not match"),
+        (lambda d: d["controls"][10].update(candidate="S7"), "does not match"),  # round 3 ran S7 at that cell too, with other parameters
+        (lambda d: d["controls"][10].update(candidate="S1"), "unknown control"),
+        (lambda d: d["controls"][10].pop("source"), "unknown control"),
+        (lambda d: d["controls"][9]["source"].update(tier="trader", cell="trader|brakes|none", brakes=d["controls"][10]["source"]["brakes"])
+         or d["controls"][9].update(sizing_config=d["controls"][10]["sizing_config"]), "Reference sizing without brakes"),
+    ]
+    for edit, message in probes:
+        with pytest.raises(ValueError, match=message):
+            load_manifest(_edited(tmp_path, edit), DEFAULT_RESULTS)
+    # A row of an S8 control under 'configurations' is refused as a control row in the wrong place.
+    with pytest.raises(ValueError, match="belongs under 'controls'"):
+        load_manifest(_edited(tmp_path, lambda d: d["configurations"].append(dict(s8, rank=21))), DEFAULT_RESULTS)
+    # A documented tier only: with the Trader tier struck from the documented list the row is refused (the TF rule is separate).
+    monkeypatch.setattr("research.paper_fleet.config.CONTROL_TIERS", ("reference",))
+    with pytest.raises(ValueError, match="documented tier"):
+        load_manifest(DEFAULT_SHORTLIST, DEFAULT_RESULTS)
+    monkeypatch.undo()
+    # Expectations are not rules: an edited holdout or label leaves every fingerprint alone.
+    changed = _edited(tmp_path, lambda d: d["controls"][10].update(control_label="another wording", cagr=d["controls"][10]["cagr"]), "label.json")
     assert load_manifest(changed, DEFAULT_RESULTS).fingerprint() == load_manifest().fingerprint()

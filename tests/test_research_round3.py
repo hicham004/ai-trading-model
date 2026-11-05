@@ -644,7 +644,7 @@ def test_the_fleet_loader_accepts_a_fixed_rule_candidate_row_and_refuses_the_res
     assert len(acc) == 1 and acc[0].account_id.endswith("-s7-btc-6h-none-trader") and acc[0].tier == "trader" and acc[0].sleeve.brakes == TRADER_BRAKES
     assert acc[0].sleeve.sizing.label == "vt20/30 crash15/90dh cap2" and acc[0].expectations["protocol_variant"] == r3.FIXED_RULE_PROTOCOL
     assert acc[0].expectations["gates"] == "section 4.6 at the trader tier" and acc[0].expectations["holdout_confirmed"] is True and acc[0].sleeve.bracket == "none"
-    assert len(manifest.accounts) == 32
+    assert len(manifest.accounts) == len(load_manifest().accounts) + 1 == 34  # the committed fleet (33 since plan row R23) plus the S7 row
     # The trail variant: the bracket the row carries is the one the fleet applies.
     results_t, rt = _fixed_rule_results_file(tmp_path / "t", candidate="S7t", bracket="trail3") if (tmp_path / "t").mkdir() is None else (None, None)
     merged_t = {r3.result_key("S7t", "BTC-USDT", "6H", "none", r3.JUDGED_CELL.key): rt}
@@ -655,8 +655,9 @@ def test_the_fleet_loader_accepts_a_fixed_rule_candidate_row_and_refuses_the_res
     append_to_shortlist(sl_t, applied_t, note="test")
     acc_t = next(a for a in load_manifest(sl_t, DEFAULT_RESULTS).accounts if a.sleeve is not None and a.sleeve.candidate == "S7t")
     assert acc_t.sleeve.bracket == "trail3" and acc_t.account_id.endswith("-s7t-btc-6h-none-trader")
-    # Refused: a swept rule (S1) under the fixed-rule protocol; a protocol-variant text the study did not record; an explained deviation the study did not flag.
-    for kwargs, match in ((dict(candidate="S1"), "only for a registered fixed rule"), (dict(protocol_variant="another protocol"), "study recorded"),
+    # Refused: a swept rule (S2) under the fixed-rule protocol; a protocol-variant text the study did not record; an explained deviation the study did not flag.
+    # (S2, not S1: S1 BTC-USDT 6H at the Trader tier is a real shortlist row since plan row R23, so append_to_shortlist would skip the probe as a duplicate.)
+    for kwargs, match in ((dict(candidate="S2"), "only for a registered fixed rule"), (dict(protocol_variant="another protocol"), "study recorded"),
                           (dict(explained=("policy_sizing", "brackets")), "do not match the study's protocol check")):
         sub = tmp_path / f"refuse_{len(match)}"
         sub.mkdir()

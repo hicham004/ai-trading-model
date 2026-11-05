@@ -328,8 +328,9 @@ TIER_EXP = {**ACCOUNT["expectations"], "tier": {"name": "trader", "risk_pct_mean
                                                 "expectancy_r": 0.27, "brakes_per_year": {"entry_after_exit": 7.5, "ladder": 0.2, "hard_stop": 0.0}}}
 
 
-def _fleet_tier(tmp_path, *, created="2026-11-02T00:00:00Z", last_cycle="2026-11-05T00:05:00Z"):
-    """A Trader-tier account, its Reference twin, the three controls of its market and an unrelated gated account."""
+def _fleet_tier(tmp_path, *, created="2026-11-02T00:00:00Z", last_cycle="2026-11-05T00:05:00Z", extra=()):
+    """A Trader-tier account, its Reference twin, the three controls of its market and an unrelated gated account (plus ``extra`` accounts,
+    plan row R23: an id ending in ``trader`` gets the Trader-style journal with entries, brakes and a tripped limit)."""
     paths = FleetPaths(tmp_path)
     paths.ensure()
     accounts = [
@@ -348,6 +349,7 @@ def _fleet_tier(tmp_path, *, created="2026-11-02T00:00:00Z", last_cycle="2026-11
          "instrument": "BTC-USDT", "timeframe": "6H", "sleeve": {"candidate": "TF", "params": {"sma_days": 200.0}}, "tier": "reference",
          "expectations": {"walk_forward": {"cagr": 0.037, "ann_vol": 0.061, "sharpe": 0.62, "max_drawdown": 0.076, "trades_per_year": 9.3}, "holdout": None}},
     ]
+    accounts += [dict(a) for a in extra]
     state = {"version": 2, "created_at": created, "last_cycle": last_cycle, "cycles": 10, "fingerprint": "f", "positioning_source": "okx",
              "manifest": {"init_cash": 10_000.0, "accounts": accounts}, "series": {}, "fits": {}, "portfolios": {},
              "health": {"stale": False, "newest_candle": {"BTC-USDT": last_cycle}}}
@@ -456,3 +458,72 @@ def test_the_report_says_plainly_when_an_s5_account_runs_without_positioning_dat
     write_state(paths.state_file, state)
     text2 = render(build_report_data(paths, datetime(2026, 11, 4, 0, 30, tzinfo=timezone.utc)))
     assert "Newest stored values" not in text2 and "**S5 running without data**: `c11-s1s5-sol-6h-none`" in text2
+
+
+# -- plan row R23: an account without a Reference twin, and a forward control at the Trader tier ----------------------------------------
+
+R23_EXTRA = [
+    {"account_id": "c20-s1-btc-6h-none-trader", "role": "candidate", "kind": "sleeve",
+     "label": "S1 BTC-USDT 6H (no regime gate) — trader tier (vt20/30 crash15/90dh cap2, brakes on) — from R20 breadth v1",
+     "instrument": "BTC-USDT", "timeframe": "6H", "shortlist_rank": 20, "tier": "trader",
+     "sleeve": {"candidate": "S1", "params": {"vote": 2, "atr_mult": 3.0, "bracket": "none"}, "regime": {"mode": "none"},
+                "sizing": {"label": "vt20/30 crash15/90dh cap2"}, "brakes": {"hard_stop_dd": 0.3}},
+     "expectations": {**TIER_EXP, "holdout": {"total_return": 0.038, "ann_vol": 0.077, "bars": 1461}}},
+    {"account_id": "ctl-s8-btc-6h-trader", "role": "control", "kind": "sleeve", "tier": "trader",
+     "label": "control: slow breakout S8 (Turtle System 2: 55-day high entry, 20-day low exit, 5 x ATR stop, forward control) — BTC-USDT 6H "
+              "— trader tier (vt20/30 crash15/90dh cap2, brakes on) — from R19 research round 3",
+     "instrument": "BTC-USDT", "timeframe": "6H",
+     "sleeve": {"candidate": "S8", "params": {"entry_days": 55, "exit_days": 20, "atr_mult": 5.0, "bracket": "none"}, "regime": {"mode": "none"},
+                "sizing": {"label": "vt20/30 crash15/90dh cap2"}, "brakes": {"hard_stop_dd": 0.3}},
+     "expectations": {"walk_forward": {"cagr": 0.039, "ann_vol": 0.051, "sharpe": 0.78, "max_drawdown": 0.088, "trades_per_year": 3.9}, "holdout": None,
+                      "gates": "section 4.6 at the trader tier", "passed_walk_forward": False, "failed_gates": ["calmar_gt_0_5", "enough_trades"],
+                      "tier": {"name": "trader", "risk_pct_mean": 0.0198, "risk_pct_max": 0.0202, "cap_binding_share": 0.94, "expectancy_r": 0.54,
+                               "brakes_per_year": {"entry_after_exit": 0.7}}}},
+]
+S8_WORDS = "slow breakout S8 (Turtle System 2: 55-day high entry, 20-day low exit, 5 x ATR stop, forward control)"
+
+
+def test_the_report_lists_an_account_without_a_twin_beside_its_market_and_a_trader_tier_control_with_the_controls(tmp_path):
+    """Plan row R23: `c20` (S1 at the Trader tier) has no Reference twin, so the tier section lists it beside the other BTC-USDT 6H accounts
+    and the controls; the S8 forward control at the Trader tier is in the controls table (its backtest checks as information) and under
+    each Trader-tier BTC-USDT 6H account with its brakes, never in the ranking."""
+    paths = _fleet_tier(tmp_path, extra=R23_EXTRA)
+    data = build_report_data(paths, datetime(2026, 11, 5, 0, 30, tzinfo=timezone.utc))
+    pairs = {p["row"]["account"]["account_id"]: p for p in tier_pairs(data["rows"])}
+    assert set(pairs) == {"c17-s1s5-btc-6h-none-trader", "c20-s1-btc-6h-none-trader"}
+    c20, c17 = pairs["c20-s1-btc-6h-none-trader"], pairs["c17-s1s5-btc-6h-none-trader"]
+    assert c20["twin"] is None and [q["account"]["account_id"] for q in c20["peers"]] == ["c01-s1s5-btc-6h-none", "c17-s1s5-btc-6h-none-trader"]
+    assert [c["account"]["account_id"] for c in c20["fixed_controls"]] == ["ctl-s8-btc-6h-trader"] and c20["tf"]["account"]["account_id"] == "ctl-tf-btc-6h"
+    assert c17["twin"]["account"]["account_id"] == "c01-s1s5-btc-6h-none" and c17["peers"] == []
+    assert [c["account"]["account_id"] for c in c17["fixed_controls"]] == ["ctl-s8-btc-6h-trader"]
+    rows = {r["account"]["account_id"]: r for r in data["rows"]}
+    s8 = rows["ctl-s8-btc-6h-trader"]
+    assert s8["vs_control"] is None and s8["vs_buy_and_hold"] is None and s8["verdicts"]["status"] == "too early"
+    assert s8["tier_activity"]["since_start"]["entries"] == 2 and s8["tier_activity"]["since_start"]["trips"] == {"daily_loss": 1}
+    assert rows["c20-s1-btc-6h-none-trader"]["vs_control"] is not None
+    text = render(data)
+    short = text[text.index("## In short"):text.index("## Controls")]
+    assert f"; {S8_WORDS} (trader tier, brakes on) made " in short and "(BTC-USDT 6H)" in short
+    assert "Trader tier (plan row R18): 2 accounts run" in short
+    assert "`c20-s1-btc-6h-none-trader` " in short and "(no Reference twin: its rule never passed at the Reference tier)" in short
+    assert "`c17-s1s5-btc-6h-none-trader`" in short and "against `c01-s1s5-btc-6h-none`" in short
+    controls = text[text.index("## Controls"):text.index("## Ranking")]
+    assert "| `ctl-s8-btc-6h-trader` | BTC-USDT 6H |" in controls and "| too early |" in controls
+    ranking = text[text.index("## Ranking"):text.index("## Trader tier beside")]
+    assert "`ctl-s8-btc-6h-trader`" not in ranking and "`c20-s1-btc-6h-none-trader`" in ranking
+    section = text[text.index("## Trader tier beside the Reference tier"):text.index("## This week")]
+    assert "Plan row R23: an account without a Reference twin" in section
+    lines = section.splitlines()
+    i = next(k for k, l in enumerate(lines) if l.startswith("| S1 BTC-USDT 6H | `c20-s1-btc-6h-none-trader` | trader |"))
+    assert lines[i + 1].startswith("| no Reference twin (the rule never passed at the Reference tier) | - | - |")
+    assert lines[i + 2].startswith("| same market: S1+S5 BTC-USDT 6H | `c01-s1s5-btc-6h-none` | reference |")
+    assert lines[i + 3].startswith("| same market: S1+S5 BTC-USDT 6H | `c17-s1s5-btc-6h-none-trader` | trader |")
+    assert lines[i + 4].startswith("| always long, policy sizing | `ctl-hold-btc-6h` | reference |")
+    s8_lines = [l for l in lines if l.startswith(f"| {S8_WORDS} | `ctl-s8-btc-6h-trader` | trader |")]
+    assert len(s8_lines) == 2 and all("| 1.65% / 1.80% | Turtle ladder cut once; no-entry-after-an-exit blocked once |" in l for l in s8_lines)
+    assert section.count("**`ctl-s8-btc-6h-trader`** (forward control, never judged) since its start (12 bars, 2 entries)") == 1
+    assert "the 2 % cap was the binding limit on 94.00% of entries" in section and "no-entry-after-an-exit blocked 0.7 a year" in section
+    assert section.index("**`c17-s1s5-btc-6h-none-trader`**") < section.index("**`c20-s1-btc-6h-none-trader`**") < section.index("**`ctl-s8-btc-6h-trader`**")
+    # Without the R23 accounts the section reads exactly as before: no R23 sentence, no peer or control lines.
+    plain = render(build_report_data(_fleet_tier(tmp_path / "plain"), datetime(2026, 11, 5, 0, 30, tzinfo=timezone.utc)))
+    assert "Plan row R23" not in plain and "same market:" not in plain and "no Reference twin" not in plain and S8_WORDS not in plain

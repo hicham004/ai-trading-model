@@ -836,3 +836,43 @@ def test_an_s5_account_without_positioning_data_is_labelled_and_an_older_state_r
     assert state2["accounts"]["c11-s1s5-sol-6h-none"]["positioning"]["complete"] is True
     assert state2["health"]["positioning"]["markets"]["SOL-USDT"]["funding_newest"] is not None
     assert all(ok for _, ok, _ in check_invariants(FleetPaths(tmp_path), manifest)), check_invariants(FleetPaths(tmp_path), manifest)
+
+
+# -- plan row R23: the S8 forward control at the Trader tier runs with its brakes like a Trader-tier candidate ---------------------------
+
+R23_ACCOUNTS = ("ctl-s8-btc-6h-trader", "ctl-hold-btc-6h", "c20-s1-btc-6h-none-trader")
+
+
+def test_the_s8_forward_control_at_the_trader_tier_runs_with_its_brakes_and_stays_a_control(tmp_path, data):
+    manifest = _subset(R23_ACCOUNTS)
+    s8, hold, c20 = (manifest.account(a) for a in R23_ACCOUNTS)
+    assert s8.role == "control" and s8.sleeve.brakes is not None and s8.sleeve.sizing.risk_cap == 0.02 and hold.sleeve.brakes is None
+    root = tmp_path / "r23"
+    fleet, feed = make(root, data, manifest, T0)
+    advance(fleet, feed, T0 + pd.Timedelta(minutes=40), R18B_END)
+    fleet.release()
+    js = journals(root, manifest)
+    start = js[s8.account_id][0]
+    assert start["type"] == "start" and start["spec"]["role"] == "control" and start["spec"]["tier"] == "trader"
+    assert start["spec"]["sleeve"]["brakes"]["hard_stop_dd"] == 0.3 and start["spec"]["sleeve"]["sizing"]["risk_cap"] == 0.02
+    assert start["spec"]["sleeve"]["params"] == {"entry_days": 55, "exit_days": 20, "atr_window": 14, "atr_mult": 5.0, "bracket": "none"}
+    bars = [r for r in js[s8.account_id] if r["type"] == "bar"]
+    assert bars and all("brakes" in r and r["brakes"]["halted"] is False and "decision" in r for r in bars)
+    assert [r["bar"] for r in bars] == [r["bar"] for r in js[hold.account_id] if r["type"] == "bar"]  # the same 6H bars as its market's hold control
+    assert all("brakes" not in r for r in js[hold.account_id] if r["type"] == "bar")
+    for r in bars:
+        size = (r.get("decision") or {}).get("diagnostics", {}).get("size")
+        if size and r["decision"]["signal"]["action"] == "long":
+            assert size["risk_cap"] == 0.02 and size["risk_pct_if_stopped"] is not None and size["risk_pct_if_stopped"] <= 0.02 + 1e-9
+        for ev in r.get("events") or []:
+            if ev["kind"] == "entry":
+                assert ev["risk_pct"] is not None and "brake_multiplier" in ev
+    c20_bars = [r for r in js[c20.account_id] if r["type"] == "bar"]
+    assert c20_bars and all("brakes" in r for r in c20_bars) and js[c20.account_id][0]["spec"]["tier"] == "trader"
+    assert [r["bar"] for r in c20_bars] == [r["bar"] for r in bars]
+    state = read_state(root / "_state" / "fleet_state.json")
+    status = status_from_state(state)
+    assert status["accounts"][s8.account_id]["role"] == "control" and status["accounts"][s8.account_id]["tier"] == "trader"
+    assert status["accounts"][s8.account_id]["brakes"]["halted"] is False and "brakes" not in status["accounts"][hold.account_id]
+    assert status["accounts"][c20.account_id]["tier"] == "trader" and status["accounts"][c20.account_id]["brakes"]["turtle_multiplier"] == 1.0
+    assert all(ok for _, ok, _ in check_invariants(FleetPaths(root), manifest)), check_invariants(FleetPaths(root), manifest)
