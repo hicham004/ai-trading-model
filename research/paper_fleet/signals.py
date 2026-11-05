@@ -16,6 +16,16 @@ The result is a :class:`research.paper_fleet.engine.Decision` executed on the
 next bar, plus diagnostics that explain it in the journal (which filter
 allowed or blocked, the regime probability, the size parts). Only bars up to
 and including the decision bar are ever used.
+
+Plan row R18b: a sleeve at the Trader tier carries a per-trade risk cap
+(``SizingSpec.risk_cap``), which the research reads from the candidate's stop
+distance at every bar (``research.sizing.fraction_series`` with the rule's
+stop column). Here the stop distance comes from the same contract signal the
+decision uses: on every bar the engine can act on (an entry, a held position)
+the rule is long and its signal carries the stop, so the capped fraction is
+the research's; on a flat bar the engine never reads the fraction. The tier's
+brakes are the sleeve's rules too and reach the engine through
+:func:`engine_config`.
 """
 
 from __future__ import annotations
@@ -60,14 +70,16 @@ def _f(value: Any) -> Optional[float]:
 
 
 def engine_config(spec: SleeveSpec, *, costs, init_cash: float) -> EngineConfig:
-    """The static engine rules of a sleeve: sizing mode, ladder, rebalancing, its exit bracket and the 180-day test windows."""
+    """The static engine rules of a sleeve: sizing mode, ladder, rebalancing, its exit bracket, its brakes and the 180-day test windows."""
     bracket = get_bracket(spec.bracket)
     time_stop = days_to_bars(float(bracket.time_stop_days), spec.timeframe) if bracket.time_stop_days is not None else None
+    brakes = spec.brakes if (spec.brakes is not None and spec.brakes.active) else None
     return EngineConfig(
         costs=costs, init_cash=init_cash, sized=spec.sizing is not None, ladder=spec.ladder(),
         rebalance_threshold=spec.rebalance_threshold if spec.sizing is not None else None, time_stop_bars=time_stop,
         trail_activate_r=bracket.trail_activate_r if bracket.trail_r is not None else None,
         trail_r=bracket.trail_r, window_bars=days_to_bars(TEST_WINDOW_DAYS, spec.timeframe),
+        brakes=brakes, bars_per_day=days_to_bars(1.0, spec.timeframe) if brakes is not None else None,
     )
 
 
@@ -145,9 +157,18 @@ def decide_sleeve(
         # refit, did not let the current run start under the new model): no entry, and an open position is closed.
         diag["blocked_by"] = "regime gate"
 
+    # Stop distance from the contract signal; the bracket's take-profit is sized from it (R multiples).
+    sd = close - float(last.stop_loss) if (last.action == SignalAction.LONG and last.stop_loss is not None) else float("nan")
+
     # Size: the policy fraction of the decision bar (vol target x crash filter), times the regime scale.
     if spec.sizing is not None:
-        frac = float(fraction_series(window, spec.sizing, spec.timeframe, ppy).iloc[-1]) * mult
+        stop_distance = None
+        if spec.sizing.needs_stop:
+            # Plan row R18b: the per-trade cap reads the stop the trade would carry (NaN = no stop: the cap cannot act).
+            stop_distance = pd.Series(np.nan, index=window.index, dtype=float)
+            if math.isfinite(sd) and sd > 0:
+                stop_distance.iloc[-1] = sd
+        frac = float(fraction_series(window, spec.sizing, spec.timeframe, ppy, stop_distance=stop_distance).iloc[-1]) * mult
         parts: Dict[str, Any] = {"fraction": _f(frac), "regime_multiplier": mult}
         if spec.sizing.kind == "vol_target":
             parts["vol_target"] = _f(vol_target_fraction(window["close"], spec.sizing.target_vol, spec.sizing.vol_lookback, ppy,
@@ -156,12 +177,17 @@ def decide_sleeve(
             parts["crash_multiplier"] = _f(crash_multiplier(window["close"], spec.sizing.crash_dd,
                                                             days_to_bars(float(spec.sizing.crash_window_days), spec.timeframe),
                                                             mode=spec.sizing.crash_mode).iloc[-1])
+        if spec.sizing.risk_cap is not None:
+            stop_pct = sd / close if (math.isfinite(sd) and sd > 0 and close > 0) else float("nan")
+            cap_alloc = float(spec.sizing.risk_cap) / stop_pct if (math.isfinite(stop_pct) and stop_pct > 0) else float("nan")
+            parts.update({"risk_cap": float(spec.sizing.risk_cap), "stop_pct": _f(stop_pct), "cap_allocation": _f(cap_alloc),
+                          "cap_binds": bool(math.isfinite(cap_alloc) and math.isfinite(frac) and frac >= cap_alloc - 1e-12 and
+                                            parts.get("vol_target") is not None and parts["vol_target"] * parts.get("crash_multiplier", 1.0) * mult > cap_alloc + 1e-12),
+                          "risk_pct_if_stopped": _f(frac * stop_pct) if math.isfinite(stop_pct) else None})
         diag["size"] = parts
     else:
         frac = 1.0
 
-    # Stop distance from the contract signal; the bracket's take-profit is sized from it (R multiples).
-    sd = close - float(last.stop_loss) if (last.action == SignalAction.LONG and last.stop_loss is not None) else float("nan")
     bracket = get_bracket(spec.bracket)
     td = float("nan")
     if bracket.take_profit_r is not None and math.isfinite(sd) and sd > 0:
@@ -206,7 +232,10 @@ def frame_decisions(spec: SleeveSpec, bars: pd.DataFrame, context: FeatureContex
     stop = frames.stop[:, 0]
     target = frames.target[:, 0] if frames.target is not None else np.full(len(bars), np.nan)
     if spec.sizing is not None:
-        frac = fraction_series(bars, spec.sizing, spec.timeframe, bars_per_year(spec.timeframe)).to_numpy(dtype=float)
+        stop_distance = None
+        if spec.sizing.needs_stop:  # as decide_sleeve: the stop a contract LONG signal carries, nothing on a flat bar
+            stop_distance = np.where(desired & np.isfinite(stop) & (stop > 0), stop, np.nan)
+        frac = fraction_series(bars, spec.sizing, spec.timeframe, bars_per_year(spec.timeframe), stop_distance=stop_distance).to_numpy(dtype=float)
     else:
         frac = np.ones(len(bars))
     closes = bars["close"].to_numpy(dtype=float)

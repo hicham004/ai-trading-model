@@ -319,6 +319,111 @@ def _fleet_s5(tmp_path, *, created="2026-11-02T00:00:00Z", last_cycle="2026-11-0
     return paths
 
 
+# -- plan row R18b: the Trader tier beside the Reference tier --------------------------------------------------------------------
+
+from research.paper_fleet.report import tier_activity, tier_pairs  # noqa: E402
+
+RULE = {"candidate": "S1+S5", "params": {"vote": 2, "atr_mult": 3.0, "bracket": "none"}, "regime": {"mode": "none"}}
+TIER_EXP = {**ACCOUNT["expectations"], "tier": {"name": "trader", "risk_pct_mean": 0.0173, "risk_pct_max": 0.0204, "cap_binding_share": 0.64,
+                                                "expectancy_r": 0.27, "brakes_per_year": {"entry_after_exit": 7.5, "ladder": 0.2, "hard_stop": 0.0}}}
+
+
+def _fleet_tier(tmp_path, *, created="2026-11-02T00:00:00Z", last_cycle="2026-11-05T00:05:00Z"):
+    """A Trader-tier account, its Reference twin, the three controls of its market and an unrelated gated account."""
+    paths = FleetPaths(tmp_path)
+    paths.ensure()
+    accounts = [
+        {"account_id": "c01-s1s5-btc-6h-none", "role": "candidate", "kind": "sleeve", "label": "S1+S5 BTC-USDT 6H (no regime gate)", "instrument": "BTC-USDT",
+         "timeframe": "6H", "sleeve": dict(RULE, sizing={"label": "vt10/30 crash15/90dh ladder"}), "shortlist_rank": 1, "expectations": ACCOUNT["expectations"]},
+        {"account_id": "c17-s1s5-btc-6h-none-trader", "role": "candidate", "kind": "sleeve", "label": "S1+S5 BTC-USDT 6H (no regime gate) — trader tier",
+         "instrument": "BTC-USDT", "timeframe": "6H", "sleeve": dict(RULE, sizing={"label": "vt20/30 crash15/90dh cap2"}, brakes={"hard_stop_dd": 0.3}),
+         "shortlist_rank": 17, "expectations": TIER_EXP, "tier": "trader"},
+        {"account_id": "c13-s1vc-btc-4h-gate", "role": "candidate", "kind": "sleeve", "label": "S1+VC BTC-USDT 4H (gate)", "instrument": "BTC-USDT",
+         "timeframe": "4H", "sleeve": {"candidate": "S1+VC", "params": {"vote": 1}, "regime": {"mode": "gate"}}, "shortlist_rank": 13, "expectations": ACCOUNT["expectations"]},
+        {"account_id": "ctl-hold-btc-6h", "role": "control", "kind": "sleeve", "label": "control: always long, policy sizing — BTC-USDT 6H", "instrument": "BTC-USDT",
+         "timeframe": "6H", "sleeve": {"candidate": "hold"}, "expectations": {"walk_forward": {"cagr": 0.026, "ann_vol": 0.057, "sharpe": 0.49, "max_drawdown": 0.08}}},
+        {"account_id": "ctl-bh-btc-6h", "role": "control", "kind": "buy_and_hold", "label": "control: plain buy-and-hold — BTC-USDT 6H", "instrument": "BTC-USDT",
+         "timeframe": "6H", "expectations": {"walk_forward": {"cagr": 0.3, "max_drawdown": 0.77}, "holdout": None, "benchmark": True}},
+        {"account_id": "ctl-tf-btc-6h", "role": "control", "kind": "sleeve", "label": "control: always long above the 200-day average, policy sizing — BTC-USDT 6H",
+         "instrument": "BTC-USDT", "timeframe": "6H", "sleeve": {"candidate": "TF", "params": {"sma_days": 200.0}}, "tier": "reference",
+         "expectations": {"walk_forward": {"cagr": 0.037, "ann_vol": 0.061, "sharpe": 0.62, "max_drawdown": 0.076, "trades_per_year": 9.3}, "holdout": None}},
+    ]
+    state = {"version": 2, "created_at": created, "last_cycle": last_cycle, "cycles": 10, "fingerprint": "f", "positioning_source": "okx",
+             "manifest": {"init_cash": 10_000.0, "accounts": accounts}, "series": {}, "fits": {}, "portfolios": {},
+             "health": {"stale": False, "newest_candle": {"BTC-USDT": last_cycle}}}
+    write_state(paths.state_file, state)
+    t0 = pd.Timestamp(created)
+    for acc in accounts:
+        recs = [{"type": "start", "seq": 1}]
+        e = 10_000.0
+        for i in range(12):
+            e *= 1.002 if acc["account_id"].endswith("trader") else 1.001
+            events = []
+            if acc["account_id"].endswith("trader"):
+                if i == 1:
+                    events = [{"kind": "entry", "fee": 1.0, "risk": 180.0, "risk_pct": 0.018, "brake_multiplier": 1.0}]
+                elif i == 3:
+                    events = [{"kind": "exit", "fee": 1.0, "pnl": -180.0, "reason": "stop_loss"}]
+                elif i == 4:
+                    events = [{"kind": "brake", "multiplier": 0.0, "cuts": {}, "blocked_by": ["entry_after_exit"]}, {"kind": "entry_skipped", "reason": "brake"}]
+                elif i == 5:
+                    events = [{"kind": "brake", "multiplier": 0.8, "cuts": {"ladder": 0.8}, "blocked_by": []},
+                              {"kind": "entry", "fee": 1.0, "risk": 150.0, "risk_pct": 0.015, "brake_multiplier": 0.8}]
+                elif i == 8:
+                    events = [{"kind": "brake_trip", "brake": "daily_loss", "loss_24h": -0.031}]
+            elif acc["kind"] == "sleeve" and acc["role"] == "candidate" and i == 1:
+                events = [{"kind": "entry", "fee": 1.0, "risk": 60.0, "risk_pct": 0.006}]
+            rec = _bar(t0 + pd.Timedelta(hours=6 * i), 10_000.0 if i == 0 else e, anchor=i == 0, seq=i + 2, events=events, in_position=i > 0,
+                       allocation=0.3 if i > 0 else 0.0)
+            rec["close_time"] = (t0 + pd.Timedelta(hours=6 * (i + 1))).strftime("%Y-%m-%dT%H:%M:%SZ")
+            rec["decision"] = {"signal": {"action": "long"}, "diagnostics": {"desired": True}}
+            if acc["account_id"].endswith("trader"):
+                rec["brakes"] = {"turtle_multiplier": 0.8 if i >= 5 else 1.0, "halted": False, "week_blocked": False, "month_blocked": False}
+            recs.append(rec)
+        Journal(paths.journal(acc["account_id"])).append(recs)
+    return paths
+
+
+def test_the_report_puts_the_trader_tier_beside_its_reference_twin_and_the_controls(tmp_path):
+    paths = _fleet_tier(tmp_path)
+    data = build_report_data(paths, datetime(2026, 11, 5, 0, 30, tzinfo=timezone.utc))
+    rows = {r["account"]["account_id"]: r for r in data["rows"]}
+    pairs = tier_pairs(data["rows"])
+    assert len(pairs) == 1 and pairs[0]["row"]["account"]["account_id"] == "c17-s1s5-btc-6h-none-trader"
+    assert pairs[0]["twin"]["account"]["account_id"] == "c01-s1s5-btc-6h-none"  # the same rule, the Reference sizing; c13 is another rule
+    assert pairs[0]["hold"]["account"]["account_id"] == "ctl-hold-btc-6h" and pairs[0]["buy_and_hold"]["account"]["account_id"] == "ctl-bh-btc-6h"
+    assert pairs[0]["tf"]["account"]["account_id"] == "ctl-tf-btc-6h"
+    act = rows["c17-s1s5-btc-6h-none-trader"]["tier_activity"]["since_start"]
+    assert act["entries"] == 2 and act["risk_pct_mean"] == pytest.approx(0.0165) and act["risk_pct_max"] == 0.018 and act["risk_pct_last"] == 0.015
+    assert act["cuts"] == {"ladder": 1} and act["blocks"] == {"entry_after_exit": 1} and act["blocked_entries"] == 1 and act["trips"] == {"daily_loss": 1}
+    assert act["last"]["turtle_multiplier"] == 0.8 and rows["c01-s1s5-btc-6h-none"]["tier_activity"]["since_start"]["risk_pct_mean"] == 0.006
+    assert rows["c01-s1s5-btc-6h-none"]["tier_activity"]["since_start"]["cuts"] == {} and "tier_activity" not in rows["ctl-bh-btc-6h"]
+    assert tier_activity([])["risk_pct_mean"] is None and tier_activity([])["last"] is None
+    text = render(data)
+    short = text[text.index("## In short"):text.index("## Controls")]
+    assert "long only above the 200-day average (policy sizing) made" in short and "(BTC-USDT 6H)" in short
+    assert "Trader tier (plan row R18): 1 account run" in short and "`c17-s1s5-btc-6h-none-trader`" in short and "against `c01-s1s5-btc-6h-none`" in short
+    section = text[text.index("## Trader tier beside the Reference tier"):text.index("## This week")]
+    assert section.index("| S1+S5 BTC-USDT 6H | `c17-s1s5-btc-6h-none-trader` | trader |") < section.index("| Reference twin | `c01-s1s5-btc-6h-none` | reference |")
+    assert "| always long, policy sizing | `ctl-hold-btc-6h` |" in section and "| plain buy-and-hold | `ctl-bh-btc-6h` | all in |" in section
+    assert "| long above the 200-day average, policy sizing | `ctl-tf-btc-6h` |" in section
+    trader_line = next(l for l in section.splitlines() if "`c17-s1s5-btc-6h-none-trader` | trader |" in l)
+    assert "| 1.65% / 1.80% | Turtle ladder cut once; no-entry-after-an-exit blocked once |" in trader_line
+    twin_line = next(l for l in section.splitlines() if "`c01-s1s5-btc-6h-none` | reference |" in l)
+    assert "| 0.60% / 0.60% | - |" in twin_line
+    assert "the 24-hour loss limit once" in section and "Turtle multiplier 0.80" in section
+    assert "Backtest expectation (walk-forward at this tier): risk per trade 1.73% on average, 2.04% at most; the 2 % cap was the binding limit on 64.00% of entries" in section
+    assert "no-entry-after-an-exit blocked 7.5 a year" in section and "hard stop" not in section.split("Backtest expectation")[1].split("\n")[0]
+    assert "earns its place only if, forward, it beats its Reference twin" in section and "owner decides the budget at plan row G7" in section
+    assert text.index("## Controls (read these first)") < text.index("## Trader tier beside the Reference tier") < text.index("## This week")
+    controls = text[text.index("## Controls"):text.index("## Ranking")]
+    assert "`ctl-tf-btc-6h`" in controls
+    # Without a tier account there is no section and no line.
+    plain = _fleet(tmp_path / "plain", "2026-11-02T00:00:00Z", "2026-11-04T00:05:00Z")
+    plain_text = write_week(plain, datetime(2026, 11, 4, 0, 30, tzinfo=timezone.utc)).read_text(encoding="utf-8")
+    assert "## Trader tier beside" not in plain_text and "Trader tier (plan row R18)" not in plain_text
+
+
 def test_the_report_says_plainly_when_an_s5_account_runs_without_positioning_data(tmp_path):
     paths = _fleet_s5(tmp_path)
     data = build_report_data(paths, datetime(2026, 11, 4, 0, 30, tzinfo=timezone.utc))

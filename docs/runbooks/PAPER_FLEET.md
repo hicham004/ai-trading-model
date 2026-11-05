@@ -35,9 +35,17 @@ OKX prices, each as its own pretend account with 10,000 virtual USDT:
 - since plan row R16 (2026-11-04), the one configuration research round 2
   confirmed: the same volume confirmation on S1, on DOGE-USDT 4H with the
   regime gate (`c14-s1vc-doge-4h-gate`; see "A configuration confirmed by
-  research round 2" below).
+  research round 2" below),
+- since plan row R18b (2026-11-05), the five confirmed rules once more at the
+  **Trader tier** of the Trader Plan (`c15` … `c19`, each ending in `-trader`:
+  the same rule as `c11`, `c12`, `c01`, `c14` and `c13`, sized for a 20 %
+  volatility target with never more than 2 % of the account at risk on one
+  stop, with the plan's entry brakes), and the slow-trend forward control
+  "always long above the 200-day average, policy sizing" on BTC-USDT and
+  ETH-USDT 6H (`ctl-tf-btc-6h`, `ctl-tf-eth-6h`; see "A configuration at the
+  Trader tier (plan row R18)" below).
 
-24 accounts in all (20 before R12, 22 before R13, 23 before R16). Each one follows exactly the research rules — the same
+31 accounts in all (20 before R12, 22 before R13, 23 before R16, 24 before R18b). Each one follows exactly the research rules — the same
 entry rules, filters, sizing, stops, fees (0.10 %) and slippage (0.05 %) — and
 writes every decision and every pretend fill into its own journal. Once a week
 a report compares what each account did with what the backtest said it should
@@ -218,7 +226,7 @@ there. The fleet resumes from the copied state; the laptop task stays stopped
 
 ```bash
 journalctl -u paper-fleet.service -n 30 --no-pager      # VPS; option B: the PowerShell window; B2: logs\paper_fleet\console.log
-# expect "paper fleet created: …/logs/paper_fleet (24 accounts, …)" (20 on code from before plan row R12, 22 before R13, 23 before R16) and, once a 4H or 6H bar closes
+# expect "paper fleet created: …/logs/paper_fleet (31 accounts, …)" (20 on code from before plan row R12, 22 before R13, 23 before R16, 24 before R18b) and, once a 4H or 6H bar closes
 # (00, 04, 08, 12, 16, 20 h UTC), a line "cycle N: bars {…} …"
 .venv/bin/python scripts/run_paper_fleet.py --status
 # every account with its equity (10,000.00 at the start), "flat"/"long", data "fresh"; since plan row R17 also one line
@@ -259,6 +267,13 @@ Sunday, UTC), rewritten every hour during the week ("week to date") and marked
   - *Trade count*: about as many trades as the backtest made per year?
   - *Holdout pace*: the return range built from the untouched last 12 months of
     the research, where there is one.
+- **Trader tier beside the Reference tier** (since plan row R18b) — each
+  Trader-tier account next to its *Reference twin* (the same rule on the same
+  market at today's 10 % policy, so the difference between the two lines is
+  the budget alone) and that market's controls: return, worst fall, average
+  money invested, the money at risk per trade (mean and largest since the
+  start) and every brake that acted, with the research's backtest expectation
+  under it. Its research: `docs/research/TRADER_POLICY_V1_REPORT.md`.
 - **Allocator v2** — the allocator-v2 account next to *v1 on the same
   sleeves* (the old rules booked inside the same journal, so the difference is
   the brakes alone) and the v1 portfolio account; every brake that acted (on
@@ -463,6 +478,51 @@ Get-Content C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\console.log
 C:\Users\Admin\Desktop\ai-trading-fleet\.venv\Scripts\python.exe C:\Users\Admin\Desktop\ai-trading-fleet\scripts\run_paper_fleet.py --status
 # a line "positioning data (S5 filter, ...)" with a funding and an open-interest time for SOL-USDT-SWAP and DOGE-USDT-SWAP, and after the
 # next 6H bar closes (00, 06, 12, 18 h UTC) "S5 data current" under c11-s1s5-sol-6h-none
+```
+
+### A configuration at the Trader tier (plan row R18)
+
+The Trader Plan (`docs/TRADER_PLAN_2026-11-05.md`, section 4) fixes three risk budgets. Every
+account above runs the **Reference** budget: today's 10 % volatility target with the drawdown
+ladder that halves open positions at −5 % and sells them at −10 %. The **Trader** budget is a
+20 % volatility target, capped so that no single stop can cost more than 2 % of the account
+(the size is read from the trade's own stop distance at the decision close), with the plan's
+brakes on new entries only: the Turtle ladder (size × 0.8 once the account is 10 % below its
+equity peak, × 0.64 at 20 %, full size again on a new high), the hard stop (no new entry after
+a 30 % fall from the peak until the account's 180-day window restarts), at most one entry a day
+and none on the bar after an exit, and the 24-hour (3 %), weekly (6 %) and monthly (10 %) loss
+limits; a brake never closes or reduces an open position. The Trader Policy v1 study
+(`docs/research/TRADER_POLICY_V1_REPORT.md`, plan row R18) re-judged the five confirmed rules at
+that budget under the plan's section 4.6 gates and the untouched 12 months; all five passed.
+
+**What joined (2026-11-05):** five NEW accounts, each the same rule as an existing account on the
+same market, sized at the Trader budget with the brakes on (`c15-s1s5-sol-6h-none-trader` beside
+`c11`, `c16-s1-sol-6h-none-trader` beside `c12`, `c17-s1s5-btc-6h-none-trader` beside `c01`,
+`c18-s1vc-doge-4h-gate-trader` beside `c14`, `c19-s1vc-btc-4h-gate-trader` beside `c13`), and the
+slow-trend forward control "always long above the 200-day average, policy sizing" on BTC-USDT 6H
+and ETH-USDT 6H (`ctl-tf-btc-6h`, `ctl-tf-eth-6h`, at the Reference budget, never judged: the
+yardstick the R16 decision asked for). The existing accounts are untouched: the Reference
+accounts keep running as they are, so the weekly report can put each Trader account beside its
+Reference twin and the difference is the budget alone. The fleet now loads 31 accounts. The rows
+reached the shortlist through the study's own results file: the loader accepts a tier-tagged row
+only when the study's record of that exact cell (Trader tier, brakes on, no variant) is clean and
+says what the row says; a row it cannot reconcile is put back and the report says so (the R12
+rule). The fleet's bar-by-bar engine carries the brakes as a transcription of the research's,
+parity-tested bar for bar; every entry in a journal now records the money at risk at its initial
+stop, and every brake that cuts or blocks an entry is an event in that account's journal.
+
+**What you do:** the update-and-restart step ("Updating the fleet's code" above: the STOP file,
+`git pull` in the fleet checkout, `--dry-run` — which must now list 31 accounts and end with
+every line `check: … ok` — then start the task), once `plan/auto` carries this row. The seven new
+accounts start flat with 10,000 virtual USDT at the first bar that closes after that restart;
+the 24 running accounts resume in their folder (their fingerprints are unchanged, pinned in
+`tests/test_paper_fleet_config.py`). Their first verdicts come 30 days later; the Trader tier
+earns its place only if, forward, it beats its Reference twin on return per unit of drawdown,
+not on return alone, and the owner decides the budget at plan row G7, never the fleet. Check:
+
+```powershell
+C:\Users\Admin\Desktop\ai-trading-fleet\.venv\Scripts\python.exe C:\Users\Admin\Desktop\ai-trading-fleet\scripts\run_paper_fleet.py --status
+# 31 accounts; under each -trader account a "tier" and its brakes (Turtle multiplier 1.0, halted False at the start)
 ```
 
 ## Troubleshooting

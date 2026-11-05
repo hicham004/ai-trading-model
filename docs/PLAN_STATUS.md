@@ -288,6 +288,20 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   accounts joined at cycle 480), and the restart's `resume` record in `fleet.jsonl` gives the exact
   cycle at which the fix took effect. No rule, fingerprint or gate changed; the app's allowlists are
   untouched.
+- From R18b (nothing to decide): the seven recorded rows are now in the shortlist (`c15`-`c19`, the five
+  confirmed rules at the Trader tier with the brakes on, beside their Reference twins `c11`, `c12`, `c01`,
+  `c14`, `c13`; `ctl-tf-btc-6h` and `ctl-tf-eth-6h`, the slow-trend forward control), the fleet loads 31
+  accounts and the offline dry run passes; the 24 running accounts' fingerprints are unchanged (pinned).
+  The laptop fleet takes the seven only at the next update-and-restart of its checkout
+  (`docs/runbooks/PAPER_FLEET.md`, "A configuration at the Trader tier (plan row R18)"). Recommendation:
+  do that restart once `plan/auto` carries this row, together with R17's; the Trader accounts' first
+  verdicts come 30 days later, and the budget stays your decision at G7.
+- From R18b, for information: the Trader-tier accounts run the Reference accounts' rules at about twice
+  the size (in the dry run `c19` took the same BTC 4H trade as `c13` with 53 % of equity against 27 %,
+  1.1 % of equity at risk against 0.6 %), so their forward returns and drawdowns will be about twice the
+  twins' by construction; read them on return per unit of drawdown, as the weekly report says. The
+  Aggressive tier is in no account: adding it would need the study to record its rows first (a new
+  research row), not a fleet change. Recommendation: no Aggressive account; decide the tier at G7.
 
 ### Decided — the owner, 2026-11-05
 

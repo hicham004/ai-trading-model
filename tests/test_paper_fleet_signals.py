@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 
 import numpy as np
@@ -92,7 +93,11 @@ def _research_expected(df, ctx, spec: SleeveSpec, active_from: pd.Timestamp):
         ok = entry_gate_mask(bear, spec.regime).to_numpy(dtype=bool)
         desired[lo:] = gate_desired_matrix(frames.desired[lo:, :1], ok)[:, 0]
         desired[:lo] = False
-    fractions = fraction_series(df, spec.sizing, TF, PPY).to_numpy() if spec.sizing is not None else np.ones(len(df))
+    if spec.sizing is None:
+        fractions = np.ones(len(df))
+    else:  # a stop-aware tier (plan row R18) reads the rule's stop column, as research.sizing.rule_fraction_matrix does in the walk-forward
+        stop_col = frames.stop[:, 0] if spec.sizing.needs_stop else None
+        fractions = fraction_series(df, spec.sizing, TF, PPY, stop_distance=stop_col).to_numpy()
     target = frames.target[:, 0] if frames.target is not None else np.full(len(df), np.nan)
     return frames, desired, frames.stop[:, 0], target, fractions
 
@@ -216,3 +221,87 @@ def test_buy_and_hold_and_the_adapter_no_stop_option(market):
     without = ResearchStrategyAdapter(hold, {}, ctx, no_trade=None, fallback_stop_pct=None).generate_signals(candles)
     assert all(s.stop_loss == pytest.approx(c.close * 0.97) for s, c in zip(with_fallback, candles))  # unchanged default
     assert all(s.action.value == "long" and s.stop_loss is None for s in without)
+
+
+# -- plan row R18b: the Trader tier through the contract -----------------------------------------------------------------
+
+import dataclasses  # noqa: E402
+
+from research.brakes import TRADER_BRAKES  # noqa: E402
+from research.sizing import SIZING_TIERS, rule_fraction_matrix  # noqa: E402
+
+TRADER = SIZING_TIERS["trader"]
+
+
+@pytest.mark.parametrize("case", [CASES[0], CASES[1]], ids=["S1+S5-none", "S2-gate"])
+def test_a_trader_tier_sleeve_sizes_from_the_contract_stop_exactly_like_the_research(market, case):
+    """The per-trade cap reads the stop the contract signal carries: on every bar the rule is long the fraction is the research's
+    (``fraction_series`` with the rule's stop column); on a flat bar, where the engine never reads it, it is the uncapped fraction."""
+    df, ctx = market
+    candidate, params, mode = case
+    regime = RegimeV2Config(mode=mode, vol_window_days=7.0)
+    spec = SleeveSpec(candidate, "BTC-USDT", TF, params, regime, TRADER, 0.25, TRADER_BRAKES)
+    assert spec.ladder() is None and spec.sizing.needs_stop and "brakes" in spec.to_dict() and "label" not in spec.to_dict()["brakes"]
+    cfg = engine_config(spec, costs=COSTS, init_cash=10_000.0)
+    assert cfg.brakes == TRADER_BRAKES and cfg.bars_per_day == 6 and cfg.ladder is None and cfg.sized
+    fit = fit_series(df, "BTC-USDT", TF, df.index[1000], regime) if regime.active else None
+    frames, desired, stop, target, _ = _research_expected(df, ctx, spec, df.index[1000])
+    capped = rule_fraction_matrix(df, TRADER, frames.stop[:, :1], TF, PPY)[:, 0]
+    uncapped = fraction_series(df, dataclasses.replace(TRADER, risk_cap=None), TF, PPY).to_numpy()
+    longs = binds = 0
+    for t in range(1000, len(df), 5):
+        info = decide_sleeve(spec, df.iloc[: t + 1], ctx, regime_fit=fit, window_days=10_000)
+        d, size = info.decision, info.diagnostics["size"]
+        if info.signal["action"] == "long":
+            longs += 1
+            np.testing.assert_allclose(d.fraction, capped[t], rtol=1e-12, equal_nan=True)
+            assert size["risk_cap"] == 0.02 and size["stop_pct"] == pytest.approx(stop[t] / df["close"].iloc[t])
+            if np.isfinite(d.fraction):
+                assert size["risk_pct_if_stopped"] <= 0.02 + 1e-9  # the cap: a stop never costs more than 2 % of equity by design
+                binds += bool(size["cap_binds"])
+                assert size["cap_binds"] == (uncapped[t] > capped[t] + 1e-12)
+        else:
+            np.testing.assert_allclose(d.fraction, uncapped[t], rtol=1e-12, equal_nan=True)
+            assert size["cap_allocation"] is None and size["risk_pct_if_stopped"] is None
+        assert d.desired == bool(desired[t])
+    assert longs > 5 and binds > 0  # the case really exercises the cap
+
+
+@pytest.mark.parametrize("case", [CASES[0], CASES[6]], ids=["S1+S5-none", "S2d-gate-time30"])
+def test_a_trader_tier_sleeve_runs_exactly_like_the_research_engine_with_brakes(case):
+    """Contract decisions + regime gate + the Trader tier's capped fraction + rebalancing + the brakes + the bracket, bar by bar,
+    against the research engine (``simulate_sizing`` with the same frames, fraction matrix and brakes)."""
+    from research.paper_fleet.engine import SleeveState
+
+    candidate, params, mode = case
+    df = synthetic_4h(seed=7)
+    ctx = positioning(df)
+    regime = RegimeV2Config(mode=mode, vol_window_days=7.0)
+    spec = SleeveSpec(candidate, "BTC-USDT", TF, params, regime, TRADER, 0.25, TRADER_BRAKES)
+    a, b = 1000, 1200
+    fit = fit_series(df, "BTC-USDT", TF, df.index[a], regime) if regime.active else None
+    frames, desired, stop, target, _ = _research_expected(df, ctx, spec, df.index[a])
+    fractions = rule_fraction_matrix(df, TRADER, frames.stop[:, :1], TF, PPY)
+    gated = Frames(desired=desired[:, None], stop=frames.stop, strength=frames.strength, time_stops=frames.time_stops, target=frames.target,
+                   trail_activate=frames.trail_activate, trail_dist=frames.trail_dist)
+    res = simulate_sizing(df, gated, 0, slice(a, b), fractions, costs=COSTS, rebalance_threshold=0.25, brakes=TRADER_BRAKES)
+    assert len(res.trades) >= 2 and sum(int(v[0]) for v in res.brakes["counts"].values()) > 0  # trades, and a brake that acted
+    cfg = engine_config(spec, costs=COSTS, init_cash=10_000.0)
+    engine = SleeveEngine(cfg)
+    equity, exits, entries = [], [], []
+    for t in range(a, b):
+        info = decide_sleeve(spec, df.iloc[: t + 1], ctx, regime_fit=fit, window_days=10_000)
+        row = df.iloc[t]
+        out = engine.step(info.decision.bar_time, row["open"], row["high"], row["low"], row["close"], info.decision)
+        engine = SleeveEngine(cfg, SleeveState.from_dict(json.loads(json.dumps(engine.state.to_dict(), allow_nan=False))))  # a restart every bar
+        equity.append(out.equity)
+        exits += [e for e in out.events if e["kind"] == "exit"]
+        entries += [e for e in out.events if e["kind"] == "entry"]
+    np.testing.assert_allclose(np.array(equity)[:-1], res.equity[:-1, 0], rtol=0, atol=1e-6)
+    closed = res.trades[res.trades["exit_reason"] != "end_of_data"]
+    assert [e["reason"] for e in exits] == list(closed["exit_reason"])
+    for ev, pnl in zip(exits, closed["pnl"]):
+        assert ev["pnl"] == pytest.approx(pnl, abs=1e-6)
+    for ev, risk in zip(entries, res.trades["risk_pct"]):
+        assert ev["risk_pct"] == pytest.approx(risk, abs=1e-9) and ev["risk_pct"] <= 0.02 * 1.02  # the cap, give or take the open's gap and the fee
+    assert engine.state.brakes.counts == {k: int(v[0]) for k, v in res.brakes["counts"].items()}

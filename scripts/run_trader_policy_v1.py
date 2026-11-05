@@ -19,6 +19,11 @@ Example::
     python scripts/run_trader_policy_v1.py --evaluate-holdout --workers 12
     python scripts/run_trader_policy_v1.py --quick --runs C1 H2 --cells "reference|nobrakes|none" "trader|brakes|none" --skip-reproduction --report - --json - --holdout-ledger -
     python scripts/run_trader_policy_v1.py --render-from-json docs/research/trader_policy_v1_results.json
+    python scripts/run_trader_policy_v1.py --apply-shortlist-from-json docs/research/trader_policy_v1_results.json   # plan row R18b
+
+``--apply-shortlist-from-json`` (plan row R18b) appends the rows the study recorded (``shortlist_additions``) to the paper fleet's
+shortlist through ``research.replication.append_to_shortlist`` and then proves the fleet can load the amended file; if it cannot,
+the file is restored untouched and the note says so (the R12 rule). No re-run, no new holdout look.
 
 Nothing here can reach an order or an account; results never authorize trading.
 """
@@ -89,6 +94,7 @@ from research.trader_policy_study import (  # noqa: E402
 DEFAULT_REPORT = "docs/research/TRADER_POLICY_V1_REPORT.md"
 DEFAULT_JSON = "docs/research/trader_policy_v1_results.json"
 DEFAULT_LEDGER = "docs/research/trader_policy_v1_holdout_ledger.json"
+DEFAULT_SHORTLIST = "docs/research/paper_fleet_shortlist_v1c.json"
 ALL_CELL_KEYS = [c.key for c in CORE_CELLS + VARIANT_CELLS]
 
 
@@ -119,7 +125,46 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--json", default=DEFAULT_JSON, help="'-' = do not write")
     p.add_argument("--holdout-ledger", default=DEFAULT_LEDGER, help="Append-only record of every holdout opening ('-' = none; refused with --evaluate-holdout).")
     p.add_argument("--render-from-json", default=None, metavar="PATH", help="Re-render the report from a saved results JSON.")
+    p.add_argument("--shortlist", default=DEFAULT_SHORTLIST, help="The paper fleet's shortlist the recorded rows are appended to ('-' = do not touch).")
+    p.add_argument("--apply-shortlist-from-json", default=None, metavar="PATH",
+                   help="Plan row R18b: apply the shortlist additions recorded in a saved results JSON (no re-run, no new holdout look), then re-render the report.")
     return p.parse_args(argv)
+
+
+def _apply_shortlist_additions(path: Path, additions: List[Dict[str, Any]]) -> str:
+    """Append the recorded rows, then prove the paper fleet can still load its manifest; otherwise restore the file untouched (the R12 rule)."""
+    from research.paper_fleet.config import load_manifest
+    from research.replication import append_to_shortlist
+
+    original = path.read_text(encoding="utf-8")
+    data = append_to_shortlist(path, additions, note="plan row R18b: the Trader Policy v1 study's fleet rows (the Trader-tier passers, section 4.6 "
+                                                     "gates and holdout confirmed, with the brakes on; the slow-trend forward control at the Reference sizing)")
+    try:
+        manifest = load_manifest(path)
+    except Exception as exc:  # the fleet cannot read the amended file: put the original back, report, never break the fleet
+        path.write_text(original, encoding="utf-8")
+        return f"NOT applied — the paper fleet cannot load the amended shortlist ({type(exc).__name__}: {exc}); the file was restored; the rows above stay recorded only"
+    return (f"applied: {path.as_posix()} now lists {len(data.get('configurations', []))} configurations and {len(data.get('controls', []))} controls "
+            f"({len(manifest.accounts)} fleet accounts); a running fleet takes the new accounts at its next restart from an updated checkout")
+
+
+def cmd_apply_shortlist(args: argparse.Namespace) -> int:
+    path = Path(args.apply_shortlist_from_json)
+    run = json.loads(path.read_text(encoding="utf-8"))
+    additions = run.get("shortlist_additions") or []
+    if not additions:
+        print("no shortlist additions are recorded in the results; nothing to apply")
+        return 0
+    if args.shortlist == "-":
+        print("--apply-shortlist-from-json needs a shortlist file", file=sys.stderr)
+        return 2
+    note = _apply_shortlist_additions(Path(args.shortlist), additions)
+    run["shortlist_note"] = note
+    path.write_text(json.dumps(run, separators=(",", ":")), encoding="utf-8")
+    if args.report != "-":
+        Path(args.report).write_text(_render(run), encoding="utf-8")
+    print(f"shortlist: {note}")
+    return 0 if not note.startswith("NOT applied") else 1
 
 
 def _research_lake(args: argparse.Namespace) -> LakeLayout:
@@ -193,6 +238,8 @@ def main(argv=None) -> int:
             Path(args.report).write_text(_render(run), encoding="utf-8")
             print(f"report re-rendered: {args.report}")
         return 0
+    if args.apply_shortlist_from_json:
+        return cmd_apply_shortlist(args)
     if args.preregister:
         return cmd_preregister(args)
     try:

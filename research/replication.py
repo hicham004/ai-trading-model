@@ -655,25 +655,48 @@ def shortlist_additions(series_list: Sequence[Mapping[str, Any]], *, source: Map
     return rows
 
 
+def _shortlist_key(row: Mapping[str, Any]) -> Tuple[str, str, str, Any, str]:
+    """What makes a shortlist row unique: the rule, its market and mode, and (plan row R18b) its sizing tier (a row without a tag
+    is the Reference tier, so the same rule at another tier is another row)."""
+    source = row.get("source") or {}
+    return (row["candidate"], row["instrument"], row["timeframe"], (row.get("regime_config") or {}).get("mode"), str(source.get("tier") or "reference"))
+
+
 def append_to_shortlist(path: Path, additions: Sequence[Mapping[str, Any]], *, note: str) -> Dict[str, Any]:
-    """Add rows to the fleet shortlist: existing entries and their ranks untouched, new ranks continue, an amendment is recorded."""
+    """Add rows to the fleet shortlist: existing entries and their ranks untouched, new ranks continue, an amendment is recorded.
+
+    A row whose ``source.role`` is ``control`` (plan row R18b: the slow-trend forward control) goes under ``controls`` without a
+    rank; every other row is a configuration. A row already there (same rule, market, mode and tier) is never added twice.
+    """
     path = Path(path)
     data = json.loads(path.read_text(encoding="utf-8"))
     if not additions:
         return data
     existing = list(data.get("configurations", []))
-    existing_keys = {(c["candidate"], c["instrument"], c["timeframe"], (c.get("regime_config") or {}).get("mode")) for c in existing}
+    controls = list(data.get("controls", []))
+    existing_keys = {_shortlist_key(c) for c in existing}
+    control_keys = {_shortlist_key(c) for c in controls}
     next_rank = max([int(c.get("rank") or 0) for c in existing] + [0]) + 1
     added = []
     for row in additions:
-        key = (row["candidate"], row["instrument"], row["timeframe"], (row.get("regime_config") or {}).get("mode"))
+        key = _shortlist_key(row)
+        tier = "" if key[4] == "reference" else f" @ {key[4]}"
+        if (row.get("source") or {}).get("role") == "control":
+            if key in control_keys:
+                continue
+            controls.append({k: v for k, v in row.items() if k != "rank"})
+            control_keys.add(key)
+            added.append(f"{row['candidate']} {row['instrument']} {row['timeframe']} [{key[3]}] (control)")
+            continue
         if key in existing_keys:
             continue
         new = dict(row, rank=next_rank)
         next_rank += 1
         existing.append(new)
-        added.append(f"{row['candidate']} {row['instrument']} {row['timeframe']} [{key[3]}]")
+        existing_keys.add(key)
+        added.append(f"{row['candidate']} {row['instrument']} {row['timeframe']} [{key[3]}]{tier}")
     data["configurations"] = existing
+    data["controls"] = controls
     data.setdefault("amendments", []).append({"added_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"), "note": note, "added": added})
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     return data

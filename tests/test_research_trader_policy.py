@@ -310,6 +310,47 @@ def test_shortlist_rows_name_the_tier_the_brakes_and_the_control_protocol(synthe
     assert st.TF_CONTROL_TIMEFRAMES == ("6H",)
 
 
+def test_the_cli_applies_the_recorded_rows_with_the_fleet_can_load_check_and_rolls_back_otherwise(tmp_path, capsys):
+    """Plan row R18b: ``--apply-shortlist-from-json`` appends the recorded rows through ``append_to_shortlist`` and proves the fleet can
+    load the amended file; a row the fleet refuses puts the original file back (the R12 rule). No re-run, no holdout look."""
+    import importlib.util
+
+    from research.paper_fleet.config import load_manifest
+
+    spec = importlib.util.spec_from_file_location("r18_cli_apply", ROOT / "scripts" / "run_trader_policy_v1.py")
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    committed = json.loads((ROOT / "docs" / "research" / "paper_fleet_shortlist_v1c.json").read_text(encoding="utf-8"))
+    before = dict(committed, configurations=committed["configurations"][:14], controls=committed["controls"][:8], amendments=committed["amendments"][:3])
+    recorded = json.loads((ROOT / "docs" / "research" / "trader_policy_v1_results.json").read_text(encoding="utf-8"))["shortlist_additions"]
+    assert len(recorded) == 7 and [a["source"]["role"] for a in recorded] == ["candidate"] * 5 + ["control"] * 2
+    shortlist = tmp_path / "shortlist.json"
+    shortlist.write_text(json.dumps(before, indent=2) + "\n", encoding="utf-8")
+    results = tmp_path / "results.json"
+    results.write_text(json.dumps({"shortlist_additions": recorded, "shortlist_note": None}), encoding="utf-8")
+    assert cli.main(["--apply-shortlist-from-json", str(results), "--shortlist", str(shortlist), "--report", "-"]) == 0
+    out = capsys.readouterr().out
+    assert "applied" in out and "31 fleet accounts" in out
+    after = json.loads(shortlist.read_text(encoding="utf-8"))
+    assert len(after["configurations"]) == 19 and len(after["controls"]) == 10 and after["amendments"][-1]["added"][0] == "S1+S5 SOL-USDT 6H [none] @ trader"
+    assert [c["account_id"] for c in [a.to_dict() for a in load_manifest(shortlist).accounts]][14:19] == [
+        "c15-s1s5-sol-6h-none-trader", "c16-s1-sol-6h-none-trader", "c17-s1s5-btc-6h-none-trader", "c18-s1vc-doge-4h-gate-trader", "c19-s1vc-btc-4h-gate-trader"]
+    assert "applied" in json.loads(results.read_text(encoding="utf-8"))["shortlist_note"]
+    assert cli.main(["--apply-shortlist-from-json", str(results), "--shortlist", str(shortlist), "--report", "-"]) == 0  # idempotent: nothing added twice
+    assert len(json.loads(shortlist.read_text(encoding="utf-8"))["configurations"]) == 19
+    # A tampered row (a tier the study record does not describe) is refused by the fleet: the file is restored byte for byte, exit 1.
+    original = json.dumps(before, indent=2) + "\n"
+    shortlist.write_text(original, encoding="utf-8")
+    bad = json.loads(json.dumps(recorded))
+    bad[0]["source"]["tier"] = "aggressive"
+    results.write_text(json.dumps({"shortlist_additions": bad}), encoding="utf-8")
+    assert cli.main(["--apply-shortlist-from-json", str(results), "--shortlist", str(shortlist), "--report", "-"]) == 1
+    assert shortlist.read_text(encoding="utf-8") == original and "NOT applied" in json.loads(results.read_text(encoding="utf-8"))["shortlist_note"]
+    assert cli.main(["--apply-shortlist-from-json", str(results), "--shortlist", "-", "--report", "-"]) == 2
+    results.write_text(json.dumps({"shortlist_additions": []}), encoding="utf-8")
+    assert cli.main(["--apply-shortlist-from-json", str(results), "--shortlist", str(shortlist), "--report", "-"]) == 0
+
+
 def test_ledger_is_append_only_and_second_looks_are_named(tmp_path):
     openings = [{"configuration": "S1+S5 BTC-USDT 6H [none]", "cell": "trader|brakes|none", "role": "configuration", "total_return": 0.03, "profit_factor": 1.3, "n_trades": 30, "confirmed": True},
                 {"configuration": "hold BTC-USDT 6H [none]", "cell": "reference|nobrakes|none", "role": "control", "total_return": -0.04, "profit_factor": 0.0, "n_trades": 1, "confirmed": None}]

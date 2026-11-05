@@ -34,6 +34,21 @@ against ``ensemble_v1c_results.json``, and becomes one more sleeve account.
 Existing accounts, the fleet's shared rules and their fingerprints do not
 change; the fleet fetches public data for the markets its accounts need
 (:meth:`FleetManifest.instruments`).
+
+Plan row R18b (Trader Policy v1): a ``source``-tagged row may also name a
+documented sizing tier and its brakes (``source.tier``, ``source.brakes``,
+``source.variant``, ``source.protocol_variant``, ``source.cell``). Such a row
+is matched in the study's results on the candidate / instrument / timeframe /
+mode AND the cell (``results[].cell.key``), and accepted only when the recorded
+protocol check of that cell has no unexplained mismatch, the tier named is the
+one ``research.trader_policy.tier_for`` reads from the result's sizing and
+brakes, the brakes recorded with the row are the brakes the cell ran with, no
+variant was on, and the row's sizing is the result's. It becomes a NEW account
+(its id carries the tier) whose sleeve runs that sizing and those brakes; a row
+whose ``source.role`` is ``control`` (the "always long above the 200-day
+average, policy sizing" forward control) becomes a control account. Everything
+else about the loader, every existing account and the shared rules are
+unchanged.
 """
 
 from __future__ import annotations
@@ -48,6 +63,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from research.allocator import DEFAULT_ALLOCATOR_V2, AllocatorV2Config
+from research.brakes import BrakeSpec
 from research.engine import Costs
 from research.markets import REPLICATION_CANDIDATES
 from research.regime_v2 import RegimeV2Config
@@ -93,6 +109,13 @@ ALLOCATOR_V2_NAME = ("S1+S2+S4 x BTC+ETH — allocator v2: vol target 15%, ladde
 # Candidates whose own signal frame carries exits beyond the stop (S3's time stop): the fleet takes exits only from the
 # rule's stop and the bracket, so it refuses them rather than silently dropping an exit (tested for every other candidate).
 OWN_EXIT_CANDIDATES = frozenset({"S3"})
+#: Plan row R18b: the one study whose rows may name a tier, and the sizing tier of every account without a tag.
+REFERENCE_TIER = "reference"
+TF_CONTROL_CANDIDATE = "TF"  # the "always long above the 200-day average, policy sizing" forward control (research.strategies.round2)
+# The protocol deviations a study may have recorded as explained for a row the fleet accepts: a tier replaces the policy sizing
+# by design; the fixed-rule control runs without an exit bracket and without the 20-train-trade qualification. Anything else refuses.
+_EXPLAINED_MISMATCHES_CANDIDATE = frozenset({"policy_sizing"})
+_EXPLAINED_MISMATCHES_CONTROL = frozenset({"policy_sizing", "brackets", "min_trades"})
 
 
 def _slug(text: str) -> str:
@@ -138,6 +161,7 @@ class SleeveSpec:
     regime: RegimeV2Config = RegimeV2Config(mode="none")
     sizing: Optional[SizingSpec] = None  # None = full size (100 % of cash per entry, no ladder)
     rebalance_threshold: Optional[float] = None
+    brakes: Optional[BrakeSpec] = None  # plan row R18b: a higher tier's entry brakes (None = no brake, the rules as they were)
 
     def __post_init__(self) -> None:
         get_candidate(self.candidate)  # unknown candidate -> ValueError
@@ -147,6 +171,8 @@ class SleeveSpec:
             raise ValueError(f"instrument {self.instrument!r} is not in the fleet's allowed markets ({ALLOWED_INSTRUMENTS})")
         if self.timeframe not in TIMEFRAMES:
             raise ValueError(f"timeframe {self.timeframe!r} is not in the fleet ({TIMEFRAMES})")
+        if self.brakes is not None and self.sizing is None:
+            raise ValueError("brakes belong to a sized sleeve (a tier); a full-size sleeve carries none")
 
     @property
     def bracket(self) -> str:
@@ -170,13 +196,16 @@ class SleeveSpec:
         return "S5" in self.candidate
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        out = {
             "candidate": self.candidate, "instrument": self.instrument, "timeframe": self.timeframe,
             "params": {k: (list(v) if isinstance(v, tuple) else v) for k, v in self.params.items()},
             "regime": self.regime.to_dict(), "sizing": None if self.sizing is None else self.sizing.to_dict(),
             "rebalance_threshold": self.rebalance_threshold,
             "ladder": None if self.ladder() is None else self.ladder().to_dict(),
         }
+        if self.brakes is not None:  # absent without brakes, so every existing account's rules (and fingerprint) are what they were
+            out["brakes"] = {k: v for k, v in self.brakes.to_dict().items() if k != "label"}
+        return out
 
 
 @dataclass(frozen=True)
@@ -217,6 +246,7 @@ class AccountSpec:
     timeframe: Optional[str] = None
     shortlist_rank: Optional[int] = None
     expectations: Mapping[str, Any] = field(default_factory=dict)
+    tier: Optional[str] = None  # plan row R18b: the named sizing tier of a tier-tagged row (display; the rules carry the tier itself)
 
     def __post_init__(self) -> None:
         if self.kind not in ("sleeve", "buy_and_hold", "portfolio"):
@@ -245,6 +275,8 @@ class AccountSpec:
     def to_dict(self) -> Dict[str, Any]:
         out = self.rules_dict()
         out.update({"label": self.label, "shortlist_rank": self.shortlist_rank, "expectations": self.expectations})
+        if self.tier is not None:
+            out["tier"] = self.tier
         return out
 
 
@@ -319,16 +351,67 @@ def _regime(raw: Mapping[str, Any]) -> RegimeV2Config:
 def _sizing(raw: Optional[Mapping[str, Any]]) -> Optional[SizingSpec]:
     if raw is None:
         return None
-    keys = ("kind", "fraction", "target_vol", "vol_lookback", "crash_dd", "crash_window_days", "crash_mode", "ladder", "cap")
+    # risk_cap / risk_fraction (plan row R18) appear only in a tier's sizing; a Sprint 2c row has neither and reads as it always did.
+    keys = ("kind", "fraction", "target_vol", "vol_lookback", "crash_dd", "crash_window_days", "crash_mode", "ladder", "cap", "risk_cap", "risk_fraction")
     return SizingSpec(**{k: raw[k] for k in keys if k in raw})
 
 
-def _result_for(results: Sequence[Mapping[str, Any]], candidate: str, instrument: str, timeframe: str, mode: str) -> Mapping[str, Any]:
+def _result_for(results: Sequence[Mapping[str, Any]], candidate: str, instrument: str, timeframe: str, mode: str,
+                cell: Optional[str] = None) -> Mapping[str, Any]:
+    """The one stored result of a configuration; a study with several cells per configuration (plan row R18) needs the cell named."""
     found = [r for r in results if r["candidate"] == candidate and r["instrument"] == instrument and r["timeframe"] == timeframe
-             and r["regime"]["mode"] == mode]
+             and r["regime"]["mode"] == mode and (cell is None or ((r.get("cell") or {}).get("key") == cell))]
     if len(found) != 1:
-        raise ValueError(f"expected one research result for {candidate} {instrument} {timeframe} [{mode}], found {len(found)}")
+        where = f" @ {cell}" if cell else ""
+        raise ValueError(f"expected one research result for {candidate} {instrument} {timeframe} [{mode}]{where}, found {len(found)}")
     return found[0]
+
+
+def _tier_checks(row: Mapping[str, Any], result: Mapping[str, Any], src: Mapping[str, Any]) -> Tuple[str, Optional[BrakeSpec]]:
+    """Plan row R18b: accept a tier-tagged row only when the study's own record of that cell says exactly what the row says.
+
+    Returns ``(tier, brakes)``. Refuses: a cell the study did not run; a recorded protocol check with any unexplained mismatch (or
+    an explained one the fleet does not know); a tier name that is not what the result's sizing and brakes describe
+    (``research.trader_policy.tier_for``); brakes that differ from the cell's; a variant; a sizing that is not the result's.
+    """
+    from research.trader_policy import tier_for  # imported late: the research policy module is heavier than the fleet's loader
+
+    name = f"{row['candidate']} {row['instrument']} {row['timeframe']} [{(row.get('regime_config') or {}).get('mode')}]"
+    tier = src.get("tier")
+    if not tier:
+        raise ValueError(f"{name}: a row that names a cell must name its tier")
+    cell = result.get("cell") or {}
+    if cell.get("key") != src.get("cell"):
+        raise ValueError(f"{name}: the result's cell {cell.get('key')!r} is not the row's {src.get('cell')!r}")
+    if str(src.get("variant") or "none") != "none" or str(cell.get("variant") or "none") != "none":
+        raise ValueError(f"{name}: the fleet runs the base rule only; a variant ({src.get('variant')!r} / {cell.get('variant')!r}) is refused")
+    check = result.get("protocol_check") or {}
+    unexplained = check.get("unexplained_mismatches")
+    if unexplained is None or unexplained or not check.get("ok_for_cell", False):
+        raise ValueError(f"{name}: the study's protocol check of cell {src.get('cell')!r} is not clean ({unexplained!r})")
+    allowed = _EXPLAINED_MISMATCHES_CONTROL if src.get("role") == "control" else _EXPLAINED_MISMATCHES_CANDIDATE
+    explained = set((check.get("expected_mismatches") or {}).keys())
+    if not explained <= allowed:
+        raise ValueError(f"{name}: the study explained protocol mismatches the fleet does not accept ({sorted(explained - allowed)})")
+    if src.get("role") == "control":
+        if not src.get("protocol_variant"):
+            raise ValueError(f"{name}: a control row needs its protocol variant named")
+    elif src.get("protocol_variant"):
+        raise ValueError(f"{name}: a candidate row cannot carry a protocol variant ({src.get('protocol_variant')!r})")
+    raw_brakes = src.get("brakes")
+    ran_with = (result.get("r18") or {}).get("brakes")
+    if raw_brakes != ran_with:
+        raise ValueError(f"{name}: the brakes recorded with the row are not the brakes cell {src.get('cell')!r} ran with")
+    sizing = result.get("policy_sizing")
+    if dict(row.get("sizing_config") or {}) != dict(sizing or {}):
+        raise ValueError(f"{name}: the row's sizing is not the result's policy sizing")
+    read = tier_for(sizing, raw_brakes)
+    if read != tier or cell.get("tier") != tier:
+        raise ValueError(f"{name}: the row names tier {tier!r}, but the result's sizing and brakes describe {read!r} (cell tier {cell.get('tier')!r})")
+    brakes = None if raw_brakes is None else BrakeSpec.from_dict(raw_brakes)
+    if brakes is not None and brakes.to_dict() != dict(raw_brakes):
+        raise ValueError(f"{name}: the recorded brakes do not round-trip through the fleet's brake spec")
+    return str(tier), brakes
 
 
 def _flat_results(doc: Mapping[str, Any]) -> List[Mapping[str, Any]]:
@@ -362,7 +445,7 @@ _HOLDOUT_KEYS = ("total_return", "cagr", "ann_vol", "sharpe", "max_drawdown", "c
                  "trades_per_year", "win_rate", "bars", "avg_allocation")
 
 
-def _expectations(result: Mapping[str, Any], timeframe: str) -> Dict[str, Any]:
+def _expectations(result: Mapping[str, Any], timeframe: str, *, tier: Optional[str] = None) -> Dict[str, Any]:
     from research.data import bars_per_year
 
     oos = result.get("oos") or {}
@@ -372,9 +455,27 @@ def _expectations(result: Mapping[str, Any], timeframe: str) -> Dict[str, Any]:
     wf["rolling_12m_positive_share"] = yg.get("rolling_positive_share")
     wf["worst_calendar_year_return"] = yg.get("worst_calendar_year_return")
     acc = result.get("acceptance") or {}
-    out: Dict[str, Any] = {"walk_forward": wf, "passed_walk_forward": bool(acc.get("passed")), "failed_gates": list(acc.get("failed") or [])}
+    gates = "Sprint 2c"
+    if tier is not None and tier != REFERENCE_TIER and result.get("acceptance_r18"):
+        acc = result["acceptance_r18"]  # a higher tier is judged by the plan's section 4.6 gates (drawdown / worst year at the tier's limits)
+        gates = f"section 4.6 at the {tier} tier"
+    out: Dict[str, Any] = {"walk_forward": wf, "passed_walk_forward": bool(acc.get("passed")), "failed_gates": list(acc.get("failed") or []), "gates": gates}
     hold = result.get("holdout")
     out["holdout"] = None if not hold else {k: hold.get(k) for k in _HOLDOUT_KEYS}
+    if tier is not None:
+        r18 = result.get("r18") or {}
+        trades = r18.get("trades") or {}
+        summary = r18.get("brake_summary") or {}
+        years = wf["years"] or 0.0
+        out["tier"] = {
+            "name": tier, "sizing": (result.get("policy_sizing") or {}).get("label"), "brakes": (r18.get("brakes") or {}).get("label"),
+            "risk_pct_mean": trades.get("risk_pct_mean"), "risk_pct_max": trades.get("risk_pct_max"),
+            "cap_binding_share": (r18.get("cap") or {}).get("cap_binding_share"), "expectancy_r": trades.get("expectancy_r"),
+            "payoff_ratio": trades.get("payoff_ratio"), "gap_trades": trades.get("gap_trades"),
+            "brake_counts": dict(summary.get("counts") or {}), "brake_trips": dict(summary.get("trips") or {}),
+            "brake_opportunities": summary.get("opportunities"), "brakes_per_year": None if not years else
+            {k: float(v) / years for k, v in (summary.get("counts") or {}).items()},
+        }
     return out
 
 
@@ -397,29 +498,40 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
     for row in shortlist["configurations"]:
         regime = _regime(row["regime_config"])
         src = row.get("source")
+        tier: Optional[str] = None
+        brakes: Optional[BrakeSpec] = None
         if src:
             path, pool = _source_results(src, source_docs)
             source_files[_slug(str(src.get("study") or "source"))] = path
+            if src.get("role") not in (None, "candidate"):
+                raise ValueError(f"shortlist row {row.get('rank')}: a {src.get('role')!r} row belongs under 'controls', not 'configurations'")
         else:
             pool = results
-        result = _result_for(pool, row["candidate"], row["instrument"], row["timeframe"], regime.mode)
+        result = _result_for(pool, row["candidate"], row["instrument"], row["timeframe"], regime.mode, cell=(src or {}).get("cell"))
+        if src and (src.get("cell") or src.get("tier")):
+            tier, brakes = _tier_checks(row, result, src)
         params = _params(row["params"])
         if _params(result["selected_params"]) != params or not math.isclose(float(result["oos"]["cagr"]), float(row["cagr"]), abs_tol=1e-9):
             raise ValueError(f"shortlist row {row['rank']} does not match the results file")
         sleeve = SleeveSpec(row["candidate"], row["instrument"], row["timeframe"], params, regime, _sizing(row["sizing_config"]),
-                            REBALANCE_THRESHOLD)
+                            REBALANCE_THRESHOLD, brakes)
         aid = f"c{int(row['rank']):02d}-{_slug(row['candidate'])}-{_inst(row['instrument'])}-{row['timeframe'].lower()}-{regime.mode}"
-        exp = _expectations(result, row["timeframe"])
+        if tier is not None and tier != REFERENCE_TIER:
+            aid += f"-{_slug(tier)}"  # the same rule at another tier is another account; the Reference twin keeps its id
+        exp = _expectations(result, row["timeframe"], tier=tier)
         exp["holdout_confirmed"] = row.get("holdout_confirmed")
         label = f"{row['candidate']} {row['instrument']} {row['timeframe']} ({regime.label})"
+        if tier is not None and tier != REFERENCE_TIER:
+            label += f" — {tier} tier ({sleeve.sizing.label}{', brakes on' if brakes is not None and brakes.active else ''})"
         if src:
             exp["source"] = dict(src)
             label += f" — from {src.get('study')}"
         accounts.append(AccountSpec(aid, "candidate", "sleeve", label, sleeve=sleeve, instrument=row["instrument"], timeframe=row["timeframe"],
-                                    shortlist_rank=int(row["rank"]), expectations=exp))
+                                    shortlist_rank=int(row["rank"]), expectations=exp, tier=tier))
 
     for row in shortlist["controls"]:
         inst, tf = row["instrument"], row["timeframe"]
+        src = row.get("source")
         if row["candidate"] == "hold":
             regime = _regime(row["regime_config"])
             result = _result_for(results, "hold", inst, tf, regime.mode)
@@ -427,6 +539,29 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
             accounts.append(AccountSpec(f"ctl-hold-{_inst(inst)}-{tf.lower()}", "control", "sleeve",
                                         f"control: always long, policy sizing — {inst} {tf}", sleeve=sleeve, instrument=inst,
                                         timeframe=tf, expectations=_expectations(result, tf)))
+        elif row["candidate"] == TF_CONTROL_CANDIDATE and src:
+            # Plan row R18b: the slow-trend forward control, recorded by the Trader Policy study at the Reference sizing (fixed rule).
+            if src.get("role") != "control":
+                raise ValueError(f"control {row['candidate']} {inst} {tf}: its source tag must name the control role")
+            path, pool = _source_results(src, source_docs)
+            source_files[_slug(str(src.get("study") or "source"))] = path
+            regime = _regime(row["regime_config"])
+            result = _result_for(pool, row["candidate"], inst, tf, regime.mode, cell=src.get("cell"))
+            tier, brakes = _tier_checks(row, result, src)
+            if tier != REFERENCE_TIER or brakes is not None:
+                raise ValueError(f"control {row['candidate']} {inst} {tf}: a forward control runs at the Reference sizing without brakes")
+            params = _params(row["params"])
+            if _params(result["selected_params"]) != params or not math.isclose(float(result["oos"]["cagr"]), float(row["cagr"]), abs_tol=1e-9):
+                raise ValueError(f"control {row['candidate']} {inst} {tf} does not match the results file")
+            sleeve = SleeveSpec(row["candidate"], inst, tf, params, regime, _sizing(row["sizing_config"]), REBALANCE_THRESHOLD)
+            exp = _expectations(result, tf, tier=tier)
+            exp["holdout_confirmed"] = row.get("holdout_confirmed")  # None: a control is never judged
+            exp["source"] = dict(src)
+            exp["protocol_variant"] = src.get("protocol_variant")
+            label = row.get("control_label") or "always long above the 200-day average, policy sizing (forward control)"
+            accounts.append(AccountSpec(f"ctl-{_slug(row['candidate'])}-{_inst(inst)}-{tf.lower()}", "control", "sleeve",
+                                        f"control: {label} — {inst} {tf} — from {src.get('study')}", sleeve=sleeve, instrument=inst,
+                                        timeframe=tf, expectations=exp, tier=tier))
         elif row["candidate"] == "buy_and_hold":
             wf = {k: row.get(k) for k in ("cagr", "sharpe", "calmar", "max_drawdown", "total_return")}
             accounts.append(AccountSpec(f"ctl-bh-{_inst(inst)}-{tf.lower()}", "control", "buy_and_hold",

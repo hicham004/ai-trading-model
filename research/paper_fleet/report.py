@@ -32,10 +32,20 @@ Since plan row R5b the report also has an allocator section: the allocator-v2
 account next to "v1 on the same sleeves" (booked inside its own journal, so the
 difference is the brakes alone) and the v1 portfolio account, every brake that
 acted, the allocator's state now, and the research study's expectations.
+
+Since plan row R18b a Trader-tier section puts every account that runs a rule
+at the Trader tier (the 20 % volatility target capped at 2 % of equity per
+stop, with the entry brakes) beside its Reference twin (the same rule, the same
+market, today's 10 % policy) and the controls of that market (always long with
+the policy sizing, plain buy-and-hold, and the slow-trend forward control):
+return, worst fall, average money invested, the money at risk per trade and
+every brake that acted, with the study's backtest expectation under it. The
+bands and verdicts above apply to those accounts unchanged.
 """
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -382,6 +392,78 @@ def s5_data_summary(records: Sequence[Mapping[str, Any]], *, since: Optional[pd.
             "first_incomplete": incomplete[0].get("bar") if incomplete else None, "last_incomplete": incomplete[-1].get("bar") if incomplete else None}
 
 
+def tier_activity(records: Sequence[Mapping[str, Any]], *, since: Optional[pd.Timestamp] = None,
+                  until: Optional[pd.Timestamp] = None) -> Dict[str, Any]:
+    """What a sleeve's entries risked and what its brakes did (plan row R18b), from its bar records (optionally one week of them).
+
+    Risk per trade is the entry event's ``risk_pct`` (the share of equity lost if the initial stop fills exactly, before costs and
+    gaps); brakes are the ``brake`` events (a cut or a block of one entry, by name), the ``brake_trip`` events (a limit tripped) and
+    the ``turtle_ladder`` events (the entry multiplier stepped). Journals written before R18b carry none of these: every count is 0
+    and the risk is unknown (None).
+    """
+    bars = [r for r in records if r.get("type") == "bar" and "sleeve" not in r and (since is None or _ts(r["close_time"]) > since)
+            and (until is None or _ts(r["close_time"]) <= until)]
+    risks: List[float] = []
+    cuts: Dict[str, int] = {}
+    blocks: Dict[str, int] = {}
+    trips: Dict[str, int] = {}
+    ladder_steps = 0
+    entries = blocked_entries = 0
+    for r in bars:
+        for ev in r.get("events") or []:
+            kind = ev.get("kind")
+            if kind == "entry":
+                entries += 1
+                if _f(ev.get("risk_pct")) is not None:
+                    risks.append(float(ev["risk_pct"]))
+            elif kind == "brake":
+                for name in ev.get("cuts") or {}:
+                    cuts[name] = cuts.get(name, 0) + 1
+                for name in ev.get("blocked_by") or []:
+                    blocks[name] = blocks.get(name, 0) + 1
+                if ev.get("blocked_by"):
+                    blocked_entries += 1
+            elif kind == "brake_trip":
+                trips[str(ev.get("brake"))] = trips.get(str(ev.get("brake")), 0) + 1
+            elif kind == "turtle_ladder":
+                ladder_steps += 1
+    last = next((r.get("brakes") for r in reversed(bars) if r.get("brakes")), None)
+    return {"bars": len(bars), "entries": entries, "risk_pct_mean": float(np.mean(risks)) if risks else None,
+            "risk_pct_max": float(np.max(risks)) if risks else None, "risk_pct_last": risks[-1] if risks else None,
+            "cuts": cuts, "blocks": blocks, "blocked_entries": blocked_entries, "trips": trips, "ladder_steps": ladder_steps, "last": last}
+
+
+def _rule_key(account: Mapping[str, Any]) -> Tuple[Any, ...]:
+    """The rule an account runs, without its sizing: candidate, market, bars, regime mode and parameters (plan row R18b twins)."""
+    sleeve = account.get("sleeve") or {}
+    return (sleeve.get("candidate"), account.get("instrument"), account.get("timeframe"), (sleeve.get("regime") or {}).get("mode"),
+            json.dumps(sleeve.get("params"), sort_keys=True, default=str))
+
+
+def _is_tier(account: Mapping[str, Any]) -> bool:
+    return account.get("kind") == "sleeve" and account.get("tier") not in (None, "reference")
+
+
+def tier_pairs(rows: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """Each Trader-tier account with its Reference twin (same rule, same market, no tier) and that market's controls."""
+    out: List[Dict[str, Any]] = []
+    by_rule: Dict[Tuple[Any, ...], List[Mapping[str, Any]]] = {}
+    for r in rows:
+        if r["account"].get("kind") == "sleeve" and r["account"].get("role") == "candidate":
+            by_rule.setdefault(_rule_key(r["account"]), []).append(r)
+    ctl = {(r["account"].get("instrument"), r["account"].get("timeframe"), ((r["account"].get("sleeve") or {}).get("candidate") or r["account"].get("kind")))
+           : r for r in rows if r["account"].get("role") == "control"}
+    for r in rows:
+        acc = r["account"]
+        if not _is_tier(acc) or acc.get("role") != "candidate":
+            continue
+        twin = next((t for t in by_rule.get(_rule_key(acc), []) if t is not r and not _is_tier(t["account"])), None)
+        key = (acc.get("instrument"), acc.get("timeframe"))
+        out.append({"row": r, "twin": twin, "hold": ctl.get(key + ("hold",)), "buy_and_hold": ctl.get(key + ("buy_and_hold",)),
+                    "tf": ctl.get(key + ("TF",))})
+    return out
+
+
 def load_journals(paths: FleetPaths, account_ids: Iterable[str]) -> Dict[str, List[Dict[str, Any]]]:
     return {aid: list(Journal(paths.journal(aid)).read()) for aid in account_ids}
 
@@ -430,6 +512,8 @@ def build_report_data(paths: FleetPaths, now: datetime, *, year: Optional[int] =
                                 "this_week": allocator_activity(recs, since=w_start, until=until)}
         if acc["kind"] == "sleeve" and "S5" in str((acc.get("sleeve") or {}).get("candidate") or ""):
             row["s5_data"] = s5_data_summary(recs, since=w_start, until=until, source=str(state.get("positioning_source") or "okx"))
+        if acc["kind"] == "sleeve":  # plan row R18b: the money at risk per trade (every sleeve) and the brakes (tier accounts)
+            row["tier_activity"] = {"since_start": tier_activity(recs, until=until), "this_week": tier_activity(recs, since=w_start, until=until)}
         rows.append(row)
     controls = {(r["account"]["instrument"], r["account"]["timeframe"]): r for r in rows
                 if r["account"]["role"] == "control" and (r["account"].get("sleeve") or {}).get("candidate") == "hold"}
@@ -495,12 +579,21 @@ def render(data: Mapping[str, Any]) -> str:
     lines.append(f"- The fleet has run forward for **{days:.1f} days** with {len(rows)} paper accounts: {len(others) - n_pf} "
                  f"shortlisted configurations, {portfolios} and {n_ctl} control{'' if n_ctl == 1 else 's'}. Public data "
                  f"{'is STALE (no fresh candles)' if health.get('stale') else 'is fresh'} as of the last cycle ({state.get('last_cycle')}).")
-    hold_ctl = [r for r in ctl_rows if r["account"]["kind"] == "sleeve"]
+    hold_ctl = [r for r in ctl_rows if r["account"]["kind"] == "sleeve" and (r["account"].get("sleeve") or {}).get("candidate") == "hold"]
+    tf_ctl = [r for r in ctl_rows if r["account"]["kind"] == "sleeve" and (r["account"].get("sleeve") or {}).get("candidate") == "TF"]
     bh_ctl = [r for r in ctl_rows if r["account"]["kind"] == "buy_and_hold"]
     if hold_ctl:
         lines.append("- Controls: always long with the policy sizing made " + ", ".join(
             f"{_pct(r['metrics'].total_return)} ({r['account']['instrument']} {r['account']['timeframe']})" for r in hold_ctl)
-            + "; plain buy-and-hold made " + ", ".join(f"{_pct(r['metrics'].total_return)} ({r['account']['instrument']} {r['account']['timeframe']})" for r in bh_ctl) + ".")
+            + "; plain buy-and-hold made " + ", ".join(f"{_pct(r['metrics'].total_return)} ({r['account']['instrument']} {r['account']['timeframe']})" for r in bh_ctl)
+            + ("; long only above the 200-day average (policy sizing) made " + ", ".join(
+                f"{_pct(r['metrics'].total_return)} ({r['account']['instrument']} {r['account']['timeframe']})" for r in tf_ctl) if tf_ctl else "") + ".")
+    pairs = tier_pairs(rows)
+    if pairs:
+        lines.append(f"- Trader tier (plan row R18): {len(pairs)} account{'' if len(pairs) == 1 else 's'} run a confirmed rule at the Trader budget "
+                     "beside the same rule at today's Reference budget — see \"Trader tier beside the Reference tier\" below; "
+                     + ", ".join(f"`{p['row']['account']['account_id']}` {_pct(p['row']['metrics'].total_return)}"
+                                 + (f" against `{p['twin']['account']['account_id']}` {_pct(p['twin']['metrics'].total_return)}" if p["twin"] else "") for p in pairs) + ".")
     can_rank = days >= MIN_DAYS_FOR_VERDICT
     if can_rank:
         ranked = sorted([r for r in others if r["metrics"].sharpe is not None], key=lambda r: (r["metrics"].sharpe, r["metrics"].total_return), reverse=True)
@@ -573,6 +666,8 @@ def render(data: Mapping[str, Any]) -> str:
     lines.append("")
     lines.append("Configurations (shortlist rank → account): " + "; ".join(f"`{r['account']['account_id']}` = {r['account']['label']}" for r in others) + ".")
     lines.append("")
+    if pairs:
+        lines.extend(_tier_section(pairs))
     for v2, twin in _allocator_pairs(rows):
         lines.extend(_allocator_section(v2, twin))
     # -- this week
@@ -697,6 +792,89 @@ def _whole(v: Any) -> str:
 
 def _times(n: int) -> str:
     return "never" if n == 0 else ("once" if n == 1 else f"{n} times")
+
+
+_BRAKE_WORDS = {"ladder": "Turtle ladder cut", "hard_stop": "hard stop blocked", "entry_cap_market_day": "one-entry-a-day cap blocked",
+                "entry_after_exit": "no-entry-after-an-exit blocked", "daily_loss": "24-hour loss limit blocked", "weekly_loss": "weekly loss limit blocked",
+                "monthly_loss": "monthly loss limit blocked", "heat_cap": "heat cap cut"}
+_TRIP_WORDS = {"hard_stop": "the hard stop (-30 %)", "daily_loss": "the 24-hour loss limit", "weekly_loss": "the weekly loss limit", "monthly_loss": "the monthly loss limit"}
+
+
+def _brake_words(cuts: Mapping[str, int], blocks: Mapping[str, int]) -> str:
+    parts = [f"{_BRAKE_WORDS.get(k, k)} {_times(int(n))}" for k, n in sorted(cuts.items()) if n] + \
+            [f"{_BRAKE_WORDS.get(k, k)} {_times(int(n))}" for k, n in sorted(blocks.items()) if n]
+    return "; ".join(parts) if parts else "none acted"
+
+
+def _tier_line(label: str, r: Optional[Mapping[str, Any]], *, tier_text: str) -> Optional[str]:
+    if r is None:
+        return None
+    m, acc = r["metrics"], r["account"]
+    act = (r.get("tier_activity") or {}).get("since_start") or {}
+    risk = "-" if act.get("risk_pct_mean") is None else f"{_pct(act['risk_pct_mean'], False)} / {_pct(act.get('risk_pct_max'), False)}"
+    brakes = _brake_words(act.get("cuts") or {}, act.get("blocks") or {}) if _is_tier(acc) else "-"
+    return (f"| {label} | `{acc['account_id']}` | {tier_text} | {m.days:.0f} | {_pct(m.total_return)} | {_pct(m.max_drawdown, False)} | {_sharpe_text(m)} | "
+            f"{_pct(m.avg_allocation, False)} | {m.entries} | {risk} | {brakes} | {r['verdicts']['status']} |")
+
+
+def _tier_section(pairs: Sequence[Mapping[str, Any]]) -> List[str]:
+    lines = ["## Trader tier beside the Reference tier (plan row R18)", ""]
+    first = pairs[0]["row"]["account"]
+    sizing = ((first.get("sleeve") or {}).get("sizing") or {}).get("label") or "the Trader tier's sizing"
+    lines.append(f"The accounts below run a confirmed rule at the **Trader** budget of `docs/TRADER_PLAN_2026-11-05.md` (section 4.1): "
+                 f"`{sizing}` — a 20 % volatility target instead of today's 10 %, never more than 2 % of the account at risk on one stop, the same crash "
+                 "de-risking — with the section 4.3 brakes on new entries only (the Turtle ladder: size × 0.8 at −10 % from the equity peak and × 0.64 at "
+                 "−20 % until a new high; the hard stop: no new entry after −30 % until the 180-day window restarts; at most one entry a day and none on "
+                 "the bar after an exit; the 24-hour, weekly and monthly loss limits; the heat cap). Each sits beside its **Reference twin**: the same "
+                 "rule on the same market at today's policy (`vt10/30 crash15/90dh ladder`), so the difference between the two lines is the budget "
+                 "alone, and beside that market's controls. *Risk per trade* is the share of the account a trade would have lost had its initial stop "
+                 "filled exactly (mean / largest since the start; the cap is set at the decision close, so the next open's gap and the entry fee move "
+                 "it a little above or below 2 %); *brakes* counts every entry a brake cut or blocked. Their research: "
+                 "`docs/research/TRADER_POLICY_V1_REPORT.md`.")
+    lines.append("")
+    lines.append("| Rule | Account | Tier | Days | Return | Max DD | Sharpe | Avg invested | Entries | Risk per trade | Brakes acted | Status |")
+    lines.append("|---|---|---|---:|---:|---:|---:|---:|---:|---|---|---|")
+    for p in pairs:
+        r, acc = p["row"], p["row"]["account"]
+        rule = f"{(acc.get('sleeve') or {}).get('candidate')} {acc.get('instrument')} {acc.get('timeframe')}"
+        for label, row, text in ((rule, r, str(acc.get("tier"))), ("Reference twin", p["twin"], "reference"),
+                                 ("always long, policy sizing", p["hold"], "reference"), ("plain buy-and-hold", p["buy_and_hold"], "all in"),
+                                 ("long above the 200-day average, policy sizing", p["tf"], "reference")):
+            line = _tier_line(label, row, tier_text=text)
+            if line:
+                lines.append(line)
+    lines.append("")
+    for p in pairs:
+        r, acc = p["row"], p["row"]["account"]
+        act = (r.get("tier_activity") or {}).get("since_start") or {}
+        week = (r.get("tier_activity") or {}).get("this_week") or {}
+        exp = (acc.get("expectations") or {}).get("tier") or {}
+        last = act.get("last") or {}
+        trips = act.get("trips") or {}
+        now = []
+        if last:
+            mult = _f(last.get("turtle_multiplier"))
+            now.append(f"Turtle multiplier {_num(mult)}" + (" (full size)" if mult == 1.0 else ""))
+            if last.get("halted"):
+                now.append("**halted by the hard stop until its window restarts**")
+            for key, word in (("week_blocked", "weekly loss limit blocking entries this week"), ("month_blocked", "monthly loss limit blocking entries this month")):
+                if last.get(key):
+                    now.append(word)
+        lines.append(f"- **`{acc['account_id']}`** since its start ({act.get('bars', 0)} bars, {act.get('entries', 0)} entries): {_brake_words(act.get('cuts') or {}, act.get('blocks') or {})}"
+                     + (f"; limits tripped: " + ", ".join(f"{_TRIP_WORDS.get(k, k)} {_times(int(n))}" for k, n in sorted(trips.items()) if n) if any(trips.values()) else "; no limit tripped")
+                     + (f"; this week: {_brake_words(week.get('cuts') or {}, week.get('blocks') or {})}" if week.get("bars") else "")
+                     + (f". Now: {', '.join(now)}." if now else "."))
+        if exp:
+            per_year = exp.get("brakes_per_year") or {}
+            expected = "; ".join(f"{_BRAKE_WORDS.get(k, k)} {float(v):.1f} a year" for k, v in sorted(per_year.items()) if float(v) > 0) or "no brake acted"
+            lines.append(f"  Backtest expectation (walk-forward at this tier): risk per trade {_pct(_f(exp.get('risk_pct_mean')), False)} on average, "
+                         f"{_pct(_f(exp.get('risk_pct_max')), False)} at most; the 2 % cap was the binding limit on {_pct(_f(exp.get('cap_binding_share')), False)} of entries; "
+                         f"expectancy {_num(_f(exp.get('expectancy_r')))} R per trade; brakes: {expected}.")
+    lines.append("- **How to read it:** the Trader tier earns its place only if, forward, it beats its Reference twin on return per unit of drawdown, not on "
+                 "return alone (a bigger budget earns more in a good stretch by construction). Nothing here moves any account to demo or live; the "
+                 "owner decides the budget at plan row G7 with 60+ days of this record.")
+    lines.append("")
+    return lines
 
 
 def _allocator_section(row: Mapping[str, Any], twin: Optional[Mapping[str, Any]]) -> List[str]:

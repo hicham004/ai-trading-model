@@ -142,3 +142,35 @@ def test_status_says_plainly_when_an_s5_account_runs_without_positioning_data(cl
     assert cli.main(["--status", "--fleet-dir", str(tmp_path)], env={}) == 0
     before = capsys.readouterr().out
     assert "positioning data (S5 filter" not in before and "S5 running" not in before and "c11-s1s5-sol-6h-none" in before
+
+
+def test_status_names_a_trader_tier_accounts_brakes(cli, tmp_path, capsys):
+    """Plan row R18b: under a Trader-tier account the status prints what its brakes hold (from the state alone); a Reference account prints as before."""
+    from research.paper_fleet.store import FleetPaths, write_state
+
+    paths = FleetPaths(tmp_path)
+    paths.ensure()
+    accounts = [{"account_id": "c17-s1s5-btc-6h-none-trader", "role": "candidate", "kind": "sleeve", "label": "S1+S5 BTC-USDT 6H — trader tier", "tier": "trader"},
+                {"account_id": "c01-s1s5-btc-6h-none", "role": "candidate", "kind": "sleeve", "label": "S1+S5 BTC-USDT 6H"}]
+    base = {"equity": 9_700.0, "in_pos": False, "alloc": 0.0, "last_bar_time": "2026-11-20T18:00:00Z", "trades_closed": 3, "fees_paid": 12.0, "lad_level": 0}
+    brakes = {"peak": 10_100.0, "lad_mult": 0.8, "halted": False, "bars_blocked": 2, "trips": {"hard_stop": 0, "daily_loss": 1, "weekly_loss": 0, "monthly_loss": 0}}
+    state = {"version": 2, "created_at": "2026-11-06T00:00:00Z", "last_cycle": "2026-11-21T00:00:56Z", "cycles": 100, "fingerprint": "f", "positioning_source": "okx",
+             "manifest": {"init_cash": 10_000.0, "accounts": accounts}, "series": {}, "fits": {}, "portfolios": {},
+             "accounts": {"c17-s1s5-btc-6h-none-trader": {"seq": 9, "engine": dict(base, brakes=brakes), "created_at": "2026-11-06T00:00:00Z", "retired_at": None},
+                          "c01-s1s5-btc-6h-none": {"seq": 9, "engine": dict(base), "created_at": "2026-11-06T00:00:00Z", "retired_at": None}},
+             "health": {"stale": False, "newest_candle": {"BTC-USDT": "2026-11-21T00:00:00Z"}, "last_errors": []}}
+    write_state(paths.state_file, state)
+    assert cli.main(["--status", "--fleet-dir", str(tmp_path)], env={}) == 0
+    lines = capsys.readouterr().out.splitlines()
+    i = next(k for k, line in enumerate(lines) if line.strip().startswith("c17-s1s5-btc-6h-none-trader"))
+    assert lines[i + 1].strip() == "trader tier: Turtle multiplier 0.8, no hard stop, entries blocked so far 2, limits tripped daily_loss x1"
+    j = next(k for k, line in enumerate(lines) if line.strip().startswith("c01-s1s5-btc-6h-none"))
+    assert j == len(lines) - 1 or "tier:" not in lines[j + 1]
+    state["accounts"]["c17-s1s5-btc-6h-none-trader"]["engine"]["brakes"].update(halted=True, trips={"hard_stop": 1})
+    write_state(paths.state_file, state)
+    assert cli.main(["--status", "--fleet-dir", str(tmp_path), "--json"], env={}) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["accounts"]["c17-s1s5-btc-6h-none-trader"]["brakes"] == {"turtle_multiplier": 0.8, "halted": True, "entries_blocked_so_far": 2, "trips": {"hard_stop": 1}}
+    assert payload["accounts"]["c17-s1s5-btc-6h-none-trader"]["tier"] == "trader" and "brakes" not in payload["accounts"]["c01-s1s5-btc-6h-none"]
+    assert cli.main(["--status", "--fleet-dir", str(tmp_path)], env={}) == 0
+    assert "HALTED by the hard stop until its window restarts" in capsys.readouterr().out

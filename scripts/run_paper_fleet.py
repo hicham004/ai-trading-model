@@ -197,6 +197,14 @@ def cmd_status(args: argparse.Namespace, env: Mapping[str, str]) -> int:
         s5 = a.get("positioning")
         if s5:
             lines.append(f"  {'':28s} {'S5 data current' if s5.get('complete') else s5.get('note')} (bar {s5.get('bar')})")
+        brakes = a.get("brakes")
+        if brakes:
+            # Plan row R18b: a Trader-tier account's brakes, as the state holds them (the Turtle multiplier, the hard stop, the blocks so far).
+            trips = {k: v for k, v in (brakes.get("trips") or {}).items() if v}
+            lines.append(f"  {'':28s} {a.get('tier') or 'tier'} tier: Turtle multiplier {brakes.get('turtle_multiplier')}, "
+                         + ("HALTED by the hard stop until its window restarts" if brakes.get("halted") else "no hard stop")
+                         + f", entries blocked so far {brakes.get('entries_blocked_so_far', 0)}"
+                         + (", limits tripped " + ", ".join(f"{k} x{v}" for k, v in sorted(trips.items())) if trips else ", no limit tripped"))
         alloc = a.get("allocator")
         if alloc:
             cool = alloc.get("cooldown_days_left") or 0

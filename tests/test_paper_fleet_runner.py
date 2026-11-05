@@ -737,6 +737,56 @@ def _make_sol(root: Path, data, manifest, now: pd.Timestamp, *, sol_positioning:
     return fleet, feed
 
 
+# -- plan row R18b: a Trader-tier account and the slow-trend control run beside their Reference twin and resume --------------------
+
+R18B_ACCOUNTS = ("c17-s1s5-btc-6h-none-trader", "c01-s1s5-btc-6h-none", "ctl-tf-btc-6h", "ctl-hold-btc-6h")
+R18B_END = pd.Timestamp("2026-10-18 04:10", tz="UTC")
+
+
+def test_a_trader_tier_account_runs_with_its_brakes_in_the_journal_and_a_restart_changes_nothing(tmp_path, data):
+    manifest = _subset(R18B_ACCOUNTS)
+    trader, twin, tf = manifest.account(R18B_ACCOUNTS[0]), manifest.account(R18B_ACCOUNTS[1]), manifest.account(R18B_ACCOUNTS[2])
+    assert trader.sleeve.brakes is not None and trader.sleeve.sizing.risk_cap == 0.02 and twin.sleeve.brakes is None and tf.sleeve.candidate == "TF"
+    straight = tmp_path / "straight"
+    fleet, feed = make(straight, data, manifest, T0)
+    advance(fleet, feed, T0 + pd.Timedelta(minutes=40), R18B_END)
+    fleet.release()
+    js = journals(straight, manifest)
+    start = js[trader.account_id][0]
+    assert start["type"] == "start" and start["spec"]["tier"] == "trader" and start["spec"]["sleeve"]["brakes"]["hard_stop_dd"] == 0.3
+    assert start["spec"]["sleeve"]["sizing"]["risk_cap"] == 0.02 and "tier" not in js[twin.account_id][0]["spec"]
+    bars = [r for r in js[trader.account_id] if r["type"] == "bar"]
+    assert bars and all("brakes" in r and r["brakes"]["turtle_multiplier"] == 1.0 and r["brakes"]["halted"] is False for r in bars)
+    assert all("brakes" not in r for r in js[twin.account_id] if r["type"] == "bar")
+    twin_bars = [r for r in js[twin.account_id] if r["type"] == "bar"]
+    assert [r["bar"] for r in bars] == [r["bar"] for r in twin_bars]  # the same bars, the same rule: only the budget differs
+    for r in bars:
+        size = (r.get("decision") or {}).get("diagnostics", {}).get("size")
+        if size and r["decision"]["signal"]["action"] == "long":
+            assert size["risk_cap"] == 0.02 and size["risk_pct_if_stopped"] is not None and size["risk_pct_if_stopped"] <= 0.02 + 1e-9
+        for ev in r.get("events") or []:
+            if ev["kind"] == "entry":
+                assert ev["risk_pct"] is not None and ev["risk_pct"] <= 0.02 * 1.02 and "brake_multiplier" in ev
+    tf_bars = [r for r in js[tf.account_id] if r["type"] == "bar"]
+    assert tf_bars and all("decision" in r and "brakes" not in r for r in tf_bars) and js[tf.account_id][0]["spec"]["tier"] == "reference"
+    state = read_state(straight / "_state" / "fleet_state.json")
+    assert state["accounts"][trader.account_id]["engine"]["brakes"]["lad_mult"] == 1.0 and "brakes" not in state["accounts"][twin.account_id]["engine"]
+    status = status_from_state(state)
+    assert status["accounts"][trader.account_id]["tier"] == "trader" and status["accounts"][trader.account_id]["brakes"]["halted"] is False
+    assert status["accounts"][tf.account_id]["tier"] == "reference" and "brakes" not in status["accounts"][twin.account_id]
+    assert all(ok for _, ok, _ in check_invariants(FleetPaths(straight), manifest)), check_invariants(FleetPaths(straight), manifest)
+    # Down for nine hours in the middle: the resumed fleet (its brake state read back from the state file) writes the same record.
+    mid = pd.Timestamp("2026-10-16 09:10", tz="UTC")
+    fleet, feed = make(tmp_path / "resumed", data, manifest, T0)
+    advance(fleet, feed, T0 + pd.Timedelta(minutes=40), mid, step=pd.Timedelta(hours=3))
+    fleet.release()
+    later = mid + pd.Timedelta(hours=9)
+    fleet2, feed2 = make(tmp_path / "resumed", data, manifest, later)
+    advance(fleet2, feed2, later, R18B_END)
+    fleet2.release()
+    assert journals(tmp_path / "resumed", manifest) == js
+
+
 def test_an_s5_account_without_positioning_data_is_labelled_and_an_older_state_resumes_once_the_feed_serves_it(tmp_path, data_sol):
     from research.paper_fleet.store import write_state
 

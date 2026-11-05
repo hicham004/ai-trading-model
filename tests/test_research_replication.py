@@ -477,6 +477,25 @@ def test_shortlist_additions_carry_a_source_tag_and_leave_existing_rows_untouche
     assert rep.append_to_shortlist(path, [], note="nothing") == again
 
 
+def test_append_to_shortlist_tells_tiers_apart_and_routes_control_rows_to_the_controls(tmp_path):
+    """Plan row R18b: the same rule at another sizing tier is another row (ranked after the existing ones); a row whose source names the
+    control role joins the controls without a rank; neither is added twice."""
+    path = tmp_path / "shortlist.json"
+    base = {"rank": 1, "candidate": "S1+S5", "instrument": "BTC-USDT", "timeframe": "6H", "regime_config": {"mode": "none"}, "cagr": 0.05}
+    path.write_text(json.dumps({"status": "forward evidence only; nothing approved", "configurations": [base], "controls": [
+        {"candidate": "hold", "instrument": "BTC-USDT", "timeframe": "6H", "regime_config": {"mode": "none"}}]}), encoding="utf-8")
+    trader = dict(base, cagr=0.10, source={"study": "R18 Trader Policy v1", "tier": "trader", "cell": "trader|brakes|none", "role": "candidate"})
+    reference_again = dict(base, source={"study": "R18 Trader Policy v1", "tier": "reference", "cell": "reference|nobrakes|none", "role": "candidate"})
+    control = {"candidate": "TF", "instrument": "BTC-USDT", "timeframe": "6H", "regime_config": {"mode": "none"}, "cagr": 0.04,
+               "source": {"study": "R18 Trader Policy v1", "tier": "reference", "cell": "reference|nobrakes|none", "role": "control"}}
+    data = rep.append_to_shortlist(path, [trader, reference_again, control], note="r18b")
+    assert [c["rank"] for c in data["configurations"]] == [1, 2] and data["configurations"][1]["source"]["tier"] == "trader"
+    assert [c["candidate"] for c in data["controls"]] == ["hold", "TF"] and "rank" not in data["controls"][1]
+    assert data["amendments"][0]["added"] == ["S1+S5 BTC-USDT 6H [none] @ trader", "TF BTC-USDT 6H [none] (control)"]
+    again = rep.append_to_shortlist(path, [trader, control], note="again")
+    assert len(again["configurations"]) == 2 and len(again["controls"]) == 2 and again["amendments"][1]["added"] == []
+
+
 # -- the report -------------------------------------------------------------------------------------------------
 
 def _run(series, *, markets, stored=STORED_BTC, holdout=True):

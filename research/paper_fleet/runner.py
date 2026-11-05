@@ -571,6 +571,8 @@ class PaperFleet:
             rec["decision"] = info.to_dict()
         else:
             rec["decision_error"] = err
+        if out.brakes is not None:  # plan row R18b: a tier account's brakes after this bar (the Turtle multiplier, the halt, the blocks)
+            rec["brakes"] = out.brakes
         if s5 is not None:
             rec["positioning_age_hours"] = s5.get("age_hours", {})
             # Plan row R17: the label says plainly when the S5 filter ran without (or on stale) data at this bar.
@@ -663,6 +665,12 @@ def status_from_state(state: Dict[str, Any], manifest: Optional[FleetManifest] =
             item.update({"equity": eng.get("equity"), "in_position": eng.get("in_pos"), "allocation": eng.get("alloc") if eng.get("in_pos") else 0.0,
                          "last_bar": eng.get("last_bar_time"), "trades_closed": eng.get("trades_closed"), "fees_paid": eng.get("fees_paid"),
                          "ladder_level": eng.get("lad_level")})
+            if eng.get("brakes"):  # a tier account (plan row R18b): what its brakes hold right now
+                b = eng["brakes"]
+                item["brakes"] = {"turtle_multiplier": b.get("lad_mult"), "halted": bool(b.get("halted")),
+                                  "entries_blocked_so_far": int(b.get("bars_blocked") or 0), "trips": dict(b.get("trips") or {})}
+        if labels.get(aid, {}).get("tier"):
+            item["tier"] = labels[aid]["tier"]
         if meta.get("positioning"):  # an S5 account: the data label of its last bar (plan row R17)
             item["positioning"] = dict(meta["positioning"])
         out["accounts"][aid] = item

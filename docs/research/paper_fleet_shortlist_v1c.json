@@ -1084,6 +1084,621 @@
         "hypothesis": "H4"
       },
       "rank": 14
+    },
+    {
+      "holdout": {
+        "total_return": 0.085372,
+        "cagr": 0.085433,
+        "ann_vol": 0.05926,
+        "sharpe": 1.412862,
+        "sortino": 2.753912,
+        "max_drawdown": 0.035547,
+        "calmar": 2.403388,
+        "bars": 1461,
+        "n_trades": 11,
+        "trades_per_year": 11.0,
+        "win_rate": 0.454545,
+        "profit_factor": 3.514392,
+        "avg_win": 238.651758,
+        "avg_loss": -56.589158,
+        "expectancy": 77.611258,
+        "avg_bars_held": 22.363636,
+        "fees_total": 76.659585,
+        "fees_pct_of_start": 0.007666,
+        "fees_pct_per_year": 0.007666,
+        "turnover_notional": 7.742458,
+        "avg_allocation": 0.036844
+      },
+      "holdout_confirmed": true,
+      "candidate": "S1+S5",
+      "instrument": "SOL-USDT",
+      "timeframe": "6H",
+      "regime": "no regime gate",
+      "regime_config": {
+        "mode": "none",
+        "n_states": 3,
+        "vol_window_days": 7.0,
+        "bear_prob_max": 0.5,
+        "bear_scale": 0.25,
+        "n_iter": 200,
+        "tol": 1e-05,
+        "min_train_bars": 200,
+        "label": "no regime gate"
+      },
+      "sizing": "vt20/30 crash15/90dh cap2 turtle",
+      "sizing_config": {
+        "kind": "vol_target",
+        "fraction": 1.0,
+        "target_vol": 0.2,
+        "vol_lookback": 30,
+        "crash_dd": 0.15,
+        "crash_window_days": 90.0,
+        "crash_mode": "half",
+        "ladder": false,
+        "cap": 1.0,
+        "risk_cap": 0.02,
+        "label": "vt20/30 crash15/90dh cap2"
+      },
+      "bracket": "none",
+      "params": {
+        "lookbacks_days": [
+          14,
+          30,
+          60
+        ],
+        "vote": 3,
+        "atr_window": 14,
+        "atr_mult": 4.0,
+        "vol_window_days": 30,
+        "entry_band": 0.0,
+        "exit_band": 0.0,
+        "funding_z_max": 1.5,
+        "funding_z_window": 90,
+        "oi_change_max": 0.15,
+        "oi_change_window_days": 1,
+        "bracket": "none"
+      },
+      "cagr": 0.13639,
+      "sharpe": 1.389563,
+      "calmar": 1.392715,
+      "max_drawdown": 0.097931,
+      "profit_factor": 2.784548,
+      "n_trades": 95,
+      "fees_pct_per_year": 0.009338,
+      "rolling_12m_positive_share": 0.966667,
+      "worst_calendar_year_return": -0.0312,
+      "passed": true,
+      "failed_gates": [],
+      "dsr": 0.902407,
+      "source": {
+        "study": "R18 Trader Policy v1",
+        "report": "docs/research/TRADER_POLICY_V1_REPORT.md",
+        "results": "docs/research/trader_policy_v1_results.json",
+        "generated_at": "2026-11-05 03:34 UTC",
+        "tier": "trader",
+        "brakes": {
+          "ladder": {
+            "kind": "turtle",
+            "steps": [
+              [
+                0.1,
+                0.8
+              ],
+              [
+                0.2,
+                0.64
+              ]
+            ]
+          },
+          "hard_stop_dd": 0.3,
+          "max_entries_per_market_per_day": 1,
+          "max_entries_per_day": 3,
+          "no_entry_bar_after_exit": true,
+          "daily_loss_limit": 0.03,
+          "weekly_loss_limit": 0.06,
+          "monthly_loss_limit": 0.1,
+          "heat_cap": 0.06,
+          "heat_group_share": 0.5,
+          "corr_threshold": 0.7,
+          "corr_lookback_days": 60,
+          "label": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)"
+        },
+        "variant": "none",
+        "cell": "trader|brakes|none",
+        "protocol_variant": null,
+        "role": "candidate"
+      },
+      "rank": 15
+    },
+    {
+      "holdout": {
+        "total_return": 0.085372,
+        "cagr": 0.085433,
+        "ann_vol": 0.05926,
+        "sharpe": 1.412862,
+        "sortino": 2.753912,
+        "max_drawdown": 0.035547,
+        "calmar": 2.403388,
+        "bars": 1461,
+        "n_trades": 11,
+        "trades_per_year": 11.0,
+        "win_rate": 0.454545,
+        "profit_factor": 3.514392,
+        "avg_win": 238.651758,
+        "avg_loss": -56.589158,
+        "expectancy": 77.611258,
+        "avg_bars_held": 22.363636,
+        "fees_total": 76.659585,
+        "fees_pct_of_start": 0.007666,
+        "fees_pct_per_year": 0.007666,
+        "turnover_notional": 7.742458,
+        "avg_allocation": 0.036844
+      },
+      "holdout_confirmed": true,
+      "candidate": "S1",
+      "instrument": "SOL-USDT",
+      "timeframe": "6H",
+      "regime": "no regime gate",
+      "regime_config": {
+        "mode": "none",
+        "n_states": 3,
+        "vol_window_days": 7.0,
+        "bear_prob_max": 0.5,
+        "bear_scale": 0.25,
+        "n_iter": 200,
+        "tol": 1e-05,
+        "min_train_bars": 200,
+        "label": "no regime gate"
+      },
+      "sizing": "vt20/30 crash15/90dh cap2 turtle",
+      "sizing_config": {
+        "kind": "vol_target",
+        "fraction": 1.0,
+        "target_vol": 0.2,
+        "vol_lookback": 30,
+        "crash_dd": 0.15,
+        "crash_window_days": 90.0,
+        "crash_mode": "half",
+        "ladder": false,
+        "cap": 1.0,
+        "risk_cap": 0.02,
+        "label": "vt20/30 crash15/90dh cap2"
+      },
+      "bracket": "time30",
+      "params": {
+        "lookbacks_days": [
+          14,
+          30,
+          60
+        ],
+        "vote": 3,
+        "atr_window": 14,
+        "atr_mult": 4.0,
+        "vol_window_days": 30,
+        "entry_band": 0.0,
+        "exit_band": 0.0,
+        "bracket": "time30"
+      },
+      "cagr": 0.098475,
+      "sharpe": 1.215915,
+      "calmar": 1.224471,
+      "max_drawdown": 0.080422,
+      "profit_factor": 2.247395,
+      "n_trades": 98,
+      "fees_pct_per_year": 0.009059,
+      "rolling_12m_positive_share": 0.966667,
+      "worst_calendar_year_return": -0.0312,
+      "passed": true,
+      "failed_gates": [],
+      "dsr": 0.616409,
+      "source": {
+        "study": "R18 Trader Policy v1",
+        "report": "docs/research/TRADER_POLICY_V1_REPORT.md",
+        "results": "docs/research/trader_policy_v1_results.json",
+        "generated_at": "2026-11-05 03:34 UTC",
+        "tier": "trader",
+        "brakes": {
+          "ladder": {
+            "kind": "turtle",
+            "steps": [
+              [
+                0.1,
+                0.8
+              ],
+              [
+                0.2,
+                0.64
+              ]
+            ]
+          },
+          "hard_stop_dd": 0.3,
+          "max_entries_per_market_per_day": 1,
+          "max_entries_per_day": 3,
+          "no_entry_bar_after_exit": true,
+          "daily_loss_limit": 0.03,
+          "weekly_loss_limit": 0.06,
+          "monthly_loss_limit": 0.1,
+          "heat_cap": 0.06,
+          "heat_group_share": 0.5,
+          "corr_threshold": 0.7,
+          "corr_lookback_days": 60,
+          "label": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)"
+        },
+        "variant": "none",
+        "cell": "trader|brakes|none",
+        "protocol_variant": null,
+        "role": "candidate"
+      },
+      "rank": 16
+    },
+    {
+      "holdout": {
+        "total_return": 0.034127,
+        "cagr": 0.034151,
+        "ann_vol": 0.076294,
+        "sharpe": 0.478167,
+        "sortino": 0.762327,
+        "max_drawdown": 0.076659,
+        "calmar": 0.44549,
+        "bars": 1461,
+        "n_trades": 30,
+        "trades_per_year": 30.0,
+        "win_rate": 0.266667,
+        "profit_factor": 1.362265,
+        "avg_win": 160.415481,
+        "avg_loss": -42.820533,
+        "expectancy": 11.375737,
+        "avg_bars_held": 22.2,
+        "fees_total": 194.806201,
+        "fees_pct_of_start": 0.019481,
+        "fees_pct_per_year": 0.019481,
+        "turnover_notional": 19.490157,
+        "avg_allocation": 0.134635
+      },
+      "holdout_confirmed": true,
+      "candidate": "S1+S5",
+      "instrument": "BTC-USDT",
+      "timeframe": "6H",
+      "regime": "no regime gate",
+      "regime_config": {
+        "mode": "none",
+        "n_states": 3,
+        "vol_window_days": 7.0,
+        "bear_prob_max": 0.5,
+        "bear_scale": 0.25,
+        "n_iter": 200,
+        "tol": 1e-05,
+        "min_train_bars": 200,
+        "label": "no regime gate"
+      },
+      "sizing": "vt20/30 crash15/90dh cap2 turtle",
+      "sizing_config": {
+        "kind": "vol_target",
+        "fraction": 1.0,
+        "target_vol": 0.2,
+        "vol_lookback": 30,
+        "crash_dd": 0.15,
+        "crash_window_days": 90.0,
+        "crash_mode": "half",
+        "ladder": false,
+        "cap": 1.0,
+        "risk_cap": 0.02,
+        "label": "vt20/30 crash15/90dh cap2"
+      },
+      "bracket": "none",
+      "params": {
+        "lookbacks_days": [
+          14,
+          30,
+          60
+        ],
+        "vote": 2,
+        "atr_window": 14,
+        "atr_mult": 3.0,
+        "vol_window_days": 30,
+        "entry_band": 0.0,
+        "exit_band": 0.0,
+        "funding_z_max": 1.5,
+        "funding_z_window": 90,
+        "oi_change_max": 0.15,
+        "oi_change_window_days": 1,
+        "bracket": "none"
+      },
+      "cagr": 0.104362,
+      "sharpe": 1.034672,
+      "calmar": 0.742,
+      "max_drawdown": 0.140649,
+      "profit_factor": 1.851385,
+      "n_trades": 130,
+      "fees_pct_per_year": 0.018953,
+      "rolling_12m_positive_share": 0.853659,
+      "worst_calendar_year_return": -0.104416,
+      "passed": false,
+      "failed_gates": [
+        "no_calendar_year_below_minus_10pct"
+      ],
+      "dsr": 0.359924,
+      "source": {
+        "study": "R18 Trader Policy v1",
+        "report": "docs/research/TRADER_POLICY_V1_REPORT.md",
+        "results": "docs/research/trader_policy_v1_results.json",
+        "generated_at": "2026-11-05 03:34 UTC",
+        "tier": "trader",
+        "brakes": {
+          "ladder": {
+            "kind": "turtle",
+            "steps": [
+              [
+                0.1,
+                0.8
+              ],
+              [
+                0.2,
+                0.64
+              ]
+            ]
+          },
+          "hard_stop_dd": 0.3,
+          "max_entries_per_market_per_day": 1,
+          "max_entries_per_day": 3,
+          "no_entry_bar_after_exit": true,
+          "daily_loss_limit": 0.03,
+          "weekly_loss_limit": 0.06,
+          "monthly_loss_limit": 0.1,
+          "heat_cap": 0.06,
+          "heat_group_share": 0.5,
+          "corr_threshold": 0.7,
+          "corr_lookback_days": 60,
+          "label": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)"
+        },
+        "variant": "none",
+        "cell": "trader|brakes|none",
+        "protocol_variant": null,
+        "role": "candidate"
+      },
+      "rank": 17
+    },
+    {
+      "holdout": {
+        "total_return": 0.012566,
+        "cagr": 0.012575,
+        "ann_vol": 0.059506,
+        "sharpe": 0.239705,
+        "sortino": 0.363879,
+        "max_drawdown": 0.046677,
+        "calmar": 0.269406,
+        "bars": 2191,
+        "n_trades": 16,
+        "trades_per_year": 16.003651,
+        "win_rate": 0.25,
+        "profit_factor": 1.228592,
+        "avg_win": 168.849595,
+        "avg_loss": -45.811144,
+        "expectancy": 7.854041,
+        "avg_bars_held": 29.0,
+        "fees_total": 69.49707,
+        "fees_pct_of_start": 0.00695,
+        "fees_pct_per_year": 0.006951,
+        "turnover_notional": 6.953483,
+        "avg_allocation": 0.037631
+      },
+      "holdout_confirmed": true,
+      "candidate": "S1+VC",
+      "instrument": "DOGE-USDT",
+      "timeframe": "4H",
+      "regime": "hmm3 bear>=0.5 gate",
+      "regime_config": {
+        "mode": "gate",
+        "n_states": 3,
+        "vol_window_days": 7.0,
+        "bear_prob_max": 0.5,
+        "bear_scale": 0.25,
+        "n_iter": 200,
+        "tol": 1e-05,
+        "min_train_bars": 200,
+        "label": "hmm3 bear>=0.5 gate"
+      },
+      "sizing": "vt20/30 crash15/90dh cap2 turtle",
+      "sizing_config": {
+        "kind": "vol_target",
+        "fraction": 1.0,
+        "target_vol": 0.2,
+        "vol_lookback": 30,
+        "crash_dd": 0.15,
+        "crash_window_days": 90.0,
+        "crash_mode": "half",
+        "ladder": false,
+        "cap": 1.0,
+        "risk_cap": 0.02,
+        "label": "vt20/30 crash15/90dh cap2"
+      },
+      "bracket": "none",
+      "params": {
+        "lookbacks_days": [
+          7,
+          14,
+          30
+        ],
+        "vote": 2,
+        "atr_window": 14,
+        "atr_mult": 2.0,
+        "vol_window_days": 30,
+        "entry_band": 0.0,
+        "exit_band": 0.0,
+        "bracket": "none"
+      },
+      "cagr": 0.062949,
+      "sharpe": 0.810018,
+      "calmar": 0.672943,
+      "max_drawdown": 0.093543,
+      "profit_factor": 2.037927,
+      "n_trades": 68,
+      "fees_pct_per_year": 0.005041,
+      "rolling_12m_positive_share": 0.809524,
+      "worst_calendar_year_return": -0.017896,
+      "passed": true,
+      "failed_gates": [],
+      "dsr": 0.373453,
+      "source": {
+        "study": "R18 Trader Policy v1",
+        "report": "docs/research/TRADER_POLICY_V1_REPORT.md",
+        "results": "docs/research/trader_policy_v1_results.json",
+        "generated_at": "2026-11-05 03:34 UTC",
+        "tier": "trader",
+        "brakes": {
+          "ladder": {
+            "kind": "turtle",
+            "steps": [
+              [
+                0.1,
+                0.8
+              ],
+              [
+                0.2,
+                0.64
+              ]
+            ]
+          },
+          "hard_stop_dd": 0.3,
+          "max_entries_per_market_per_day": 1,
+          "max_entries_per_day": 3,
+          "no_entry_bar_after_exit": true,
+          "daily_loss_limit": 0.03,
+          "weekly_loss_limit": 0.06,
+          "monthly_loss_limit": 0.1,
+          "heat_cap": 0.06,
+          "heat_group_share": 0.5,
+          "corr_threshold": 0.7,
+          "corr_lookback_days": 60,
+          "label": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)"
+        },
+        "variant": "none",
+        "cell": "trader|brakes|none",
+        "protocol_variant": null,
+        "role": "candidate"
+      },
+      "rank": 18
+    },
+    {
+      "holdout": {
+        "total_return": 0.019837,
+        "cagr": 0.019851,
+        "ann_vol": 0.086517,
+        "sharpe": 0.270277,
+        "sortino": 0.427506,
+        "max_drawdown": 0.09288,
+        "calmar": 0.213727,
+        "bars": 2191,
+        "n_trades": 27,
+        "trades_per_year": 27.006162,
+        "win_rate": 0.259259,
+        "profit_factor": 1.186466,
+        "avg_win": 180.318519,
+        "avg_loss": -53.192832,
+        "expectancy": 7.347148,
+        "avg_bars_held": 47.333333,
+        "fees_total": 150.292322,
+        "fees_pct_of_start": 0.015029,
+        "fees_pct_per_year": 0.015033,
+        "turnover_notional": 15.050038,
+        "avg_allocation": 0.164413
+      },
+      "holdout_confirmed": true,
+      "candidate": "S1+VC",
+      "instrument": "BTC-USDT",
+      "timeframe": "4H",
+      "regime": "hmm3 bear>=0.5 gate",
+      "regime_config": {
+        "mode": "gate",
+        "n_states": 3,
+        "vol_window_days": 7.0,
+        "bear_prob_max": 0.5,
+        "bear_scale": 0.25,
+        "n_iter": 200,
+        "tol": 1e-05,
+        "min_train_bars": 200,
+        "label": "hmm3 bear>=0.5 gate"
+      },
+      "sizing": "vt20/30 crash15/90dh cap2 turtle",
+      "sizing_config": {
+        "kind": "vol_target",
+        "fraction": 1.0,
+        "target_vol": 0.2,
+        "vol_lookback": 30,
+        "crash_dd": 0.15,
+        "crash_window_days": 90.0,
+        "crash_mode": "half",
+        "ladder": false,
+        "cap": 1.0,
+        "risk_cap": 0.02,
+        "label": "vt20/30 crash15/90dh cap2"
+      },
+      "bracket": "none",
+      "params": {
+        "lookbacks_days": [
+          7,
+          14,
+          30
+        ],
+        "vote": 1,
+        "atr_window": 14,
+        "atr_mult": 2.0,
+        "vol_window_days": 30,
+        "entry_band": 0.0,
+        "exit_band": 0.0,
+        "bracket": "none"
+      },
+      "cagr": 0.080469,
+      "sharpe": 0.79277,
+      "calmar": 0.582722,
+      "max_drawdown": 0.138092,
+      "profit_factor": 1.79845,
+      "n_trades": 77,
+      "fees_pct_per_year": 0.013389,
+      "rolling_12m_positive_share": 0.878049,
+      "worst_calendar_year_return": -0.021538,
+      "passed": true,
+      "failed_gates": [],
+      "dsr": 0.278024,
+      "source": {
+        "study": "R18 Trader Policy v1",
+        "report": "docs/research/TRADER_POLICY_V1_REPORT.md",
+        "results": "docs/research/trader_policy_v1_results.json",
+        "generated_at": "2026-11-05 03:34 UTC",
+        "tier": "trader",
+        "brakes": {
+          "ladder": {
+            "kind": "turtle",
+            "steps": [
+              [
+                0.1,
+                0.8
+              ],
+              [
+                0.2,
+                0.64
+              ]
+            ]
+          },
+          "hard_stop_dd": 0.3,
+          "max_entries_per_market_per_day": 1,
+          "max_entries_per_day": 3,
+          "no_entry_bar_after_exit": true,
+          "daily_loss_limit": 0.03,
+          "weekly_loss_limit": 0.06,
+          "monthly_loss_limit": 0.1,
+          "heat_cap": 0.06,
+          "heat_group_share": 0.5,
+          "corr_threshold": 0.7,
+          "corr_lookback_days": 60,
+          "label": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)"
+        },
+        "variant": "none",
+        "cell": "trader|brakes|none",
+        "protocol_variant": null,
+        "role": "candidate"
+      },
+      "rank": 19
     }
   ],
   "controls": [
@@ -1438,6 +2053,136 @@
       "calmar": 0.219229,
       "max_drawdown": 0.80448,
       "total_return": 1.005594
+    },
+    {
+      "holdout": null,
+      "holdout_confirmed": null,
+      "candidate": "TF",
+      "instrument": "ETH-USDT",
+      "timeframe": "6H",
+      "regime": "no regime gate",
+      "regime_config": {
+        "mode": "none",
+        "n_states": 3,
+        "vol_window_days": 7.0,
+        "bear_prob_max": 0.5,
+        "bear_scale": 0.25,
+        "n_iter": 200,
+        "tol": 1e-05,
+        "min_train_bars": 200,
+        "label": "no regime gate"
+      },
+      "sizing": "vt10/30 crash15/90dh ladder",
+      "sizing_config": {
+        "kind": "vol_target",
+        "fraction": 1.0,
+        "target_vol": 0.1,
+        "vol_lookback": 30,
+        "crash_dd": 0.15,
+        "crash_window_days": 90.0,
+        "crash_mode": "half",
+        "ladder": true,
+        "cap": 1.0,
+        "label": "vt10/30 crash15/90dh ladder"
+      },
+      "bracket": "none",
+      "params": {
+        "sma_days": 200.0,
+        "bracket": "none"
+      },
+      "cagr": 0.056158,
+      "sharpe": 0.957428,
+      "calmar": 1.048429,
+      "max_drawdown": 0.053564,
+      "profit_factor": 3.266581,
+      "n_trades": 28,
+      "fees_pct_per_year": 0.002044,
+      "rolling_12m_positive_share": 0.829268,
+      "worst_calendar_year_return": -0.017793,
+      "passed": false,
+      "failed_gates": [
+        "enough_trades"
+      ],
+      "dsr": 0.978256,
+      "source": {
+        "study": "R18 Trader Policy v1",
+        "report": "docs/research/TRADER_POLICY_V1_REPORT.md",
+        "results": "docs/research/trader_policy_v1_results.json",
+        "generated_at": "2026-11-05 03:34 UTC",
+        "tier": "reference",
+        "brakes": null,
+        "variant": "none",
+        "cell": "reference|nobrakes|none",
+        "protocol_variant": "fixed rule: no exit bracket, no 20-train-trade qualification",
+        "role": "control"
+      },
+      "control_label": "always long above the 200-day average, policy sizing (forward control)"
+    },
+    {
+      "holdout": null,
+      "holdout_confirmed": null,
+      "candidate": "TF",
+      "instrument": "BTC-USDT",
+      "timeframe": "6H",
+      "regime": "no regime gate",
+      "regime_config": {
+        "mode": "none",
+        "n_states": 3,
+        "vol_window_days": 7.0,
+        "bear_prob_max": 0.5,
+        "bear_scale": 0.25,
+        "n_iter": 200,
+        "tol": 1e-05,
+        "min_train_bars": 200,
+        "label": "no regime gate"
+      },
+      "sizing": "vt10/30 crash15/90dh ladder",
+      "sizing_config": {
+        "kind": "vol_target",
+        "fraction": 1.0,
+        "target_vol": 0.1,
+        "vol_lookback": 30,
+        "crash_dd": 0.15,
+        "crash_window_days": 90.0,
+        "crash_mode": "half",
+        "ladder": true,
+        "cap": 1.0,
+        "label": "vt10/30 crash15/90dh ladder"
+      },
+      "bracket": "none",
+      "params": {
+        "sma_days": 200.0,
+        "bracket": "none"
+      },
+      "cagr": 0.036693,
+      "sharpe": 0.619516,
+      "calmar": 0.482793,
+      "max_drawdown": 0.076001,
+      "profit_factor": 2.257748,
+      "n_trades": 40,
+      "fees_pct_per_year": 0.002794,
+      "rolling_12m_positive_share": 0.731707,
+      "worst_calendar_year_return": -0.018841,
+      "passed": false,
+      "failed_gates": [
+        "sharpe_gt_0_7",
+        "calmar_gt_0_5",
+        "rolling_12m_75pct_positive"
+      ],
+      "dsr": 0.901405,
+      "source": {
+        "study": "R18 Trader Policy v1",
+        "report": "docs/research/TRADER_POLICY_V1_REPORT.md",
+        "results": "docs/research/trader_policy_v1_results.json",
+        "generated_at": "2026-11-05 03:34 UTC",
+        "tier": "reference",
+        "brakes": null,
+        "variant": "none",
+        "cell": "reference|nobrakes|none",
+        "protocol_variant": "fixed rule: no exit bracket, no 20-train-trade qualification",
+        "role": "control"
+      },
+      "control_label": "always long above the 200-day average, policy sizing (forward control)"
     }
   ],
   "amendments": [
@@ -1461,6 +2206,19 @@
       "note": "plan row R16: confirmed passers of research round 2 (holdout confirmed)",
       "added": [
         "S1+VC DOGE-USDT 4H [gate]"
+      ]
+    },
+    {
+      "added_at": "2026-11-05 04:10 UTC",
+      "note": "plan row R18b: the Trader Policy v1 study's fleet rows (the Trader-tier passers, section 4.6 gates and holdout confirmed, with the brakes on; the slow-trend forward control at the Reference sizing)",
+      "added": [
+        "S1+S5 SOL-USDT 6H [none] @ trader",
+        "S1 SOL-USDT 6H [none] @ trader",
+        "S1+S5 BTC-USDT 6H [none] @ trader",
+        "S1+VC DOGE-USDT 4H [gate] @ trader",
+        "S1+VC BTC-USDT 4H [gate] @ trader",
+        "TF ETH-USDT 6H [none] (control)",
+        "TF BTC-USDT 6H [none] (control)"
       ]
     }
   ]

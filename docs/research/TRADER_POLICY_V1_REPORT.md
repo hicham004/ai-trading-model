@@ -627,7 +627,7 @@ Opened only for the pre-registered cells. A configuration's 12 months count as c
 | TF | ETH-USDT 6H | no regime gate | control | reference | +5.6% / 5.4% / 1.05 | untouched |
 | TF | BTC-USDT 6H | no regime gate | control | reference | +3.7% / 7.6% / 0.48 | untouched |
 
-recorded for plan row R18b: the fleet's loader must learn to validate a tier-tagged row before these are appended; the shortlist file is untouched by this run
+applied: docs/research/paper_fleet_shortlist_v1c.json now lists 19 configurations and 10 controls (31 fleet accounts); a running fleet takes the new accounts at its next restart from an updated checkout
 
 ## Owner decisions (nothing below is decided by this report)
 
