@@ -48,6 +48,7 @@ import pandas as pd
 from research.data import bars_per_year
 from research.events import FOMC_DECISION_DAYS
 
+from research.paper_fleet.data import positioning_status
 from research.paper_fleet.store import FleetPaths, Journal, read_state
 
 BAND_Z = 2.0
@@ -362,6 +363,25 @@ def _allocator_pairs(rows: Sequence[Mapping[str, Any]]) -> List[Tuple[Mapping[st
     return out
 
 
+def s5_data_summary(records: Sequence[Mapping[str, Any]], *, since: Optional[pd.Timestamp] = None,
+                    until: Optional[pd.Timestamp] = None, source: str = "okx") -> Optional[Dict[str, Any]]:
+    """For an S5 account: the bars whose positioning filter ran without complete data, and the label of its last bar (plan row R17).
+
+    Bars written since R17 carry ``positioning_data``; older bars carry only the ages, which are read through the same rule (with the
+    fleet's positioning ``source``), so the count also covers an account that ran before the labels existed."""
+    bars = [r for r in records if r.get("type") == "bar" and "sleeve" not in r and ("positioning_data" in r or "positioning_age_hours" in r)
+            and (until is None or _ts(r["close_time"]) <= until)]
+    if not bars:
+        return None
+    labelled = [(r, r["positioning_data"] if r.get("positioning_data") else positioning_status(r.get("positioning_age_hours") or {}, source=source))
+                for r in bars]
+    incomplete = [r for r, s in labelled if not s.get("complete")]
+    week = [r for r in incomplete if since is None or _ts(r["close_time"]) > since]
+    last_r, last_s = labelled[-1]
+    return {"bars": len(bars), "incomplete": len(incomplete), "incomplete_week": len(week), "last": dict(last_s, bar=last_r.get("bar")),
+            "first_incomplete": incomplete[0].get("bar") if incomplete else None, "last_incomplete": incomplete[-1].get("bar") if incomplete else None}
+
+
 def load_journals(paths: FleetPaths, account_ids: Iterable[str]) -> Dict[str, List[Dict[str, Any]]]:
     return {aid: list(Journal(paths.journal(aid)).read()) for aid in account_ids}
 
@@ -408,6 +428,8 @@ def build_report_data(paths: FleetPaths, now: datetime, *, year: Optional[int] =
         if acc["kind"] == "portfolio" and (acc.get("portfolio") or {}).get("allocator"):
             row["allocator"] = {"reference": reference_metrics(recs, until=until), "since_start": allocator_activity(recs, until=until),
                                 "this_week": allocator_activity(recs, since=w_start, until=until)}
+        if acc["kind"] == "sleeve" and "S5" in str((acc.get("sleeve") or {}).get("candidate") or ""):
+            row["s5_data"] = s5_data_summary(recs, since=w_start, until=until, source=str(state.get("positioning_source") or "okx"))
         rows.append(row)
     controls = {(r["account"]["instrument"], r["account"]["timeframe"]): r for r in rows
                 if r["account"]["role"] == "control" and (r["account"].get("sleeve") or {}).get("candidate") == "hold"}
@@ -498,6 +520,11 @@ def render(data: Mapping[str, Any]) -> str:
     if alarms:
         lines.append("- **Drawdown alarm**: " + ", ".join(r["account"]["account_id"] for r in alarms)
                      + " fell more than 1.5 times the worst drawdown of its whole backtest. Treat it as evidence against that configuration.")
+    without = [r for r in rows if (r.get("s5_data") or {}).get("last") and not r["s5_data"]["last"].get("complete")]
+    if without:
+        lines.append("- **S5 running without data**: " + "; ".join(f"`{r['account']['account_id']}` ({r['s5_data']['last']['note']} at its last bar, "
+                                                                     f"{r['s5_data']['incomplete']} of {r['s5_data']['bars']} bars since its start)" for r in without)
+                     + ". On such bars the positioning filter adds no constraint, so the account trades as its base rule; read its record with that in mind.")
     lines.append("- A good forward record is evidence for a later owner decision (plan row G7), not the decision itself.")
     lines.append("")
     # -- controls
@@ -560,6 +587,9 @@ def render(data: Mapping[str, Any]) -> str:
         sig = (dec.get("signal") or {}).get("action")
         desired = (dec.get("diagnostics") or {}).get("desired")
         last = "error: " + str(r.get("decision_error")) if r.get("decision_error") else (f"{sig}{' (blocked by a filter)' if sig == 'long' and desired is False else ''}" if sig else "-")
+        s5 = (r.get("s5_data") or {}).get("last")
+        if s5 and not s5.get("complete"):
+            last += " — S5 without data"
         fees = "in returns" if acc["kind"] == "portfolio" else _num(wk["fees"])
         lines.append(f"| `{acc['account_id']}` | {_pct(wk['return'])} | {wk['entries']} | {wk['closed_trades']} | {fees} | {pos} | {last} |")
     lines.append("")
@@ -576,8 +606,23 @@ def render(data: Mapping[str, Any]) -> str:
         f = fit.get("fitted") or {}
         lines.append(f"- Regime model {key}: trained {fit.get('train_start')} → {fit.get('train_end')}, active until {fit.get('active_until')}"
                      + (f", bear state share in training {f.get('train_bear_share', 0) * 100:.0f} %" if f else f", **fit failed ({fit.get('error')}): entries blocked**") + ".")
+    feed = health.get("positioning") or {}
+    newest_pos = "; ".join(f"{m.get('swap')} funding {m.get('funding_newest') or 'missing'} / open interest {m.get('open_interest_newest') or 'missing'}"
+                           for _, m in sorted((feed.get("markets") or {}).items()))
     lines.append(f"- Positioning data for the S5 filter: {state.get('positioning_source')} (OKX swap funding and open interest; the research used "
-                 "Binance's history — see the method notes).")
+                 "Binance's history — see the method notes)" + (f". Newest stored values: {newest_pos}" if newest_pos else "")
+                 + (f". Last refresh errors: {'; '.join(str(e) for e in feed['last_errors'])}" if feed.get("last_errors") else "") + ".")
+    for r in rows:
+        s5 = r.get("s5_data")
+        if not s5:
+            continue
+        last = s5["last"]
+        if s5["incomplete"]:
+            lines.append(f"- S5 data for `{r['account']['account_id']}`: {s5['incomplete']} of {s5['bars']} bars since its start ran without complete "
+                         f"funding / open-interest data ({s5['incomplete_week']} this week; first {s5['first_incomplete']}, last {s5['last_incomplete']}); "
+                         f"the filter passes on a missing series and uses the last known value on a stale one. Last bar {last.get('bar')}: {last.get('note')}.")
+        else:
+            lines.append(f"- S5 data for `{r['account']['account_id']}`: current funding and open-interest data at every one of its {s5['bars']} bars.")
     late = sorted((aid, m.get("created_at")) for aid, m in (state.get("accounts") or {}).items()
                   if m.get("created_at") and m.get("created_at") != state.get("created_at") and not m.get("retired_at"))
     if late:
@@ -632,7 +677,9 @@ def render(data: Mapping[str, Any]) -> str:
                  "the regime-v2 entry gate, the exit brackets, next-bar-open fills, stops checked on each bar's low. The bar-by-bar engine "
                  "is parity-tested against the research engine.")
     lines.append("- Known differences from the research: (1) the S5 positioning filter reads OKX's own swap funding and open interest, "
-                 "which arrive in time, instead of Binance's history files, which arrive a day late; (2) at a regime refit the gate is "
+                 "which arrive in time, instead of Binance's history files, which arrive a day late (BTC/ETH through the app's collector, "
+                 "the replication study's markets through the research-side feed of plan row R17; a bar whose series is missing or stale "
+                 "is labelled in the journal and above); (2) at a regime refit the gate is "
                  "recomputed under the new model, which can close a position the new model would not have entered (the research started "
                  "every window flat there); (3) 4H bars are rebuilt from 1H candles on the UTC clock (identical "
                  "to OKX's 4H bars on 99.97 % of the history); (4) the portfolio's weights and vol estimate start from 120 days of simulated "

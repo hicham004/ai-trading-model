@@ -149,3 +149,32 @@ def test_research_round_2_stays_in_the_sandbox_and_opens_no_network_path():
     for path in (ROOT / "app").rglob("*.py"):
         content = path.read_text(encoding="utf-8")
         assert "research.round2" not in content and "research.strategies.round2" not in content, path
+
+
+def test_the_r17_positioning_feed_stays_in_the_sandbox_and_widens_no_app_allowlist():
+    """Plan row R17: the research-side positioning feed reaches the network only through the data lake's GET-only public client (it is
+    handed one, never builds one), names no endpoint of its own (the app's path constants and parsers are reused), is bounded to the
+    replication markets' swaps, and the app's swap, instrument and symbol allowlists are not widened for it."""
+    stricter = FORBIDDEN + ("app.risk", "app.db", "app.broker", "app.backtest")
+    path = ROOT / "research" / "positioning_data.py"
+    assert path.exists()
+    modules = list(_imports(path))
+    for module in modules:
+        for forbidden in stricter:
+            assert not (module == forbidden or module.startswith(forbidden + ".")), f"{path.relative_to(ROOT)} imports {module}"
+    network = [m for m in modules if m.split(".")[0] in ("requests", "httpx", "urllib", "websocket", "websockets", "aiohttp", "socket")]
+    assert not network, f"{path.relative_to(ROOT)} opens its own network path: {network}"
+    text = path.read_text(encoding="utf-8")
+    for needle in ("/api/v5/trade", "/api/v5/account", "/api/v5/asset", "x-simulated-trading", "OK-ACCESS", "place_order", ".post(", "requests.post",
+                   "OKXPublicRest("):
+        assert needle not in text, needle
+    assert set(re.findall(r'"(/api/v5/[\w/\-]+)"', text)) == set()  # the paths come from app.datalake.derivatives, not from literals here
+    for p in (ROOT / "app").rglob("*.py"):
+        assert "research.positioning_data" not in p.read_text(encoding="utf-8"), p
+    from app.datalake.binance_public import SYMBOLS
+    from app.datalake.derivatives import SWAP_INSTRUMENTS
+    from app.okx.client import ALLOWED_INSTRUMENTS
+    from research.positioning_data import RESEARCH_SWAPS
+
+    assert SWAP_INSTRUMENTS == ("BTC-USDT-SWAP", "ETH-USDT-SWAP") and ALLOWED_INSTRUMENTS == ("BTC-USDT", "ETH-USDT") and SYMBOLS == ("BTCUSDT", "ETHUSDT")
+    assert RESEARCH_SWAPS and not set(RESEARCH_SWAPS) & set(SWAP_INSTRUMENTS)

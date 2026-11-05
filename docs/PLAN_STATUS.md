@@ -277,6 +277,16 @@ Each line: the decision, then the recommendation. Chats add to this list instead
 - From the 2026-11-05 trader plan: the R16 slow-rule decision is taken both ways under your go: (a)
   the 200-day control account joins the fleet in R18, and (b) R19 judges fixed slow rules without
   the selection step, pre-registered. Nothing already run is re-judged.
+- From R17: the positioning-data fix reaches the laptop fleet only at the next update-and-restart of
+  its checkout (`docs/runbooks/PAPER_FLEET.md`, "Updating the fleet's code": the STOP file, `git pull`,
+  `--dry-run`, start the task; an agent session can do it). Recommendation: do it at the next
+  convenient moment, alone or together with the R18 accounts; until then `c11-s1s5-sol-6h-none` keeps
+  running as plain S1 and its bars are labelled "S5 running without data" in the weekly report. For
+  the record: it ran without its funding filter from 2026-11-04T22:59:50Z (01:00 Beirut time) with
+  0 trades; when the row was built (2026-11-05 02:03 UTC) the fleet had run 661 cycles (the four new
+  accounts joined at cycle 480), and the restart's `resume` record in `fleet.jsonl` gives the exact
+  cycle at which the fix took effect. No rule, fingerprint or gate changed; the app's allowlists are
+  untouched.
 
 ### Decided — the owner, 2026-11-05
 

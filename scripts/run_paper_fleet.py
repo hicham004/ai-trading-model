@@ -180,6 +180,13 @@ def cmd_status(args: argparse.Namespace, env: Mapping[str, str]) -> int:
              f", newest 1H candle {health.get('newest_candle')}, positioning source {st['positioning_source']}"]
     for key, s in sorted((st.get("series") or {}).items()):
         lines.append(f"  {key}: anchor {s.get('anchor')}, last bar {s.get('last_bar')}, bars {s.get('bars')}, skipped {s.get('gaps')}")
+    feed = health.get("positioning") or {}
+    if feed.get("markets"):
+        # Plan row R17: what the S5 filter has to work with, per market (newest stored funding / open-interest value).
+        parts = [f"{m['swap']} funding {m.get('funding_newest') or 'missing'} / open interest {m.get('open_interest_newest') or 'missing'}"
+                 for _, m in sorted(feed["markets"].items())]
+        lines.append(f"  positioning data (S5 filter, source {feed.get('source')}, last refresh {feed.get('last_refresh')}): " + "; ".join(parts)
+                     + (f"; last refresh errors: {feed['last_errors']}" if feed.get("last_errors") else ""))
     for aid, a in st["accounts"].items():
         eq = a.get("equity")
         pos = "long" if a.get("in_position") else "flat"
@@ -187,6 +194,9 @@ def cmd_status(args: argparse.Namespace, env: Mapping[str, str]) -> int:
             pos = "long " + ",".join(n for n, v in a["sleeves_in_position"].items() if v) if any(a["sleeves_in_position"].values()) else "flat"
         lines.append(f"  {aid:28s} equity {'-' if eq is None else f'{eq:,.2f}'}  {pos}  trades {a.get('trades_closed', '-')}  "
                      f"journal records {a.get('journal_records')}")
+        s5 = a.get("positioning")
+        if s5:
+            lines.append(f"  {'':28s} {'S5 data current' if s5.get('complete') else s5.get('note')} (bar {s5.get('bar')})")
         alloc = a.get("allocator")
         if alloc:
             cool = alloc.get("cooldown_days_left") or 0

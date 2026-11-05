@@ -253,7 +253,10 @@ enough: "go for R14 part A".
   four accounts added by plan rows R12, R13 and R16 (SOL, BTC and DOGE) are
   running; rows R18 to R20 will add more, each time by the same update-and-restart
   step (`docs/runbooks/PAPER_FLEET.md`, "Updating the fleet's code"), which an
-  agent session can do for you.
+  agent session can do for you. Row R17 (built 2026-11-05) needs that step once
+  too: it gives the SOL and DOGE accounts their funding and open-interest data;
+  until the restart, `c11` runs as plain S1 and the weekly report labels its bars
+  "S5 running without data".
 - The laptop must stay on and plugged in (it does not sleep on power; keep
   the lid open, closing it may put it to sleep). After a sleep both tasks
   simply continue and the fleet catches up bar by bar. After a reboot both

@@ -203,7 +203,10 @@ start the task. If `git pull` refuses because an untracked file "would be
 overwritten by merge", that file was copied in by hand before it was
 committed: delete it and pull again (the pulled copy is the same content). The fleet resumes in its folder; an added account joins at
 that restart, and changed rules of an existing account are refused (exit 2),
-as the troubleshooting table says.
+as the troubleshooting table says. A data fix reaches the running fleet the same
+way: plan row R17's positioning data for the SOL and DOGE accounts (see
+"Positioning data for the S5 filter on the replication markets" below) takes
+effect at the first restart from a checkout that carries it.
 
 **Moving the record to the VPS later** (option A): stop the task, copy the
 whole `logs\paper_fleet\` folder to the VPS checkout at the same code
@@ -218,7 +221,9 @@ journalctl -u paper-fleet.service -n 30 --no-pager      # VPS; option B: the Pow
 # expect "paper fleet created: …/logs/paper_fleet (24 accounts, …)" (20 on code from before plan row R12, 22 before R13, 23 before R16) and, once a 4H or 6H bar closes
 # (00, 04, 08, 12, 16, 20 h UTC), a line "cycle N: bars {…} …"
 .venv/bin/python scripts/run_paper_fleet.py --status
-# every account with its equity (10,000.00 at the start), "flat"/"long", data "fresh"
+# every account with its equity (10,000.00 at the start), "flat"/"long", data "fresh"; since plan row R17 also one line
+# "positioning data (S5 filter, ...)" with a newest funding / open-interest value for EVERY market (none "missing"), and under
+# each S5 account its label ("S5 data current")
 sudo systemctl status shadow.service --no-pager && cat logs/shadow/heartbeat.json
 # the Phase 6a run is untouched
 ```
@@ -392,6 +397,74 @@ beforehand. The two slow-trend hypotheses could not be judged: the protocol's 20
 selection rule left them flat in most windows (untested rather than refuted; an owner decision in
 `docs/PLAN_STATUS.md`, section 2). No TF or S2+TF account joined the fleet.
 
+### Positioning data for the S5 filter on the replication markets (plan row R17)
+
+The S5 positioning filter (the `+S5` in an account's name) blocks new entries while a market's
+perpetual-swap funding rate or open interest looks crowded. The fleet fetched those two public
+series through the app's collector, which knows only `BTC-USDT-SWAP` and `ETH-USDT-SWAP` (a bound
+that also serves demo and paper trading and stays exactly as it is). So when the SOL and DOGE
+accounts joined on 2026-11-04 at 23:00 UTC, every 30-minute refresh logged `positioning
+SOL-USDT-SWAP: instrument 'SOL-USDT-SWAP' not allowed` (and the same for DOGE; cycle lines with
+`errors=2`), the fleet's lake never received SOL funding or open interest, and the S5 filter of
+`c11-s1s5-sol-6h-none` passed for lack of data — a missing series adds no constraint, as in the
+research — so that account ran as plain S1 beside `c12`, and its journal said so only indirectly
+(`funding_rate: None, oi_usd: None, entry_allowed: True`).
+
+Since plan row R17 (2026-11-05):
+
+- The Sprint 2c pair's swaps still go through the app's collector, unchanged. Every other fleet
+  market's swap (`research.markets.RESEARCH_SWAP_FOR`: SOL, DOGE, XRP, ...) goes through a
+  research-side fetch of the same two public endpoints (`research/positioning_data.py`: GET only,
+  no keys, bounded to those markets, and it refuses BTC/ETH on purpose so their data can only come
+  through the app's path). The error lines are gone, and the fleet lake fills with
+  `derivatives/funding_rate/SOL-USDT-SWAP/8H` and `derivatives/open_interest/SOL-USDT-SWAP/1H` at
+  the first refresh after the restart (100 days of funding, 10 days of open interest, then topped
+  up every 30 minutes). The funding z-score needs 30 settlements (10 days), which that backfill
+  covers, so the filter is fully in force from the restart on. DOGE's series are fetched too
+  although `c14` has no S5 filter, so a future S5 account on DOGE starts with history. Checked
+  live on 2026-11-05: both endpoints answer for SOL-USDT-SWAP and DOGE-USDT-SWAP in the BTC/ETH
+  row format.
+- Every S5 account's bar record now carries `positioning_data`: each series is `current` (a value
+  at or before the bar's open, at most one of its own periods — 8 hours for funding, 1 hour for
+  open interest — plus the 30-minute refresh window old), `stale` (older than that: the filter
+  uses the last known value) or `missing` (that leg of the filter passes), with a `note` in plain
+  words — `S5 data current`, or `S5 running without data: the filter passes (funding missing, open
+  interest missing)`, or which single leg is missing or stale. `--status` prints the note under
+  each S5 account and one line with the newest stored funding / open-interest value per market;
+  the weekly report lists it in "In short" (while an account's last bar lacks data), in "This
+  week" (`— S5 without data` next to the last decision) and in "Data and health" (how many bars
+  since the start ran without complete data, the first and last of them). Bars written before R17
+  carry only the ages and are read through the same rule, so `c11`'s early bars count too.
+- No rule changed: the account fingerprints and the shared rules' fingerprint are exactly what the
+  running fleet stored (pinned in `tests/test_paper_fleet_config.py`), and the
+  `positioning_source` check is untouched, so the fleet resumes in its folder after the checkout
+  update and the labels appear from the first bar after that restart (tested: a state written
+  without the labels resumes, the series are backfilled at the resume, the later bars read
+  "current").
+
+**The period without the filter, for the record.** `c11-s1s5-sol-6h-none` ran without its funding
+and open-interest data from its creation at 2026-11-04T22:59:50Z (01:00 Beirut time on
+2026-11-05; `created_at` in `logs/paper_fleet/_state/fleet_state.json`) until the restart that
+picks up this row. When the row was built (2026-11-05 02:03 UTC) the fleet had run 661 cycles since
+its own start on 2026-11-04 14:55 UTC (the four new accounts joined at cycle 480), the account had
+processed one bar (2026-11-04 18:00 UTC, decision flat) and made 0 trades, so no fill was affected.
+The restart's `resume` record in `fleet.jsonl` gives the exact cycle at which the fix took effect;
+the bars of `c11` before it stay labelled "without data" in the weekly report. (An offline
+`--dry-run` on this laptop's research lake shows the same label for `c11`, because the research
+lake holds no OKX positioning series for SOL; the live fleet fetches them.)
+
+**What you do:** the update-and-restart step ("Updating the fleet's code" above: the STOP file,
+`git pull` in the fleet checkout, `--dry-run`, start the task), once `plan/auto` carries this row.
+Then check:
+
+```powershell
+Get-Content C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\console.log -Tail 20
+# the resume line, then cycle lines with errors=0 (no "not allowed")
+C:\Users\Admin\Desktop\ai-trading-fleet\.venv\Scripts\python.exe C:\Users\Admin\Desktop\ai-trading-fleet\scripts\run_paper_fleet.py --status
+# a line "positioning data (S5 filter, ...)" with a funding and an open-interest time for SOL-USDT-SWAP and DOGE-USDT-SWAP, and after the
+# next 6H bar closes (00, 06, 12, 18 h UTC) "S5 data current" under c11-s1s5-sol-6h-none
+```
+
 ## Troubleshooting
 
 | What you see | What it means | What to do |
@@ -407,6 +480,8 @@ selection rule left them flat in most windows (untested rather than refuted; an 
 | `paper fleet resume: … (20 accounts, …)` and `accounts added: pf-s1s2s4-btceth-vt15-alloc2; retired: none` after updating the code | The fleet was started before plan row R5b with 19 accounts; the allocator-v2 account joins it now, with its own start and warm-up, and counts from that moment. The 19 accounts continue unchanged | Nothing. The state file is upgraded in place (version 2), so an older checkout can no longer open it (`fleet state version 2 is not 1`, exit 2): keep the updated code |
 | `journal_set_aside` in `fleet.jsonl`, a file `journals/<account>.unfinished-<time>.jsonl` | An earlier start of that account was interrupted after its journal was written but before the state was saved (a crash or a full disk) | Nothing: the account started again cleanly and the interrupted file is kept for reference |
 | `decision_error` in a journal | One account could not compute a decision for one bar | That account keeps its stops but takes no new position until the next good decision; if it repeats, ask for a review |
+| `positioning SOL-USDT-SWAP: instrument 'SOL-USDT-SWAP' not allowed` (or DOGE) in the cycle lines, `errors=2` every 30 minutes | Code from before plan row R17: the fleet asks the app's BTC/ETH-only collector for a replication market's swap, so the S5 filter of that market's accounts passes for lack of data | Update the checkout and restart ("Updating the fleet's code"); the series are backfilled at the restart |
+| `S5 running without data: the filter passes` under an account in `--status`, or `S5 without data` in the weekly report | That S5 account's funding or open-interest series is missing (or stale) at its last bar: the positioning filter adds no constraint there and the account trades as its base rule; the report counts such bars since the start | On code before R17, for a SOL or DOGE account: update and restart. Otherwise read the `positioning data` line of `--status`: a `last refresh errors` entry means OKX did not answer (it recovers by itself and the next refresh backfills); a single stale open-interest hour is OKX's publishing delay, not a fault |
 | `cycle failed` lines | Something outside the fleet failed (disk full, …) | `df -h`. A cycle that could not be saved is redone from the last saved state, so nothing is lost or counted twice; after 10 failures in a row the program exits and systemd restarts it a minute later |
 
 ## Disk and memory

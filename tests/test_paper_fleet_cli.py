@@ -92,3 +92,53 @@ def test_run_as_a_script_it_never_loads_the_repository_env(tmp_path):
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=180, cwd=str(ROOT))
     assert out.returncode == 0, out.stderr
     assert "DOTENV None" in out.stdout and "no fleet" in out.stdout
+
+
+def test_status_says_plainly_when_an_s5_account_runs_without_positioning_data(cli, tmp_path, capsys):
+    """Plan row R17: the status line reads the labels the runner stores in the state (no journal, no network)."""
+    from research.paper_fleet.store import FleetPaths, write_state
+
+    paths = FleetPaths(tmp_path)
+    paths.ensure()
+    accounts = [{"account_id": "c11-s1s5-sol-6h-none", "role": "candidate", "kind": "sleeve", "label": "S1+S5 SOL-USDT 6H"},
+                {"account_id": "c01-s1s5-btc-6h-none", "role": "candidate", "kind": "sleeve", "label": "S1+S5 BTC-USDT 6H"},
+                {"account_id": "c12-s1-sol-6h-none", "role": "candidate", "kind": "sleeve", "label": "S1 SOL-USDT 6H"}]
+    engine = {"equity": 10_000.0, "in_pos": False, "alloc": 0.0, "last_bar_time": "2026-11-04T18:00:00Z", "trades_closed": 0, "fees_paid": 0.0, "lad_level": 0}
+    note = "S5 running without data: the filter passes (funding missing, open interest missing)"
+    state = {"version": 2, "created_at": "2026-11-04T14:55:15Z", "last_cycle": "2026-11-05T01:44:56Z", "cycles": 643, "fingerprint": "f",
+             "positioning_source": "okx", "manifest": {"init_cash": 10_000.0, "accounts": accounts}, "series": {}, "fits": {}, "portfolios": {},
+             "accounts": {"c11-s1s5-sol-6h-none": {"seq": 2, "engine": engine, "created_at": "2026-11-04T22:59:50Z", "retired_at": None,
+                                                   "positioning": {"source": "okx", "funding": "missing", "open_interest": "missing", "complete": False,
+                                                                   "note": note, "bar": "2026-11-04T18:00:00Z"}},
+                          "c01-s1s5-btc-6h-none": {"seq": 3, "engine": engine, "created_at": "2026-11-04T14:55:15Z", "retired_at": None,
+                                                   "positioning": {"source": "okx", "funding": "current", "open_interest": "current", "complete": True,
+                                                                   "note": "S5 data current", "bar": "2026-11-04T18:00:00Z"}},
+                          "c12-s1-sol-6h-none": {"seq": 2, "engine": engine, "created_at": "2026-11-04T22:59:50Z", "retired_at": None}},
+             "health": {"stale": False, "newest_candle": {"BTC-USDT": "2026-11-05T00:00:00Z", "SOL-USDT": "2026-11-05T00:00:00Z"}, "last_errors": [],
+                        "positioning": {"source": "okx", "last_refresh": "2026-11-05T01:29:56Z", "last_errors": [],
+                                        "markets": {"BTC-USDT": {"swap": "BTC-USDT-SWAP", "funding_newest": "2026-11-05T00:00:00Z",
+                                                                 "open_interest_newest": "2026-11-05T01:00:00Z"},
+                                                    "SOL-USDT": {"swap": "SOL-USDT-SWAP", "funding_newest": None, "open_interest_newest": None}}}}}
+    write_state(paths.state_file, state)
+    assert cli.main(["--status", "--fleet-dir", str(tmp_path)], env={}) == 0
+    out = capsys.readouterr().out
+    assert ("positioning data (S5 filter, source okx, last refresh 2026-11-05T01:29:56Z): BTC-USDT-SWAP funding 2026-11-05T00:00:00Z / open interest "
+            "2026-11-05T01:00:00Z; SOL-USDT-SWAP funding missing / open interest missing") in out
+    lines = out.splitlines()
+    i = next(k for k, line in enumerate(lines) if line.strip().startswith("c11-s1s5-sol-6h-none"))
+    assert lines[i + 1].strip() == f"{note} (bar 2026-11-04T18:00:00Z)"
+    j = next(k for k, line in enumerate(lines) if line.strip().startswith("c01-s1s5-btc-6h-none"))
+    assert lines[j + 1].strip() == "S5 data current (bar 2026-11-04T18:00:00Z)"
+    k = next(k for k, line in enumerate(lines) if line.strip().startswith("c12-s1-sol-6h-none"))
+    assert k == len(lines) - 1 or not lines[k + 1].strip().startswith("S5")  # plain S1: no label
+    assert cli.main(["--status", "--fleet-dir", str(tmp_path), "--json"], env={}) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["accounts"]["c11-s1s5-sol-6h-none"]["positioning"]["complete"] is False and "positioning" not in payload["accounts"]["c12-s1-sol-6h-none"]
+    # A state written before R17 (no labels, no feed summary) prints as before.
+    for meta in state["accounts"].values():
+        meta.pop("positioning", None)
+    state["health"].pop("positioning")
+    write_state(paths.state_file, state)
+    assert cli.main(["--status", "--fleet-dir", str(tmp_path)], env={}) == 0
+    before = capsys.readouterr().out
+    assert "positioning data (S5 filter" not in before and "S5 running" not in before and "c11-s1s5-sol-6h-none" in before

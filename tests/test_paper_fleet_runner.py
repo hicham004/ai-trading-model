@@ -709,3 +709,80 @@ def test_a_fleet_started_on_the_old_fomc_calendar_resumes_and_blocks_the_2027_me
         assert len(inside) == (4 if aid.startswith("ctl-hold") else 3), (aid, inside)  # 4H: 12, 16, 20, 00 h; 6H: 12, 18, 00 h
         assert not any(new[aid][t] for t in inside), aid  # the new calendar blocks new entries around the statement
         assert any(old[aid][t] for t in inside), aid  # the old one did not
+
+
+# -- plan row R17: positioning data for the replication markets, the "S5 running without data" label, resuming an older state -----
+
+S5_PAIR = ("c01-s1s5-btc-6h-none", "c11-s1s5-sol-6h-none")  # an S5 account on the Sprint 2c pair and one on a replication market
+S5_INSTRUMENTS = ("BTC-USDT", "SOL-USDT")
+
+
+@pytest.fixture(scope="module")
+def data_sol():
+    return synthetic_market(days=1000, end=pd.Timestamp("2026-10-19 00:00", tz="UTC"), instruments=("BTC-USDT", "ETH-USDT", "SOL-USDT"))
+
+
+def _make_sol(root: Path, data, manifest, now: pd.Timestamp, *, sol_positioning: bool):
+    candles, funding, oi = data
+    if not sol_positioning:  # what the fleet had before R17: no OKX funding / open interest for SOL-USDT-SWAP at all
+        funding = {k: v for k, v in funding.items() if k != "SOL-USDT-SWAP"}
+        oi = {k: v for k, v in oi.items() if k != "SOL-USDT-SWAP"}
+    feed = ReplayFeed(candles, funding, oi)
+    feed.now = now
+    paths = FleetPaths(root)
+    market = MarketData(FleetLake(paths.lake), feed, instruments=S5_INSTRUMENTS, history_days=SETTINGS.history_days)
+    fleet = PaperFleet(manifest, paths, market, settings=SETTINGS)
+    assert fleet.acquire()
+    fleet.open(now.to_pydatetime())
+    return fleet, feed
+
+
+def test_an_s5_account_without_positioning_data_is_labelled_and_an_older_state_resumes_once_the_feed_serves_it(tmp_path, data_sol):
+    from research.paper_fleet.store import write_state
+
+    manifest = _subset(S5_PAIR)
+    mid = pd.Timestamp("2026-10-16 03:10", tz="UTC")
+    fleet, feed = _make_sol(tmp_path, data_sol, manifest, T0, sol_positioning=False)
+    advance(fleet, feed, T0 + pd.Timedelta(minutes=40), mid, step=pd.Timedelta(hours=3))
+    fleet.release()
+    js = journals(tmp_path, manifest)
+    sol = [r for r in js["c11-s1s5-sol-6h-none"] if r["type"] == "bar"]
+    btc = [r for r in js["c01-s1s5-btc-6h-none"] if r["type"] == "bar"]
+    note = "S5 running without data: the filter passes (funding missing, open interest missing)"
+    assert sol and all(r["positioning_age_hours"] == {"funding": None, "open_interest": None} for r in sol)
+    assert all(r["positioning_data"] == {"source": "okx", "funding": "missing", "open_interest": "missing", "complete": False, "note": note} for r in sol)
+    assert all(r["decision"]["diagnostics"]["positioning"] == {"entry_allowed": True, "funding_rate": None, "oi_usd": None} for r in sol)
+    assert btc and all(r["positioning_data"] == {"source": "okx", "funding": "current", "open_interest": "current", "complete": True,
+                                                 "note": "S5 data current"} for r in btc)
+    state = read_state(tmp_path / "_state" / "fleet_state.json")
+    assert state["accounts"]["c11-s1s5-sol-6h-none"]["positioning"] == dict(sol[-1]["positioning_data"], bar=sol[-1]["bar"])
+    assert state["health"]["positioning"]["markets"]["SOL-USDT"] == {"swap": "SOL-USDT-SWAP", "funding_newest": None, "open_interest_newest": None}
+    assert state["health"]["positioning"]["markets"]["BTC-USDT"]["funding_newest"] is not None and state["health"]["positioning"]["last_errors"] == []
+    status = status_from_state(state)
+    assert status["accounts"]["c11-s1s5-sol-6h-none"]["positioning"]["complete"] is False
+    assert status["accounts"]["c01-s1s5-btc-6h-none"]["positioning"]["complete"] is True
+    # The state the laptop fleet wrote before R17 carries no label at all: strip them, as that code left it.
+    for meta in state["accounts"].values():
+        meta.pop("positioning", None)
+    state["health"].pop("positioning", None)
+    write_state(tmp_path / "_state" / "fleet_state.json", state)
+    assert "positioning" not in status_from_state(read_state(tmp_path / "_state" / "fleet_state.json"))["accounts"]["c11-s1s5-sol-6h-none"]
+    # Resumed by the R17 code with the feed now serving SOL-USDT-SWAP: no FleetError (fingerprints and positioning_source unchanged), the
+    # resume's bootstrap backfills SOL's series, the catch-up bars and every later bar are labelled current, and the record is one run.
+    later = mid + pd.Timedelta(hours=7)
+    fleet2, feed2 = _make_sol(tmp_path, data_sol, manifest, later, sol_positioning=True)
+    advance(fleet2, feed2, later, END)
+    fleet2.release()
+    log = [json.loads(line) for line in (tmp_path / "fleet.jsonl").read_text(encoding="utf-8").splitlines()]
+    resume = [r for r in log if r["type"] == "resume"]
+    assert len(resume) == 1 and resume[0]["data"]["errors"] == [] and resume[0]["data"]["positioning_added"]["funding SOL-USDT-SWAP"] > 0
+    js2 = journals(tmp_path, manifest)
+    sol2 = [r for r in js2["c11-s1s5-sol-6h-none"] if r["type"] == "bar"]
+    assert sol2[:len(sol)] == sol  # what was written stays as it was
+    after = sol2[len(sol):]
+    assert after and all(r["positioning_data"]["complete"] is True and r["positioning_data"]["note"] == "S5 data current" for r in after)
+    assert all(r["decision"]["diagnostics"]["positioning"]["funding_rate"] is not None for r in after)
+    state2 = read_state(tmp_path / "_state" / "fleet_state.json")
+    assert state2["accounts"]["c11-s1s5-sol-6h-none"]["positioning"]["complete"] is True
+    assert state2["health"]["positioning"]["markets"]["SOL-USDT"]["funding_newest"] is not None
+    assert all(ok for _, ok, _ in check_invariants(FleetPaths(tmp_path), manifest)), check_invariants(FleetPaths(tmp_path), manifest)

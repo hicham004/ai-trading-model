@@ -262,3 +262,21 @@ def test_the_configuration_confirmed_by_research_round_2_joins_as_account_c14(ma
     assert manifest.sources["results_r16researchround2"].endswith("docs/research/research_round_2_results.json")
     c13 = manifest.account("c13-s1vc-btc-4h-gate")
     assert c13.sleeve.candidate == acc.sleeve.candidate and c13.sleeve.params != acc.sleeve.params  # the same condition, the rule each walk-forward selected
+
+
+# Plan row R17: the four accounts added by rows R12, R13 and R16 run on the laptop since 2026-11-04 23:00 UTC (24 accounts, manifest
+# fingerprint 0b5a7ea75c0f). Resuming checks the shared rules' fingerprint and every running account's fingerprint, so R17 (a data feed
+# and labels, no rule) must leave all of them exactly as the fleet stored them; these are the values from its state file.
+R12_R16_FINGERPRINTS = {
+    "c11-s1s5-sol-6h-none": "30ecf01bfc3d4c0b9d68ccadfc873da1d19ee9f75434da3688d88baaf4857c1c",
+    "c12-s1-sol-6h-none": "3dd2e7a3c5136e81161894fb29a268df4b19a654985a897bed6f206cddc57874",
+    "c13-s1vc-btc-4h-gate": "a1e35f2fd5b45806549776e81928532282e69cb3576a037d1d25aabf22618b01",
+    "c14-s1vc-doge-4h-gate": "d38a8e33ee3fbe9bdc63a57b1164c2e76d29e04b8c56ebd3d3590d5173ef5860",
+}
+
+
+def test_the_accounts_added_since_r12_keep_their_fingerprints_so_the_running_fleet_resumes_after_r17(manifest):
+    assert manifest.fleet_fingerprint() == R5A_FLEET_FINGERPRINT
+    assert {aid: account_fingerprint(manifest.account(aid)) for aid in R12_R16_FINGERPRINTS} == R12_R16_FINGERPRINTS
+    assert {a.account_id: account_fingerprint(a) for a in manifest.accounts if a.account_id in R5A_FINGERPRINTS} == R5A_FINGERPRINTS
+    assert manifest.account("c11-s1s5-sol-6h-none").sleeve.uses_positioning and not manifest.account("c12-s1-sol-6h-none").sleeve.uses_positioning

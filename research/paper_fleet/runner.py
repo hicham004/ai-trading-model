@@ -517,13 +517,19 @@ class PaperFleet:
                     if self._account_started(acc.account_id, ts + delta):
                         records[acc.account_id].append({"type": "regime_fit", "bar": iso(ts), **fit.summary()})
         ctx = self.market.context(inst, tf)
-        ages = self.market.positioning_age(inst, ts) if self.market.positioning == "okx" else {}
+        s5_data: Optional[Dict[str, Any]] = None  # the S5 filter's data label at this bar (plan row R17), computed once per series
         for acc in self._by_series.get(key, []):
             if not self._account_started(acc.account_id, ts + delta):
                 continue  # added later: its anchor is the first bar that closes after it was created
             info, err = self._decide(acc.sleeve, acc.kind, window, ctx, fit)
             out = self.engines[acc.account_id].step(iso(ts), o, h, low, c, None if info is None else info.decision)
-            records[acc.account_id].append(self._bar_record(ts, delta, (o, h, low, c), out, info, err, ages if acc.sleeve is not None and acc.sleeve.uses_positioning else None))
+            uses_s5 = acc.sleeve is not None and acc.sleeve.uses_positioning
+            if uses_s5 and s5_data is None:
+                s5_data = self.market.positioning_status(inst, ts)
+            records[acc.account_id].append(self._bar_record(ts, delta, (o, h, low, c), out, info, err, s5_data if uses_s5 else None))
+            if uses_s5:
+                # The state carries the label too, so ``--status`` (which reads no journal) can say it plainly.
+                self.state["accounts"][acc.account_id]["positioning"] = dict({k: v for k, v in s5_data.items() if k != "age_hours"}, bar=iso(ts))
         # Portfolio sleeves: a sleeve shared by two portfolio accounts gets the same decision (same rule, same bars), computed once.
         decided: Dict[str, Tuple[Optional[DecisionInfo], Optional[str]]] = {}
         for aid, name, sleeve in self._pf_by_series.get(key, []):
@@ -554,7 +560,7 @@ class PaperFleet:
         except Exception as exc:  # fail closed: no decision -> stops only, no entry, no signal exit
             return None, f"{type(exc).__name__}: {exc}"
 
-    def _bar_record(self, ts, delta, ohlc, out: BarOutcome, info: Optional[DecisionInfo], err: Optional[str], ages) -> Dict[str, Any]:
+    def _bar_record(self, ts, delta, ohlc, out: BarOutcome, info: Optional[DecisionInfo], err: Optional[str], s5: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         rec: Dict[str, Any] = {
             "type": "bar", "bar": iso(ts), "close_time": iso(ts + delta), "ohlc": [float(x) for x in ohlc], "anchor": out.bar_index == 0,
             "bar_index": out.bar_index, "events": out.events, "equity": out.equity, "cash": out.cash, "quantity": out.qty,
@@ -565,8 +571,10 @@ class PaperFleet:
             rec["decision"] = info.to_dict()
         else:
             rec["decision_error"] = err
-        if ages is not None:
-            rec["positioning_age_hours"] = ages
+        if s5 is not None:
+            rec["positioning_age_hours"] = s5.get("age_hours", {})
+            # Plan row R17: the label says plainly when the S5 filter ran without (or on stale) data at this bar.
+            rec["positioning_data"] = {k: v for k, v in s5.items() if k != "age_hours"}
         return rec
 
     def _book_portfolio_days(self, records: Dict[str, List[Dict[str, Any]]]) -> Dict[str, List[str]]:
@@ -622,7 +630,7 @@ class PaperFleet:
             append_fleet_log(self.paths.fleet_log, {"type": "data_stale" if stale else "data_fresh", "now": iso(now), "newest_candle": newest})
             self._stale = stale
         self.state["health"] = {"stale": stale, "newest_candle": newest, "last_cycle": iso(now),
-                                "last_errors": summary["errors"][-5:]}
+                                "last_errors": summary["errors"][-5:], "positioning": self.market.positioning_newest()}
         return stale
 
     def _log_cycle(self, now: pd.Timestamp, summary: Dict[str, Any]) -> None:
@@ -655,6 +663,8 @@ def status_from_state(state: Dict[str, Any], manifest: Optional[FleetManifest] =
             item.update({"equity": eng.get("equity"), "in_position": eng.get("in_pos"), "allocation": eng.get("alloc") if eng.get("in_pos") else 0.0,
                          "last_bar": eng.get("last_bar_time"), "trades_closed": eng.get("trades_closed"), "fees_paid": eng.get("fees_paid"),
                          "ladder_level": eng.get("lad_level")})
+        if meta.get("positioning"):  # an S5 account: the data label of its last bar (plan row R17)
+            item["positioning"] = dict(meta["positioning"])
         out["accounts"][aid] = item
     init = (state.get("manifest") or {}).get("init_cash", 10_000.0)
     try:

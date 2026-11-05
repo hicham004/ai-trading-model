@@ -4,6 +4,52 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — R17: paper-fleet hygiene — public positioning data for the replication markets and honest "filter without data" labels (plan row R17)
+
+Fleet and research code, tests and docs only (`research/`, `scripts/run_paper_fleet.py`, `tests/`, `docs/`): nothing under `app/`,
+`config/` or `migrations/` changed; `app/execution`, `app/risk`, `app/exchange` and `app/shadow` are untouched, and the app's
+allowlists (`app/okx/client.py`, `app/datalake/derivatives.py`, `app/datalake/binance_public.py`) are not widened. The trading
+safety contract is unchanged; the demo shadow run and its caps are untouched. Simulation only: nothing here places, sizes or
+approves an order.
+
+### Added
+- `research/positioning_data.py`: a research-side, GET-only fetch of OKX's PUBLIC funding-rate history and rubik open-interest
+  history for the replication study's swaps (`research.markets.RESEARCH_SWAP_FOR`), through the path-allowlisted
+  `OKXPublicRest` with the app's own path constants and row parsers but without the app's BTC/ETH instrument bound (the R12
+  precedent, `research/replication_data.py`); it refuses BTC/ETH and anything unknown before any request. Checked live on
+  2026-11-05: both endpoints answer for SOL-USDT-SWAP and DOGE-USDT-SWAP in the BTC/ETH row format.
+- `research/paper_fleet/data.py`: `positioning_status`, the S5 filter's data label at one bar — each series `current` (a value at
+  or before the bar's open, at most one of its own periods, 8 h funding / 1 h open interest, plus the 30-minute refresh window
+  old), `stale` (the filter uses the last known value) or `missing` (that leg passes) — with a plain-words note
+  (`S5 data current`; `S5 running without data: the filter passes (funding missing, open interest missing)`; or which single
+  leg is missing or stale); `MarketData.positioning_status` and `positioning_newest` (newest stored value per market, last
+  refresh, its errors).
+- Tests: `tests/test_research_positioning_data.py` (recorded responses, bounds, GET-only public paths, the app bound untouched);
+  in the fleet tests the feed for a research market with the error line gone and BTC/ETH still on the app path, the label rules,
+  the labels in the journal, the state and `--status`, a state written without the labels resuming once the feed serves the
+  series (backfill at the resume, later bars "current"), the report's lines, and the pinned fingerprints of the four accounts
+  added since R12 next to the R5a ones; `tests/test_research_boundaries.py` covers the new module.
+
+### Changed
+- `research/paper_fleet/data.py`: the feed routes the Sprint 2c pair's swaps through the app's collector, unchanged, and every
+  other fleet market's swap through the research-side fetch, so the fleet lake gets SOL (and DOGE) funding and open interest.
+- `research/paper_fleet/runner.py`: every S5 account's bar record carries `positioning_data` next to the ages; the state carries
+  each S5 account's last label and, in `health.positioning`, the newest stored funding / open-interest value per market with the
+  last refresh and its errors; `status_from_state` exposes both. Nothing in the rules, the fingerprints or the
+  `positioning_source` check changed, so the running fleet resumes after the checkout update.
+- `scripts/run_paper_fleet.py --status`: one `positioning data (S5 filter, ...)` line per fleet and the label under each S5 account.
+- `research/paper_fleet/report.py`: "In short" names every S5 account whose last bar ran without data, "This week" marks its last
+  decision `— S5 without data`, "Data and health" counts such bars since the start (bars from before R17 are read through the
+  same rule) and shows the newest stored values per market.
+- `docs/runbooks/PAPER_FLEET.md`: the R17 section (what was wrong, what changed, the labels, the resume guarantee, the period in
+  which `c11` ran without its filter, the owner's restart step and checks), two troubleshooting rows, the first-hour check.
+
+### For the record
+- `c11-s1s5-sol-6h-none` ran without its funding and open-interest data from its creation at 2026-11-04T22:59:50Z (01:00 Beirut
+  time) until the restart that picks up this row; when the row was built (2026-11-05 02:03 UTC) the laptop fleet had run 661
+  cycles (the four new accounts joined at cycle 480), the account had processed one bar and made 0 trades. The fix reaches the
+  running fleet only through the owner's update-and-restart step.
+
 ## Unreleased — Trader Plan: a research-backed strategy and risk plan, plan rows R17–R22 (2026-11-05)
 
 Documentation only: nothing under `app/`, `config/`, `migrations/`, `research/` or `scripts/` changed.

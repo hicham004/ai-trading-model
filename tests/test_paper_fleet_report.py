@@ -273,3 +273,81 @@ def test_no_allocator_section_without_an_allocator_account(tmp_path):
     paths = _fleet(tmp_path, "2026-11-02T00:00:00Z", "2026-11-04T00:05:00Z")
     text = write_week(paths, datetime(2026, 11, 4, 0, 30, tzinfo=timezone.utc)).read_text(encoding="utf-8")
     assert "## Allocator v2" not in text and "allocator-v2 twin" not in text
+
+
+# -- plan row R17: the "S5 running without data" label --------------------------------------------------------------------
+
+S5_NOTE = "S5 running without data: the filter passes (funding missing, open interest missing)"
+
+
+def _fleet_s5(tmp_path, *, created="2026-11-02T00:00:00Z", last_cycle="2026-11-04T00:05:00Z"):
+    """Three sleeve accounts: S1+S5 on BTC with current data, S1+S5 on SOL without any, and plain S1 on SOL (no filter)."""
+    paths = FleetPaths(tmp_path)
+    paths.ensure()
+    exp = ACCOUNT["expectations"]
+    accounts = [
+        {"account_id": "c01-s1s5-btc-6h-none", "role": "candidate", "kind": "sleeve", "label": "S1+S5 BTC-USDT 6H (no regime gate)",
+         "instrument": "BTC-USDT", "timeframe": "6H", "sleeve": {"candidate": "S1+S5"}, "shortlist_rank": 1, "expectations": exp},
+        {"account_id": "c11-s1s5-sol-6h-none", "role": "candidate", "kind": "sleeve", "label": "S1+S5 SOL-USDT 6H (no regime gate) — from R12 replication",
+         "instrument": "SOL-USDT", "timeframe": "6H", "sleeve": {"candidate": "S1+S5"}, "shortlist_rank": 11, "expectations": exp},
+        {"account_id": "c12-s1-sol-6h-none", "role": "candidate", "kind": "sleeve", "label": "S1 SOL-USDT 6H (no regime gate) — from R12 replication",
+         "instrument": "SOL-USDT", "timeframe": "6H", "sleeve": {"candidate": "S1"}, "shortlist_rank": 12, "expectations": exp},
+    ]
+    health = {"stale": False, "newest_candle": {"BTC-USDT": last_cycle, "SOL-USDT": last_cycle},
+              "positioning": {"source": "okx", "last_refresh": last_cycle, "last_errors": [],
+                              "markets": {"BTC-USDT": {"swap": "BTC-USDT-SWAP", "funding_newest": "2026-11-04T00:00:00Z", "open_interest_newest": "2026-11-04T00:00:00Z"},
+                                          "SOL-USDT": {"swap": "SOL-USDT-SWAP", "funding_newest": None, "open_interest_newest": None}}}}
+    state = {"version": 2, "created_at": created, "last_cycle": last_cycle, "cycles": 10, "fingerprint": "f", "positioning_source": "okx",
+             "manifest": {"init_cash": 10_000.0, "accounts": accounts}, "series": {}, "fits": {}, "portfolios": {}, "health": health}
+    write_state(paths.state_file, state)
+    t0 = pd.Timestamp(created)
+    for acc in accounts:
+        recs = [{"type": "start", "seq": 1}]
+        for i in range(6):
+            rec = _bar(t0 + pd.Timedelta(hours=6 * i), 10_000.0, anchor=i == 0, seq=i + 2)
+            rec["close_time"] = (t0 + pd.Timedelta(hours=6 * (i + 1))).strftime("%Y-%m-%dT%H:%M:%SZ")
+            rec["decision"] = {"signal": {"action": "flat"}, "diagnostics": {"desired": False}}
+            if acc["account_id"] == "c01-s1s5-btc-6h-none":
+                rec["positioning_age_hours"] = {"funding": 2.0, "open_interest": 0.0}
+                rec["positioning_data"] = {"source": "okx", "funding": "current", "open_interest": "current", "complete": True, "note": "S5 data current"}
+            elif acc["account_id"] == "c11-s1s5-sol-6h-none":
+                rec["positioning_age_hours"] = {"funding": None, "open_interest": None}
+                if i >= 3:  # bars written since R17 carry the label; the older ones only the ages (read through the same rule)
+                    rec["positioning_data"] = {"source": "okx", "funding": "missing", "open_interest": "missing", "complete": False, "note": S5_NOTE}
+            recs.append(rec)
+        Journal(paths.journal(acc["account_id"])).append(recs)
+    return paths
+
+
+def test_the_report_says_plainly_when_an_s5_account_runs_without_positioning_data(tmp_path):
+    paths = _fleet_s5(tmp_path)
+    data = build_report_data(paths, datetime(2026, 11, 4, 0, 30, tzinfo=timezone.utc))
+    rows = {r["account"]["account_id"]: r for r in data["rows"]}
+    sol = rows["c11-s1s5-sol-6h-none"]["s5_data"]
+    assert sol["bars"] == 6 and sol["incomplete"] == 6 and sol["incomplete_week"] == 6 and sol["last"]["complete"] is False
+    assert sol["first_incomplete"] == "2026-11-02T00:00:00Z" and sol["last_incomplete"] == "2026-11-03T06:00:00Z" and sol["last"]["note"] == S5_NOTE
+    btc = rows["c01-s1s5-btc-6h-none"]["s5_data"]
+    assert btc["bars"] == 6 and btc["incomplete"] == 0 and btc["last"]["complete"] is True
+    assert "s5_data" not in rows["c12-s1-sol-6h-none"]  # plain S1 has no positioning filter: nothing to label
+    text = render(data)
+    short = text[text.index("## In short"):text.index("## Controls")]
+    assert f"**S5 running without data**: `c11-s1s5-sol-6h-none` ({S5_NOTE} at its last bar, 6 of 6 bars since its start)" in short
+    assert "trades as its base rule" in short and "c01-s1s5-btc-6h-none" not in short.split("S5 running without data")[1].split("\n")[0]
+    week = text[text.index("## This week"):text.index("## Data and health")]
+    sol_line = next(line for line in week.splitlines() if "`c11-s1s5-sol-6h-none`" in line)
+    btc_line = next(line for line in week.splitlines() if "`c01-s1s5-btc-6h-none`" in line)
+    assert sol_line.endswith("| flat | flat — S5 without data |") and btc_line.endswith("| flat | flat |")
+    health = text[text.index("## Data and health"):text.index("## How to read")]
+    assert ("- S5 data for `c11-s1s5-sol-6h-none`: 6 of 6 bars since its start ran without complete funding / open-interest data (6 this week; "
+            "first 2026-11-02T00:00:00Z, last 2026-11-03T06:00:00Z); the filter passes on a missing series and uses the last known value on a "
+            f"stale one. Last bar 2026-11-03T06:00:00Z: {S5_NOTE}.") in health
+    assert "- S5 data for `c01-s1s5-btc-6h-none`: current funding and open-interest data at every one of its 6 bars." in health
+    assert ("Newest stored values: BTC-USDT-SWAP funding 2026-11-04T00:00:00Z / open interest 2026-11-04T00:00:00Z; SOL-USDT-SWAP funding missing / "
+            "open interest missing.") in health
+    assert "S5 data for `c12-s1-sol-6h-none`" not in health
+    # A state from before R17 (no feed summary in health) still renders, and the older journals are read through the same rule.
+    state = json.loads(paths.state_file.read_text(encoding="utf-8"))
+    state["health"].pop("positioning")
+    write_state(paths.state_file, state)
+    text2 = render(build_report_data(paths, datetime(2026, 11, 4, 0, 30, tzinfo=timezone.utc)))
+    assert "Newest stored values" not in text2 and "**S5 running without data**: `c11-s1s5-sol-6h-none`" in text2

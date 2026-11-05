@@ -557,3 +557,18 @@ cross-asset context moves nothing for the existing rules. 20 configurations were
   idea with a signal — the volume confirmation — gained most where the base rule was weakest (the
   gated 4H rules) and lost on 6H, so a next round (R16) could pre-register its strictness or the
   attention idea on R12's markets, fixed a priori rather than swept. Nothing here authorizes trading.
+
+## Paper-fleet hygiene — positioning data for the replication markets (plan row R17)
+
+Found 2026-11-05 in the running laptop fleet: the S5 positioning filter's data came through the
+app's collector, which is bounded to `BTC-USDT-SWAP` and `ETH-USDT-SWAP`, so the SOL S1+S5
+account (`c11`, from R12) ran without its funding and open-interest series — the filter passes
+where data is missing, as in the research — and the only sign was `not allowed` in the cycle
+lines and `funding_rate: None` in its journal. Fleet and research code only; the app's bounds
+are not widened. Runbook: `docs/runbooks/PAPER_FLEET.md`, "Positioning data for the S5 filter on
+the replication markets".
+
+| Module | Purpose |
+|---|---|
+| `research/positioning_data.py` | GET-only fetch of OKX's public funding-rate and open-interest history for the replication markets' swaps (`RESEARCH_SWAP_FOR`) through the path-allowlisted `OKXPublicRest`, with the app's path constants and row parsers but without its BTC/ETH bound; refuses BTC/ETH and anything unknown before any request (the R12 precedent applied to positioning data). |
+| `research/paper_fleet/` (changes) | The feed routes BTC/ETH through the app's collector, unchanged, and every other fleet market through the research fetch. `positioning_status` labels each bar's S5 data (`current` / `stale` / `missing` per series, against the series' own period plus the 30-minute refresh window) with a plain-words note; the runner writes it into every S5 bar record (`positioning_data`) and the state; `--status` and the weekly report say it ("S5 running without data: the filter passes"). No rule, fingerprint or `positioning_source` check changed, so a running fleet resumes and the fix takes effect at its next restart. |

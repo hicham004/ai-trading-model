@@ -8,12 +8,23 @@ of any kind — on four paths:
 - ``/api/v5/market/history-candles`` (older 1H candles, to bootstrap and to fill gaps),
 - ``/api/v5/public/funding-rate-history`` and
   ``/api/v5/rubik/stat/contracts/open-interest-history`` (the S5 positioning
-  filter's funding rate and open interest of the BTC/ETH USDT swaps — research
-  FEATURES only; the fleet never trades swaps).
+  filter's funding rate and open interest of each market's USDT swap — research
+  FEATURES only; the fleet never trades swaps). The Sprint 2c pair's swaps go
+  through the app's collector (``app.datalake.derivatives``, bounded to
+  BTC/ETH); every other fleet market's swap goes through the research-side
+  fetch of :mod:`research.positioning_data` (plan row R17), bounded to the
+  replication study's markets. Neither bound is widened.
 
 Storage: the fleet's OWN small lake (``<fleet dir>/lake``, the research lake
 layout), seeded once by copying the research lake's files when they exist and
 topped up from OKX afterwards. The research lake is only ever read.
+
+Honesty label: the S5 filter passes wherever a series is missing (a missing
+series adds no constraint, as in the research). :func:`positioning_status`
+says so per bar — each series is *current*, *stale* (older than its own
+period plus the refresh window) or *missing* — and the runner writes it into
+the bar journal, the state (``--status``) and the weekly report, so an S5
+account never runs as its base rule in silence.
 
 Bars: 4H and 6H bars are rebuilt from confirmed 1H candles on the UTC clock
 (:func:`research.resample.resample_ohlcv`, complete bars only) — the research
@@ -38,6 +49,7 @@ import pyarrow as pa
 
 from app.datalake.derivatives import (
     FUNDING_PERIOD,
+    SWAP_INSTRUMENTS,
     fetch_funding_rate_history,
     fetch_open_interest_history,
     write_series,
@@ -47,6 +59,7 @@ from app.datalake.okx_public_rest import OKXPublicRest, PublicRestError
 from app.datalake.parquet_store import CANDLE_SCHEMA, TS_TYPE, read_candles, write_partitioned
 from research.data import bars_per_year, load_okx_series
 from research.markets import RESEARCH_SWAP_FOR
+from research.positioning_data import fetch_research_funding_history, fetch_research_open_interest_history
 from research.resample import OHLCV, resample_ohlcv
 from research.strategies.base import FeatureContext
 
@@ -61,6 +74,12 @@ HISTORY_LIMIT = 100
 SWAP_FOR = {"BTC-USDT": "BTC-USDT-SWAP", "ETH-USDT": "ETH-USDT-SWAP", **RESEARCH_SWAP_FOR}
 OI_PERIOD = "1H"
 POSITIONING_SOURCES = ("okx", "none")
+POSITIONING_REFRESH_MINUTES = 30.0  # how often the fleet tops up the funding / open-interest series
+# A series counts as current at a bar when the newest value known at the bar's open is at most one of its own periods old,
+# plus the refresh window (OKX settles funding every 8 hours; the open-interest history is hourly).
+FUNDING_PERIOD_HOURS = 8.0
+OI_PERIOD_HOURS = 1.0
+POSITIONING_SERIES = (("funding", FUNDING_PERIOD_HOURS, "funding"), ("open_interest", OI_PERIOD_HOURS, "open interest"))
 
 
 class MarketDataError(RuntimeError):
@@ -74,6 +93,49 @@ def _utc(ts: Any) -> pd.Timestamp:
 
 def _ms(ts: Any) -> int:
     return int(_utc(ts).value // 1_000_000)
+
+
+def _iso(ts: Any) -> str:
+    return _utc(ts).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def positioning_status(ages: Optional[Mapping[str, Optional[float]]], *, refresh_minutes: float = POSITIONING_REFRESH_MINUTES,
+                       source: str = "okx") -> Dict[str, Any]:
+    """Plain words on the S5 filter's data at one bar, from the ages :meth:`MarketData.positioning_age` gives (plan row R17).
+
+    Each series is ``current`` (a value exists at or before the bar and is at most one of its own periods plus the refresh
+    window old), ``stale`` (older than that: the filter uses the last known value) or ``missing`` (no value at all, or no
+    positioning source: that leg of the filter passes, as in the research). ``complete`` is True only when both are current;
+    ``note`` is the sentence the bar journal, the status line and the weekly report show.
+    """
+    grace = float(refresh_minutes) / 60.0
+    out: Dict[str, Any] = {"source": source}
+    missing: List[str] = []
+    stale: List[str] = []
+    for key, period_hours, label in POSITIONING_SERIES:
+        age = None if ages is None else ages.get(key)
+        if source != "okx" or age is None:
+            out[key] = "missing"
+            missing.append(label)
+        elif float(age) > period_hours + grace:
+            out[key] = "stale"
+            stale.append(f"{label} {float(age):.1f} h old, at most {period_hours + grace:.1f} h expected")
+        else:
+            out[key] = "current"
+    out["complete"] = not missing and not stale
+    if out["complete"]:
+        out["note"] = "S5 data current"
+        return out
+    parts: List[str] = []
+    if len(missing) == len(POSITIONING_SERIES):
+        why = f"positioning source {source}" if source != "okx" else "funding missing, open interest missing"
+        parts.append(f"S5 running without data: the filter passes ({why})")
+    elif missing:
+        parts.append(f"S5 running without {missing[0]} data: that leg of the filter passes")
+    if stale:
+        parts.append("S5 running on stale data: " + "; ".join(stale) + " (that leg uses the last known value)")
+    out["note"] = "; ".join(parts)
+    return out
 
 
 def parse_candle_rows(rows: Sequence[Any], instrument: str) -> pd.DataFrame:
@@ -139,14 +201,20 @@ class OkxPublicFeed:
 
     def funding_history(self, swap: str, *, before_ms: Optional[int] = None) -> List[dict]:
         self.requests += 1
-        rows = fetch_funding_rate_history(self.rest, swap, after_ms=before_ms)
+        if swap in SWAP_INSTRUMENTS:  # the Sprint 2c pair: the app's collector, unchanged
+            rows = fetch_funding_rate_history(self.rest, swap, after_ms=before_ms)
+        else:  # a replication market's swap (plan row R17): the research-side fetch, bounded to those markets
+            rows = fetch_research_funding_history(self.rest, swap, after_ms=before_ms)
         if self.sleep_seconds > 0:
             self._sleep(self.sleep_seconds)
         return rows
 
     def open_interest_history(self, swap: str, *, end_ms: Optional[int] = None) -> List[dict]:
         self.requests += 1
-        rows = fetch_open_interest_history(self.rest, swap, OI_PERIOD, end_ms=end_ms)
+        if swap in SWAP_INSTRUMENTS:
+            rows = fetch_open_interest_history(self.rest, swap, OI_PERIOD, end_ms=end_ms)
+        else:
+            rows = fetch_research_open_interest_history(self.rest, swap, OI_PERIOD, end_ms=end_ms)
         if self.sleep_seconds > 0:
             self._sleep(self.sleep_seconds)
         return rows
@@ -253,7 +321,7 @@ class MarketData:
         positioning: str = "okx",
         positioning_days: float = 100.0,
         oi_days: float = 10.0,
-        positioning_refresh_minutes: float = 30.0,
+        positioning_refresh_minutes: float = POSITIONING_REFRESH_MINUTES,
         max_gap_pages: int = 400,
     ) -> None:
         if positioning not in POSITIONING_SOURCES:
@@ -271,6 +339,7 @@ class MarketData:
         self._funding: Dict[str, Optional[pd.DataFrame]] = {}
         self._oi: Dict[str, Optional[pd.DataFrame]] = {}
         self._positioning_at: Optional[datetime] = None
+        self._positioning_errors: List[str] = []  # the last positioning refresh's errors, for the status line
         self._bars_cache: Dict[Tuple[str, str], Tuple[int, pd.DataFrame]] = {}
 
     # -- loading -------------------------------------------------------------
@@ -360,6 +429,7 @@ class MarketData:
     def _refresh_positioning(self, now: datetime, report: RefreshReport, *, bootstrap: bool) -> None:
         now_ts = _utc(now)
         changed = False
+        errors: List[str] = []
         for inst in self.instruments:
             swap = SWAP_FOR[inst]
             try:
@@ -368,8 +438,10 @@ class MarketData:
                 report.positioning_added[f"funding {swap}"] = n_f
                 report.positioning_added[f"open interest {swap}"] = n_o
                 changed = changed or bool(n_f or n_o)
-            except (PublicRestError, ValueError) as exc:
-                report.errors.append(f"positioning {swap}: {exc}")
+            except (PublicRestError, ValueError) as exc:  # PositioningDataError is a ValueError: logged, the series stays as it was
+                errors.append(f"positioning {swap}: {exc}")
+        report.errors.extend(errors)
+        self._positioning_errors = errors
         self._positioning_at = now_ts.to_pydatetime()
         if changed:
             self._load_positioning()
@@ -432,6 +504,24 @@ class MarketData:
             known = frame.index[frame.index <= at]
             out[label] = None if len(known) == 0 else float((at - known[-1]).total_seconds() / 3600.0)
         return out
+
+    def positioning_status(self, instrument: str, at: pd.Timestamp) -> Dict[str, Any]:
+        """The S5 filter's data label of ``instrument`` at bar ``at``: the ages plus :func:`positioning_status` (plan row R17)."""
+        ages = self.positioning_age(instrument, at) if self.positioning == "okx" else {}
+        status = positioning_status(ages, refresh_minutes=self.positioning_refresh.total_seconds() / 60.0, source=self.positioning)
+        status["age_hours"] = ages
+        return status
+
+    def positioning_newest(self) -> Dict[str, Any]:
+        """Per market its swap and the newest stored funding / open-interest timestamps, the last refresh and its errors (``--status``)."""
+        markets: Dict[str, Dict[str, Optional[str]]] = {}
+        for inst in self.instruments:
+            entry: Dict[str, Optional[str]] = {"swap": SWAP_FOR[inst]}
+            for key, frame in (("funding", self._funding.get(inst)), ("open_interest", self._oi.get(inst))):
+                entry[f"{key}_newest"] = None if frame is None or frame.empty else _iso(frame.index.max())
+            markets[inst] = entry
+        return {"source": self.positioning, "last_refresh": None if self._positioning_at is None else _iso(self._positioning_at),
+                "last_errors": list(self._positioning_errors), "markets": markets}
 
 
 def frame_until(df: pd.DataFrame, end: pd.Timestamp) -> pd.DataFrame:
