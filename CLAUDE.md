@@ -107,6 +107,16 @@ VPS had not shown the previous `50110` whitelist failures, private-WS flapping,
 or re-arm storms. Agents must still verify the live host state before relying
 on it; do not infer current runtime health from this file alone.
 
+**Owner report, November 6, 2026:** that droplet was deleted (it was charging
+without being used). The Phase 6a shadow run is therefore not running anywhere,
+and its June-October logs, reports and database are gone unless a DigitalOcean
+snapshot exists; the VPS paragraphs above describe the deleted host. Running a
+demo shadow run again is an owner action, to be planned afresh (a new server, a
+new demo API key bound to its address, a fresh local database; see
+`docs/PLAN_STATUS.md`, section 2). The paper fleet and the tokenized-stocks
+recorder move to a new small droplet with `scripts/vps_research_setup.sh`
+(`docs/OWNER_CHECKLIST.md`, step 12).
+
 **Phase 6b (news/event agent) is authorized for LOG-ONLY operation** (human
 owner, June 30, 2026, GitHub issue #12; reconfirmed October 20, 2026): build,
 test and run it as a separate log-only observer per `docs/PHASE6B_DESIGN.md`.

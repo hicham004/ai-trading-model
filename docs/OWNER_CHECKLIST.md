@@ -4,16 +4,23 @@ Written for the owner. Everything an agent could do from this laptop has been
 done or is queued in `docs/PLAN_STATUS.md`. Nine of the twelve items below need
 your accounts, your keys or your VPS; three (9 to 11) are quick answers. Step 12,
 listed first, is the one to do first: it lets the laptop be switched off. They are in the order that unlocks the most.
+
+**2026-11-06: you deleted the old droplet.** It ran the demo shadow run, so that test has stopped,
+and its June-October files went with it unless DigitalOcean kept a snapshot. Steps 1, 3 and 4, the
+server parts of steps 6 and 11, and the "on the VPS" part of step 7 were about that server: they wait
+until you decide to run the demo test again, and a session then rewrites them for the new server. Two
+tidy-ups take a minute: in OKX demo trading, delete the old demo API key (it was tied to the deleted
+server); in Telegram's BotFather, revoke the old bot token.
 Each one says what it is for, how long it takes, and exactly what to type.
 Never paste a key, a token or a chat id into a chat, a screenshot or the repo.
 
 | # | Step | Time | What it unlocks |
 |---|---|---|---|
-| 12 | **Do this first:** move the paper fleet and the stock recorder to your server (one line in the DigitalOcean console) | 10 min | The 60-day test keeps running with the laptop off |
-| 1 | Move the VPS shadow run off port 8443 (new account name) | 15 min (+ up to 3 days of waiting) | The demo shadow run keeps its eyes when OKX switches 8443 off |
+| 12 | **Do this first:** a new small server, then one line in its console, for the paper fleet and the stock recorder | 15 min | The 60-day test keeps running with the laptop off |
+| 1 | Move the VPS shadow run off port 8443 (new account name) (waits: the old server was deleted) | 15 min (+ up to 3 days of waiting) | The demo shadow run keeps its eyes when OKX switches 8443 off |
 | 2 | Change one GitHub setting, open and merge the `plan/auto` pull request | 20 min | Five months of work reaches `main`; the VPS can be updated; CI protects it |
-| 3 | Update the VPS checkout, install the nightly database backup, stamp the database | 25 min | The VPS runs the merged code (port-less defaults, Alembic); a backup every night, with a proven restore |
-| 4 | Copy the July to October shadow reports off the VPS | 10 min | The evidence summary (plan row R11) can be written |
+| 3 | Update the VPS checkout, install the nightly database backup, stamp the database (waits: the old server was deleted) | 25 min | The VPS runs the merged code (port-less defaults, Alembic); a backup every night, with a proven restore |
+| 4 | Copy the July to October shadow reports off the VPS (gone with the old server, unless a snapshot exists) | 10 min | The evidence summary (plan row R11) can be written |
 | 5 | Demo stop drills on a new demo account, with the shadow run stopped | 2 h + a 2-week demo run | The exchange-side stop, the hard blocker for any live phase |
 | 6 | Rotate the Telegram bot token | 10 min | Notifications you can trust (the old token was seen on screen) |
 | 7 | An Anthropic API key with a cap, then start the news shadow on the VPS | 30 min | 30+ days of log-only news evidence (plan row G5) |
@@ -252,7 +259,8 @@ and pushed when its tests and review pass. Then two things only you can do:
    not wait for the big `plan/auto` merge): open
    `https://github.com/hicham004/ai-trading-model/compare/main...sprint-6/position-persistence`,
    press "Create pull request", wait for the `tests` check, press "Merge".
-2. **Update the VPS** (step 3, `docs/runbooks/VPS_8443_UPDATE.md`'s update steps),
+2. **Update the VPS** (waits: the old server was deleted on 2026-11-06; this applies when a demo run
+   is set up again) (step 3, `docs/runbooks/VPS_8443_UPDATE.md`'s update steps),
    only while the heartbeat says the account is flat at lot precision. The first
    LONG that clears the 0.60 floor afterwards is the proof (design section 10,
    check V2): its decision reason is anything but `position_already_open`.
@@ -261,33 +269,38 @@ Until both are done, no demo evidence is being produced.
 
 ---
 
-## 12. Move the paper fleet and the stock recorder to your server (do this first)
+## 12. A new small server for the paper fleet and the stock recorder (do this first)
 
 **Why.** The paper fleet needs about 60 days of prices before its numbers mean anything, and the
 stock recorder has to be awake at the US open and close every weekday. Both run on this laptop now,
-and the laptop cannot stay on for 60 days. Your DigitalOcean server is on all the time and already
-paid for.
+and the laptop cannot stay on for 60 days. A small server in the cloud is on all the time. Your old
+droplet was deleted on 2026-11-06, so this step creates a new one first. It costs about $6 a month;
+delete it when the test is over if you no longer need it.
 
-**Is it safe for the demo run?** Yes. The two programs get their own folder and their own user on
-the server, with no password and no rights. They cannot see the demo run's keys or its database,
-they are capped in memory and CPU, and if the server ever runs short of memory they are stopped
-first, before the demo run. The setup never starts, stops or changes the demo run. It was tested
-on a copy of your server's system with a fake demo run and fake keys next to it.
+**Is it safe?** Yes. The two programs hold no keys and can place no orders. They run as their own
+user with no password and no rights, capped in memory and CPU. If a demo run is ever put on the same
+server again, the setup keeps the two apart: the programs cannot see the demo run's keys or its
+database, and they are stopped first if memory runs short. It was tested on a copy of the server's
+system, with a fake demo run and fake keys next to it.
 
-**Do (about 10 minutes; one line to paste).**
+**Do (about 15 minutes; a few clicks and one line to paste).**
 
-1. Open `cloud.digitalocean.com`, click your server (the "droplet"), then click **Console** at the
-   top right. A black window opens, already logged in.
-2. Paste this line (right-click → Paste) and press Enter:
+1. Open `cloud.digitalocean.com`, click the green **Create** button at the top, then **Droplets**.
+2. Choose the region **Singapore**, the image **Ubuntu 24.04 (LTS) x64**, the plan **Basic**,
+   **Regular**, and the **$6/month** size (1 GB of memory). Under authentication choose
+   **Password** and save it somewhere safe. Leave the rest as it is (no paid backups) and click
+   **Create Droplet**.
+3. When it shows an IP address, click its name, then **Console** at the top right. A black window
+   opens, already logged in.
+4. Paste this line (right-click → Paste) and press Enter:
 
    ```bash
    curl -fsSL https://raw.githubusercontent.com/hicham004/ai-trading-model/plan/auto/scripts/vps_research_setup.sh -o /tmp/research_setup.sh && sudo bash /tmp/research_setup.sh
    ```
 
-3. Wait for the last lines. `DONE.` means both programs run. `STOPPED:` explains why in plain words,
-   and nothing that matters was changed. The likely reason is too little free memory. Then the fix
-   is a bigger server size, or a second small server for about $6 a month; ask an agent session.
-4. Tell an agent session "the server runs the fleet". It switches off the laptop's copies (one
+5. Wait for the last lines. `DONE.` means both programs run. `STOPPED:` explains why in plain words,
+   and nothing that matters was changed; show it to an agent session.
+6. Tell an agent session "the server runs the fleet". It switches off the laptop's copies (one
    record, one place).
 
 **What you lose.** Almost nothing. The server starts a fresh record, so the 60 days count from that

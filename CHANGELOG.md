@@ -30,6 +30,11 @@ days"). Simulation and public market data only; nothing here is an order or can 
   the offline check; `bash -n` on Linux.
 
 ### Changed
+- `scripts/vps_research_setup.sh` (after the first push): a server under 2 GB of memory without swap gets a 1 GB swap file at
+  install and at update (an existing swap or `/swapfile` is left alone; where swap cannot be switched on, the file is removed and
+  the setup goes on), because the owner deleted the old droplet on 2026-11-06 and the new one is a 1 GB droplet; recorded in
+  `CLAUDE.md` (one dated paragraph under the VPS state), `docs/PLAN_STATUS.md` section 2 and the owner checklist (step 12 now
+  creates the server; the steps that were about the old server are marked as waiting).
 - `deploy/systemd/paper-fleet.service`: `OOMScoreAdjust=900`, so a memory shortage on the server ends the fleet before the shadow run;
   the install comment names the script.
 - `docs/runbooks/PAPER_FLEET.md` (option A1, the record, updates after a fleet row, measured memory), `docs/runbooks/XSTOCKS_DATA.md`

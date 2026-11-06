@@ -489,6 +489,20 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   restart the fleet itself: its chat writes "server update needed" here, and the owner pastes the
   `update` line. Not chosen: a copy of the laptop record (needs SSH from the laptop, which is not set
   up; two days of sixty), a second droplet (only if the server is too small; the script says so).
+- From the owner, 2026-11-06: the DigitalOcean droplet that ran the Phase 6a shadow run was deleted (it
+  charged without being used). What follows: (a) the demo shadow run is not running anywhere; (b) its
+  June-October reports, journals and database are gone unless a DigitalOcean snapshot exists (Images,
+  Snapshots), so G4 cannot be done and R11 stays blocked; (c) G1 (port 8443), checklist steps 1 and 3,
+  the server halves of steps 6 and 11 and G5's "on the VPS" wait for a new demo run, which would be set
+  up with the port-less URLs and its own account name from its first day, so G1 becomes part of that
+  setup; (d) the R14 part A pull request is still worth merging, so that `main`'s safety core has the fix
+  before any new demo run; (e) two tidy-ups for the owner: delete the old OKX demo API key (it was bound
+  to the deleted server's address) and revoke the old Telegram bot token in BotFather (it was seen on
+  screen). Recommendation: one new droplet now for the paper fleet and the recorder (Singapore, Ubuntu
+  24.04, Basic Regular 1 GB, about $6 a month; checklist step 12, rewritten for a new server; the script
+  adds a 1 GB swap file under 2 GB of memory); decide about a new demo run after the R14 part A merge, on
+  the same droplet (the setup keeps the two apart) or a separate one. Nothing is lost for the 60-day
+  forward test.
 
 ### Decided — the owner, 2026-11-05 evening ("do what you recommend")
 

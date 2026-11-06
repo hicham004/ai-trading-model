@@ -147,6 +147,13 @@ checkout, its `.env`, its database and `shadow.service` are never read or change
 asks systemd whether `shadow.service` runs and where its folder and environment file are, so that
 both can be walled off inside the two services.
 
+Since 2026-11-06 the server is a new small droplet: the owner deleted the old one, and the shadow run
+with it (`docs/PLAN_STATUS.md`, section 2). Create it as `docs/OWNER_CHECKLIST.md` step 12 says
+(Singapore, where OKX's public data is known to work; Ubuntu 24.04; Basic, Regular, 1 GB, about $6 a
+month). 1 GB is enough: every measured peak below stays under 450 MB, and on a server under 2 GB without
+swap the script adds a 1 GB swap file, a margin for the moment an update's offline check runs next to
+both services.
+
 In the DigitalOcean control panel: the droplet, then **Console** at the top right (or Access →
 Launch Droplet Console); it logs in as root. Paste one line (right-click → Paste) and press Enter:
 
@@ -158,7 +165,8 @@ It takes about 5 to 10 minutes and ends with `DONE.`, or with `STOPPED:` and the
 plain words (before it installs anything when the server is short of memory or disk). In order:
 
 1. it checks the server: systemd, Python 3.11 or newer, at least 600 MB of free memory next to
-   what already runs, 2.5 GB of free disk;
+   what already runs, 2.5 GB of free disk; under 2 GB of memory without swap it adds a 1 GB swap
+   file (`/swapfile`; an existing swap is left alone);
 2. it installs `git` and `python3-venv` when they are missing, creates the user and clones `plan/auto`;
 3. it builds `.venv` from the hashed `requirements.txt` (pip's hash-checking mode, as CI installs
    it) and runs the fleet's `--dry-run`: every line `check: … ok`, or it stops before any service

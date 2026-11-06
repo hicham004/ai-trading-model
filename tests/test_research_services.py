@@ -113,6 +113,17 @@ def test_the_setup_script_walls_off_the_shadow_run_wherever_its_folder_lives():
     assert "/usr/* | /etc/*" in code
 
 
+def test_a_small_server_gets_swap_and_an_existing_swap_is_left_alone():
+    code = "\n".join(_code_lines(SCRIPT))
+    assert 'SWAP_BELOW_MB:-2000' in code and '[ "$swap" -eq 0 ]' in code
+    assert "[ -e /swapfile ] && return 0" in code, "an existing /swapfile is never touched"
+    assert "rm -f /swapfile" in code, "where swap cannot be switched on, the file is removed again"
+    install = code.split("do_install() {", 1)[1].split("\n}", 1)[0]
+    assert install.index("check_room") < install.index("ensure_swap"), "a refused server is never changed"
+    apply = code.split("do_update_apply() {", 1)[1].split("\n}", 1)[0]
+    assert apply.index("ensure_swap") < apply.index("fleet_check"), "the margin is there before the update's offline check"
+
+
 def test_the_setup_script_holds_no_secret_and_installs_from_its_own_checkout():
     text = SCRIPT.read_text(encoding="utf-8")
     for needle in ("x-simulated-trading", "OKX_DEMO", "OKX_API", "TELEGRAM", "ANTHROPIC", "ssh ", "scp "):

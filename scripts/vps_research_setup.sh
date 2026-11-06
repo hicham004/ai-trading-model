@@ -9,7 +9,7 @@
 #
 # What "install" (the default; safe to run again) does:
 #   1. checks the server: systemd, Python 3.11 or newer, free memory and disk; when they are short it
-#      stops before changing anything;
+#      stops before changing anything; a server under 2 GB without swap gets a 1 GB swap file;
 #   2. creates the unprivileged user ai-research (no password, no login shell, no sudo) and its own
 #      checkout of plan/auto in /opt/ai-trading-research, outside every home folder;
 #   3. builds the Python environment from the hashed lockfile and runs the fleet's offline check;
@@ -104,6 +104,27 @@ check_room() {
     fi
     [ "$avail" -ge "$NEED_MEM_MB" ] || die "only ${avail} MB of memory is free, and the two programs need about ${NEED_MEM_MB} MB next to what already runs. Nothing was installed. Choose a bigger server size, or put them on a second small server."
     [ "$disk" -ge "$NEED_DISK_MB" ] || die "only ${disk} MB of disk is free; about ${NEED_DISK_MB} MB are needed. Nothing was installed."
+}
+
+# A small server (under 2 GB of memory) with no swap gets a 1 GB swap file: a margin for the moments when
+# the offline check of an update runs next to both services. An existing swap or /swapfile is left alone;
+# where swap cannot be switched on (some containers), the file is removed again and the setup goes on.
+ensure_swap() {
+    local total swap
+    total="$(mem_mb MemTotal)"
+    swap="$(mem_mb SwapTotal)"
+    [ "$total" -lt "${SWAP_BELOW_MB:-2000}" ] && [ "$swap" -eq 0 ] || return 0
+    [ -e /swapfile ] && return 0
+    say "adding a 1 GB swap file (${total} MB of memory and no swap: a margin for updates)"
+    if { fallocate -l 1G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=1024 status=none; } \
+        && chmod 600 /swapfile && mkswap /swapfile >/dev/null 2>&1 && swapon /swapfile 2>/dev/null; then
+        grep -q '^/swapfile ' /etc/fstab || printf '/swapfile none swap sw 0 0\n' >>/etc/fstab
+        say "swap on: $(mem_mb SwapTotal) MB"
+    else
+        swapoff /swapfile 2>/dev/null || true
+        rm -f /swapfile
+        say "swap could not be switched on here; going on without it"
+    fi
 }
 
 ensure_packages() {
@@ -264,6 +285,7 @@ do_install() {
     step "1/4 the server"
     shadow_note
     check_room
+    ensure_swap
     ensure_packages
     step "2/4 the user and the checkout"
     ensure_user
@@ -345,6 +367,7 @@ do_update_apply() {
     local old new
     old="${VPS_RESEARCH_OLD:?run update, not update-apply}"
     new="$(run_as / git -C "$PREFIX" rev-parse HEAD)"
+    ensure_swap
     if ! run_as / git -C "$PREFIX" diff --quiet "$old" "$new" -- requirements.txt pyproject.toml; then
         ensure_venv
     fi
