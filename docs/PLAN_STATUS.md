@@ -88,6 +88,11 @@ A 🚦 row that is plain **Open** stops the runner. **In progress** — another 
   the R19, R20 and R22 recommendations asked for. R14 part A is being built at the same time by the
   planning session on its own branch from `main` (never by the runner), in a separate worktree, so
   the two never touch each other's files.
+- 2026-11-05/06: R23 Done (61c7b47); R24 hit the Fable 5.1 weekly limit at its first turn (it resets
+  Wednesday 2026-11-11 at 21:02 Beirut time). On 2026-11-06 the planning session stopped the runner
+  with the STOP file while it waited (11:10 Beirut time: R24 untouched, still Open, nothing
+  committed) so that the server kit (section 2, "From 2026-11-06") could be committed outside a
+  row, and started the task again right after; R24 runs once the limit resets.
 - See what would run next without starting anything: `.\scripts\plan-runner.ps1 -DryRun`.
 - What happened: `artifacts\plan-runner\summary.md`, and one report per step next to it.
 
@@ -465,6 +470,25 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   sits in the controls table with its backtest numbers as information and under each Trader-tier
   BTC-USDT 6H account with its brakes. The fleet's start now reads two more study files (the round-3 and
   breadth results, 16 MB together) to validate the rows, a few seconds more at each start. Nothing to decide.
+- From 2026-11-06 (the owner: "i cant keep the laptop turned on for 60 days"): moving the paper fleet
+  and the tokenized-stocks recorder to the DigitalOcean server is an owner step, now one line in the
+  droplet's web console (`docs/OWNER_CHECKLIST.md`, step 12; `docs/runbooks/PAPER_FLEET.md`, option
+  A1). `scripts/vps_research_setup.sh` gives both their own checkout of `plan/auto` in
+  `/opt/ai-trading-research` and an unprivileged user `ai-research`, and runs them as
+  `paper-fleet.service` and `xstocks-data.service` (read-only system, every home folder hidden, the
+  demo database socket unreachable, capped, first in line for the out-of-memory killer); it never acts
+  on `shadow.service`. Tested in a stand-in Ubuntu 24.04 server with systemd 255 and a fake shadow run
+  (installed, kept the fake key invisible, left the fake shadow run untouched; `status`, `update` with
+  and without new code, the rollback of code that fails the offline check, and `uninstall` behaved as
+  documented); measured on Linux: the offline check passes on Python 3.12 in 85 s at no more than 405 MB; a first start from nothing builds the same 33 accounts as the laptop (fingerprint 93cfcc282a1d) and runs its first cycle with 0 errors at no more than 243 MB; a steady cycle takes 9 s at no more than 284 MB; the recorder's first pass (42,414 candles, 15 order books, 0 errors) takes 3.5 minutes at no more than 308 MB; as services, with one thread per maths library, the fleet held about 165 MB and the recorder 65 to 100 MB; the Python environment takes 652 MB of disk. Why the laptop matters less for
+  the fleet than it seems: it catches up after downtime with the prices of each missed bar, but the
+  recorder's order-book snapshots are lost while the laptop is off. Recommendation: do step 12 now;
+  the server starts a fresh record (plan row G7's 60 days count from its first bar; the laptop's two
+  days stay on the laptop as an archive), and an agent session disables the laptop's two tasks once
+  the owner says the server runs. From then on, a row that adds or changes a fleet account cannot
+  restart the fleet itself: its chat writes "server update needed" here, and the owner pastes the
+  `update` line. Not chosen: a copy of the laptop record (needs SSH from the laptop, which is not set
+  up; two days of sixty), a second droplet (only if the server is too small; the script says so).
 
 ### Decided — the owner, 2026-11-05 evening ("do what you recommend")
 

@@ -1,13 +1,15 @@
-# Owner checklist — the steps only you can do (as of 2026-11-05)
+# Owner checklist — the steps only you can do (as of 2026-11-06)
 
 Written for the owner. Everything an agent could do from this laptop has been
-done or is queued in `docs/PLAN_STATUS.md`. Eight of the eleven items below need
-your accounts, your keys or your VPS; three (9 to 11) are quick answers. They are in the order that unlocks the most.
+done or is queued in `docs/PLAN_STATUS.md`. Nine of the twelve items below need
+your accounts, your keys or your VPS; three (9 to 11) are quick answers. Step 12,
+listed first, is the one to do first: it lets the laptop be switched off. They are in the order that unlocks the most.
 Each one says what it is for, how long it takes, and exactly what to type.
 Never paste a key, a token or a chat id into a chat, a screenshot or the repo.
 
 | # | Step | Time | What it unlocks |
 |---|---|---|---|
+| 12 | **Do this first:** move the paper fleet and the stock recorder to your server (one line in the DigitalOcean console) | 10 min | The 60-day test keeps running with the laptop off |
 | 1 | Move the VPS shadow run off port 8443 (new account name) | 15 min (+ up to 3 days of waiting) | The demo shadow run keeps its eyes when OKX switches 8443 off |
 | 2 | Change one GitHub setting, open and merge the `plan/auto` pull request | 20 min | Five months of work reaches `main`; the VPS can be updated; CI protects it |
 | 3 | Update the VPS checkout, install the nightly database backup, stamp the database | 25 min | The VPS runs the merged code (port-less defaults, Alembic); a backup every night, with a proven restore |
@@ -259,6 +261,45 @@ Until both are done, no demo evidence is being produced.
 
 ---
 
+## 12. Move the paper fleet and the stock recorder to your server (do this first)
+
+**Why.** The paper fleet needs about 60 days of prices before its numbers mean anything, and the
+stock recorder has to be awake at the US open and close every weekday. Both run on this laptop now,
+and the laptop cannot stay on for 60 days. Your DigitalOcean server is on all the time and already
+paid for.
+
+**Is it safe for the demo run?** Yes. The two programs get their own folder and their own user on
+the server, with no password and no rights. They cannot see the demo run's keys or its database,
+they are capped in memory and CPU, and if the server ever runs short of memory they are stopped
+first, before the demo run. The setup never starts, stops or changes the demo run. It was tested
+on a copy of your server's system with a fake demo run and fake keys next to it.
+
+**Do (about 10 minutes; one line to paste).**
+
+1. Open `cloud.digitalocean.com`, click your server (the "droplet"), then click **Console** at the
+   top right. A black window opens, already logged in.
+2. Paste this line (right-click → Paste) and press Enter:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/hicham004/ai-trading-model/plan/auto/scripts/vps_research_setup.sh -o /tmp/research_setup.sh && sudo bash /tmp/research_setup.sh
+   ```
+
+3. Wait for the last lines. `DONE.` means both programs run. `STOPPED:` explains why in plain words,
+   and nothing that matters was changed. The likely reason is too little free memory. Then the fix
+   is a bigger server size, or a second small server for about $6 a month; ask an agent session.
+4. Tell an agent session "the server runs the fleet". It switches off the laptop's copies (one
+   record, one place).
+
+**What you lose.** Almost nothing. The server starts a fresh record, so the 60 days count from that
+day. The laptop's first two days stay on the laptop as an archive.
+
+**Later.** To see how they are doing, paste
+`sudo bash /opt/ai-trading-research/scripts/vps_research_setup.sh status` in the same console.
+When a plan row adds an account to the fleet, its note in `docs/PLAN_STATUS.md` asks you to paste
+`sudo bash /opt/ai-trading-research/scripts/vps_research_setup.sh update`.
+
+---
+
 ## What happens by itself meanwhile
 
 - **The plan runner** (Windows task "AI Trading plan runner", Fable 5.1 at
@@ -292,8 +333,9 @@ Until both are done, no demo evidence is being produced.
   every weekday plus the 03:00 UTC and Saturday-noon books
   (`docs/runbooks/XSTOCKS_DATA.md`). The 60-90 days before the decision in plan
   section 6.2 count from that day. Free, public data, nothing trades.
-- The laptop must stay on and plugged in (it does not sleep on power; keep
-  the lid open, closing it may put it to sleep). After a sleep all three tasks
+- Until step 12 is done, the laptop must stay on and plugged in (it does not sleep on power; keep
+  the lid open, closing it may put it to sleep). After step 12 only the plan runner lives on the
+  laptop, and it simply waits while the laptop is off. After a sleep all three tasks
   simply continue (the fleet catches up bar by bar; the collector still takes a
   slot missed by less than 30 minutes). After a reboot all three
   tasks start again when you log on (each has a logon trigger); the runner

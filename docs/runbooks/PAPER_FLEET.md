@@ -1,8 +1,9 @@
 # Runbook — the paper fleet (plan rows R5a → G6)
 
 **Audience:** the human operator. Starting the fleet 24/7 is an owner action
-(plan row G6): on the DigitalOcean VPS next to the Phase 6a shadow (option A,
-recommended) or on this Windows laptop left on (option B). **Agents cannot
+(plan row G6): on the DigitalOcean VPS next to the Phase 6a shadow (option A1,
+recommended: one line in the server's web console, with the tokenized-stocks
+recorder) or on this Windows laptop left on (option B). **Agents cannot
 reach the VPS.** It costs nothing: public market data only.
 
 ## What it is, and what it is not
@@ -134,6 +135,85 @@ The first start downloads about 2.5 years of public hourly prices for BTC and
 ETH from OKX (a minute or two) unless a research data lake exists on the
 machine, in which case it copies that and only tops it up.
 
+### Option A1 (recommended) — the VPS from its own checkout, with one line (since 2026-11-06)
+
+Option A runs the fleet from the checkout `shadow.service` uses, so it waits for the `plan/auto`
+merge (plan row G2). Option A1 does not wait. `scripts/vps_research_setup.sh` gives the fleet **and**
+the tokenized-stocks recorder (`docs/runbooks/XSTOCKS_DATA.md`) their own checkout of `plan/auto` in
+`/opt/ai-trading-research`, owned by an unprivileged user `ai-research` (no password, no login
+shell, no sudo), and runs them as two systemd services, `paper-fleet.service` and
+`xstocks-data.service`, written from the unit files in `deploy/systemd/`. The shadow run's
+checkout, its `.env`, its database and `shadow.service` are never read or changed; the script only
+asks systemd whether `shadow.service` runs and where its folder and environment file are, so that
+both can be walled off inside the two services.
+
+In the DigitalOcean control panel: the droplet, then **Console** at the top right (or Access →
+Launch Droplet Console); it logs in as root. Paste one line (right-click → Paste) and press Enter:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hicham004/ai-trading-model/plan/auto/scripts/vps_research_setup.sh -o /tmp/research_setup.sh && sudo bash /tmp/research_setup.sh
+```
+
+It takes about 5 to 10 minutes and ends with `DONE.`, or with `STOPPED:` and the reason in
+plain words (before it installs anything when the server is short of memory or disk). In order:
+
+1. it checks the server: systemd, Python 3.11 or newer, at least 600 MB of free memory next to
+   what already runs, 2.5 GB of free disk;
+2. it installs `git` and `python3-venv` when they are missing, creates the user and clones `plan/auto`;
+3. it builds `.venv` from the hashed `requirements.txt` (pip's hash-checking mode, as CI installs
+   it) and runs the fleet's `--dry-run`: every line `check: … ok`, or it stops before any service
+   starts;
+4. it writes the two units (the templates' hardening; every home folder hidden rather than read-only,
+   because the checkout lives outside them) and a drop-in that makes the shadow run's own folder and
+   environment file unreachable inside both services wherever they live (it asks systemd for those two
+   paths, read-only), checks the units with `systemd-analyze verify`, enables and starts them, and
+   waits until both are running.
+
+**Tested before release (2026-11-06)** in a stand-in server: Ubuntu 24.04 with systemd 255 as in
+the droplet, Python 3.12, a fake `shadow.service` with fake keys in world-readable files under
+`/home` and under `/srv`. The setup installed and started both services; the fake shadow run stayed
+active and was never restarted; neither fake key could be read from inside either service; inside
+both, the system and their own code are read-only, and they run as `ai-research` with no
+capabilities, an out-of-memory score of 900 and 4 threads each. `status`, an `update` with nothing
+new, an `update` that changes this script itself (its new rules applied in the same run), an
+`update` to code that fails the offline check (refused, the previous code back, the fleet never
+restarted), `uninstall` (the records stay), a re-install from the existing checkout, the low-memory
+refusal (stopped before writing anything) and the refusal to overwrite another folder's unit all
+behaved as described. The first run found one bug, fixed before release: the recorder's maths
+libraries open one thread per core, which broke a 32-task cap on a 16-core machine (`can't start new
+thread`); both units now use one thread per library and allow 128 tasks. Measured on Linux:
+the offline check passes on Python 3.12 in 85 s at no more than 405 MB; a first start from nothing builds the same 33 accounts as the laptop (fingerprint 93cfcc282a1d) and runs its first cycle with 0 errors at no more than 243 MB; a steady cycle takes 9 s at no more than 284 MB; the recorder's first pass (42,414 candles, 15 order books, 0 errors) takes 3.5 minutes at no more than 308 MB; as services, with one thread per maths library, the fleet held about 165 MB and the recorder 65 to 100 MB; the Python environment takes 652 MB of disk.
+
+Day to day, in the same console:
+
+```bash
+sudo bash /opt/ai-trading-research/scripts/vps_research_setup.sh status      # both services, the fleet's accounts, the recorder's pairs
+sudo bash /opt/ai-trading-research/scripts/vps_research_setup.sh update      # after a plan row that changes the fleet (its row says so)
+sudo journalctl -u paper-fleet -n 30 --no-pager                               # the fleet's own log lines (xstocks-data likewise)
+sudo bash /opt/ai-trading-research/scripts/vps_research_setup.sh uninstall   # stop and remove both services; the records stay
+```
+
+`update` pulls the newest `plan/auto`, runs the offline check, rewrites the units, restarts both
+services and, when the check fails or a service refuses the new code (exit 2: the rules of a
+running account changed), puts the previous code back and restarts that. Reports:
+`/opt/ai-trading-research/logs/paper_fleet/reports/`.
+
+**The record.** A first install starts a fresh record on the server: every account starts flat at
+the first bar that closes after the start, and plan row G7's 60 days count from that day. The
+laptop's first days (since 2026-11-04) are not carried over: the laptop has no SSH access to the
+server, and two days of a 60-day clock are not worth a file transfer. They stay on the laptop as an
+archive. From the server's first bar on, the server's record is the one that counts: stop the
+laptop's two tasks for good (one record, one place). An agent session can do that; by hand:
+
+```powershell
+New-Item C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\STOP; New-Item C:\Users\Admin\Desktop\ai-trading-fleet\logs\xstocks\STOP
+Disable-ScheduledTask -TaskName 'AI Trading paper fleet'; Disable-ScheduledTask -TaskName 'AI Trading xstocks data'
+```
+
+**After the move, a plan row that adds or changes a fleet account** can no longer restart the fleet
+itself (agents cannot reach the VPS): its chat writes "server update needed" into
+`docs/PLAN_STATUS.md` section 2, and the owner runs the `update` line above.
+
 ## Option B — this laptop
 
 In a PowerShell window in the repository folder:
@@ -148,7 +228,7 @@ missed bar only the prices that existed at that bar, so the result is the same
 as if it had never stopped. Do not run it on the VPS **and** the laptop as the
 "real" fleet: pick one place and keep it there, so there is one record.
 
-### Option B2 — this laptop, as a Windows scheduled task from its own checkout (what runs since 2026-11-04)
+### Option B2 — this laptop, as a Windows scheduled task from its own checkout (what ran from 2026-11-04 until the move to the server)
 
 A window can be closed by mistake, and the repository folder is where the plan
 runner's chats edit and test code. So the fleet runs from a **separate
@@ -220,7 +300,8 @@ effect at the first restart from a checkout that carries it.
 whole `logs\paper_fleet\` folder to the VPS checkout at the same code
 version (`git log -1` in both places), then start `paper-fleet.service`
 there. The fleet resumes from the copied state; the laptop task stays stopped
-(one record, one place).
+(one record, one place). Option A1 starts a fresh record instead (see "The
+record" there): a copy needs SSH access from the laptop, which it does not have.
 
 ## Check that it works (first hour)
 
@@ -609,7 +690,8 @@ About 5–6 MB of journals per month for all 20 accounts (measured on 3- and
 each), plus a few MB of price history. It uses one CPU core for a few seconds when a bar closes (up to about
 a minute once every 180 days, when the regime models are refitted) and
 about 150 MB of memory (measured live); the unit caps it at 50 % of a core and
-2 GB.
+2 GB and makes it the first process the kernel ends if the server runs out of memory. Measured
+on Linux (2026-11-06, 33 accounts): the offline check peaks at 405 MB (85 s), a first start at 243 MB, a steady cycle at 284 MB (9 s); as a service with one thread per maths library it held about 165 MB.
 
 ## After 60+ days (plan row G7)
 

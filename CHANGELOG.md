@@ -4,6 +4,45 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — the paper fleet and the tokenized-stocks recorder on the server, with one line (2026-11-06)
+
+Deploy files, one setup script, tests and docs only (`scripts/vps_research_setup.sh`, `deploy/systemd/xstocks-data.service`,
+`deploy/systemd/paper-fleet.service`, `tests/test_research_services.py`, `docs/`): nothing under `app/`, `config/`, `migrations/` or
+`research/` changed, the fleet's and the collector's code and every account's rules are unchanged, and nothing here reads or changes
+`shadow.service`, its checkout, its `.env` or its database. Asked by the owner on 2026-11-06 ("i cant keep the laptop turned on for 60
+days"). Simulation and public market data only; nothing here is an order or can place one.
+
+### Added
+- `scripts/vps_research_setup.sh` (`install`, the default; `status`; `update`; `uninstall`): checks the server (systemd, Python 3.11+,
+  600 MB of free memory, 2.5 GB of disk) and stops before installing anything when it is short; installs `git` and `python3-venv`
+  when missing; creates the unprivileged user `ai-research` and its own checkout of `plan/auto` in `/opt/ai-trading-research`; builds
+  `.venv` from the hashed lockfile; runs the fleet's `--dry-run` before any service starts; writes `paper-fleet.service` and
+  `xstocks-data.service` from the templates (every home folder hidden), checks them with `systemd-analyze verify`, starts them and
+  waits until both run; refuses to overwrite a unit that runs from another folder (one record, one place). `update` pulls the newest
+  `plan/auto`, re-runs the offline check and restarts both, putting the previous code back when the check fails or a service refuses
+  the new code. The only line that names the shadow run is a read-only `systemctl is-active shadow.service`.
+- `deploy/systemd/xstocks-data.service`: the tokenized-stocks recorder (plan row R21) as a service, with the fleet unit's hardening
+  (read-only system except `data/lake/xstocks/`, the repository `.env` and the PostgreSQL socket unreachable, no capabilities),
+  `Restart=always` except on the setup exit code 2, a quarter of a core, 512 MB, `Nice=10`, `OOMScoreAdjust=900`.
+- `tests/test_research_services.py`: both units confined to their own folder, unprivileged, capped, first in line for the
+  out-of-memory killer, free of secrets and of the demo header; the rendered units keep no placeholder and hide every home folder; the
+  script never acts on `shadow.service`, never names an environment file or a home folder, installs from the hashed lockfile and runs
+  the offline check; `bash -n` on Linux.
+
+### Changed
+- `deploy/systemd/paper-fleet.service`: `OOMScoreAdjust=900`, so a memory shortage on the server ends the fleet before the shadow run;
+  the install comment names the script.
+- `docs/runbooks/PAPER_FLEET.md` (option A1, the record, updates after a fleet row, measured memory), `docs/runbooks/XSTOCKS_DATA.md`
+  ("Where it runs": the server first), `docs/OWNER_CHECKLIST.md` (step 12, listed first), `docs/PLAN_STATUS.md` (section 1, and
+  section 2 "From 2026-11-06").
+
+### Tested
+- In a stand-in server (Ubuntu 24.04, systemd 255, Python 3.12, a fake `shadow.service` and a fake key in a world-readable `.env`
+  under `/home`): the documented one line installed and started both services; the fake shadow run stayed active with an unchanged
+  start time; the fake key could not be read from inside either service; `status`, an `update` with nothing new, an `update` that changes the setup script itself (its new rules applied in the same run), an `update` to code that fails the offline check (refused, the previous code back, the fleet never restarted), `uninstall` (the records stay), a re-install from the existing checkout, the low-memory refusal (stopped before writing anything) and the refusal to overwrite another folder's unit behaved as documented; inside both services the system and their own code are read-only, they run as `ai-research` with no capabilities, an out-of-memory score of 900 and 4 threads each. The first run found one bug, fixed before release: the recorder's maths libraries open one thread per core, which broke a 32-task cap on a 16-core machine; both units now use one thread per library and allow 128 tasks. A key file outside `/home` (`/srv/...`) is walled off by the drop-in the script derives from `shadow.service`.
+- Measured on Linux: the offline check passes on Python 3.12 in 85 s at no more than 405 MB; a first start from nothing builds the same 33 accounts as the laptop (fingerprint 93cfcc282a1d) and runs its first cycle with 0 errors at no more than 243 MB; a steady cycle takes 9 s at no more than 284 MB; the recorder's first pass (42,414 candles, 15 order books, 0 errors) takes 3.5 minutes at no more than 308 MB; as services, with one thread per maths library, the fleet held about 165 MB and the recorder 65 to 100 MB; the Python environment takes 652 MB of disk.
+- The full offline suite on Windows: exit code 0 (about 15 minutes); after the last changes the new tests, the deploy-unit tests and the 11 test files that scan the repository were run again: exit code 0.
+
 ## Unreleased — R23: two paper-fleet accounts the owner added — the S8 forward control and S1 BTC-USDT 6H, both at the Trader tier (plan row R23)
 
 Fleet code, research-side row tooling, tests and docs only (`research/paper_fleet/config.py`, `research/paper_fleet/report.py`,

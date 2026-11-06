@@ -39,7 +39,17 @@ is skipped and recorded as such by its absence. Everything lives under `data/lak
 
 ## Where it runs
 
-Next to the paper fleet, from the fleet's own checkout (`C:\Users\Admin\Desktop\ai-trading-fleet`,
+**On the server (recommended, since 2026-11-06):** next to the paper fleet, installed with it by
+the one line of `docs/runbooks/PAPER_FLEET.md`, option A1, as `xstocks-data.service` from the
+checkout `/opt/ai-trading-research` (the user `ai-research`, the system read-only except
+`data/lake/xstocks/`, every home folder hidden, capped at a quarter of a core and 512 MB, first in
+line for the out-of-memory killer). The server never sleeps, so no US-open or US-close snapshot is
+missed for a closed laptop lid. Status: `sudo bash /opt/ai-trading-research/scripts/vps_research_setup.sh
+status`; its log: `sudo journalctl -u xstocks-data -n 30 --no-pager`. A first install on the server
+starts its own lake (the candle history comes back in about five minutes; the few laptop snapshots
+stay on the laptop), and the laptop task is then disabled (one record, one place).
+
+**On the laptop (how it ran from 2026-11-05 until the move):** next to the paper fleet, from the fleet's own checkout (`C:\Users\Admin\Desktop\ai-trading-fleet`,
 `docs/runbooks/PAPER_FLEET.md`, option B2), so that the plan runner's edits in the repository
 folder never reach a running collector. The checkout must carry plan row R21 (update it first:
 the fleet's "Updating the fleet's code" step, which also restarts the fleet; the collector can be
@@ -140,6 +150,7 @@ the runner's.
 The 112 days of candles for the 15 pairs take 1.7 MB; a snapshot record is 5-12 KB (the levels
 within 2 % of mid), so the four daily slots add about 0.5 MB a day, about 45 MB per quarter. The
 collector uses one CPU core for a few seconds an hour and about 150 MB of memory while it runs.
+Measured on Linux (2026-11-06): the first pass (42,414 candles, 15 order books, 0 errors) took 3.5 minutes and peaked at 308 MB; as a service with one thread per maths library it held 65 to 100 MB (capped at 512 MB and a quarter of a core).
 
 ## After 60-90 days (plan section 6.2, step 4)
 

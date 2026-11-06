@@ -7,8 +7,10 @@
 # touches shadow.service, the news shadow or the demo database, and stopping it
 # changes nothing in trading.
 #
-# Install (runbook, option A): replace /path/to/ai-trading-model and
-# CHANGE_ME_USER below, copy this file to /etc/systemd/system/paper-fleet.service,
+# Install: scripts/vps_research_setup.sh fills in the path and the user below (its own checkout in
+# /opt/ai-trading-research, the user ai-research; runbook option A1). By hand (option A): replace
+# /path/to/ai-trading-model and CHANGE_ME_USER below, copy this file to
+# /etc/systemd/system/paper-fleet.service, then
 #   sudo systemctl daemon-reload && sudo systemctl enable --now paper-fleet.service
 
 [Unit]
@@ -26,6 +28,9 @@ WorkingDirectory=/path/to/ai-trading-model
 EnvironmentFile=-/etc/ai-trading/paper-fleet.env
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONDONTWRITEBYTECODE=1
+# One thread per maths library (numpy, pyarrow): the work is small, the CPU is capped anyway, the thread
+# count stays far below TasksMax on a many-core machine, and no result depends on the server's core count.
+Environment=OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 ExecStart=/path/to/ai-trading-model/.venv/bin/python scripts/run_paper_fleet.py --loop
 Restart=on-failure
 RestartSec=60
@@ -62,7 +67,9 @@ UMask=0027
 Nice=10
 CPUQuota=50%
 MemoryMax=2G
-TasksMax=64
+# First in line for the out-of-memory killer, so a memory shortage never ends the shadow run.
+OOMScoreAdjust=900
+TasksMax=128
 
 [Install]
 WantedBy=multi-user.target
