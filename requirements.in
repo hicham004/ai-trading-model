@@ -58,7 +58,7 @@ feedparser==6.0.14
 # only by app/news/classifier.py to classify sanitized headlines. It is never
 # imported by execution, risk or exchange code; without ANTHROPIC_API_KEY the
 # classifier refuses and every item is NO_EFFECT.
-anthropic==1.15.0
+anthropic==2.4.0
 
 # Tests
 pytest==9.0.3
