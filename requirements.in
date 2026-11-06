@@ -44,7 +44,7 @@ streamlit==1.66.1
 # Security floor for a transitive dependency of streamlit, pinned here so the lock cannot keep 12.x.
 pillow==13.0.0
 altair==6.2.1
-pandas==2.2.3
+pandas==3.1.0
 
 # Sprint 1 data lake (research storage; public data only): Parquet files via
 # pyarrow (already a streamlit dependency, pinned here because it is now
