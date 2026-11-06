@@ -790,6 +790,16 @@ class DemoStore:
     def release_stale_lock(
         self, account_id: int, *, stale_after_seconds: float, now: datetime
     ) -> bool:
+        """Release a heartbeat-stale lock; the release also disarms (R14 part A).
+
+        A lock whose heartbeat is older than ``stale_after_seconds`` belongs to
+        a process that died without its clean shutdown (which disarms), so the
+        same UPDATE clears ``armed_until`` and ``disarmed_on_stale_lock_release``
+        is recorded in the same transaction: a restart after a hard crash
+        starts disarmed until the supervisor's gate re-arms it or the operator
+        runs ``--arm``. A fresh lock (or no lock) is untouched: no change, no
+        event, arming untouched. Returns whether a stale lock was released.
+        """
         cutoff = now - timedelta(seconds=stale_after_seconds)
         session = self._session_factory()
         try:
@@ -807,11 +817,24 @@ class DemoStore:
                     status="stale_lock_released",
                     lock_token=None,
                     lock_heartbeat=None,
+                    armed_until=None,
                     updated_at=now,
                 )
             )
+            released = result.rowcount == 1
+            if released:
+                session.add(
+                    self._event_row(
+                        account_id,
+                        "disarmed_on_stale_lock_release",
+                        "warning",
+                        "stale runtime lock released; demo runtime disarmed until re-armed",
+                        {},
+                        now,
+                    )
+                )
             session.commit()
-            return result.rowcount == 1
+            return released
         except Exception:
             session.rollback()
             raise

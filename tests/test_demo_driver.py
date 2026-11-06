@@ -10,6 +10,7 @@ temporary SQLite database, and an in-memory public MarketState.
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
@@ -29,11 +30,13 @@ from app.db.models import (
     DemoRuntimeStatus,
 )
 from app.exchange.credentials import DemoCredentials
+from app.exchange.instruments import parse_instruments
 from app.exchange.okx_demo_ws import OKXDemoPrivateWebSocket
 from app.execution.account_validation import validate_demo_account
-from app.execution.driver import DemoTradingDriver, GapRecoveryState
+from app.execution.driver import DemoTradingDriver, GapRecoveryState, PositionView
 from app.execution.identity import demo_identity_config
-from app.execution.lifecycle import INTENT_ENTRY, OrderLifecycle
+from app.execution.lifecycle import INTENT_ENTRY, INTENT_EXIT, OrderLifecycle
+from app.execution.precision import PrecisionError, decimal_to_str, floor_size, validate_sell
 from app.execution.reconcile import DemoReconciler
 from app.execution.runtime import DemoExecutionRuntime
 from app.execution.store import DemoStore, STATUS_CANCELED, STATUS_LIVE, STATUS_UNKNOWN
@@ -48,7 +51,7 @@ from app.live.schemas import (
     OrderBookUpdate,
 )
 from app.strategy.base import Signal, SignalAction
-from scripts.run_demo_trading import _settings_for_account
+from scripts.run_demo_trading import _print_positions, _settings_for_account
 
 T0 = datetime(2026, 6, 10, 12, 0, tzinfo=timezone.utc)
 CREDS = DemoCredentials("AK", "SK", "PP")
@@ -949,6 +952,540 @@ def test_protective_stop_submits_exit_and_daily_baseline_is_immutable(session_fa
         assert session.scalar(select(func.count()).select_from(DemoDailyBaseline)) == 1
     finally:
         session.close()
+
+
+# -- lot-precision flatness in the safety core (R14 part A; design section 7, C)
+
+
+def _armed_driver(session_factory, rest, state, cb, **settings_overrides):
+    driver, _ = _driver(
+        session_factory, rest=rest, state=state, clock_box=cb, **settings_overrides
+    )
+    driver.startup_gate()
+    driver.runtime.arm(ttl_seconds=10 ** 9)
+    driver._set_private_authenticated(True)
+    driver._private_last_msg = cb["t"]
+    return driver
+
+
+def _open_demo_position_with_base_fee(driver: DemoTradingDriver, fee: str) -> None:
+    """Like _open_demo_position, with the entry fee charged in BTC (as OKX does).
+
+    A base-currency fee finer than the lot leaves a sub-lot component in the
+    fill-derived net, so the lot-floored sellable size differs from the raw net.
+    """
+    entry = driver.lifecycle.submit(
+        signal_id="seed-open-position-base-fee",
+        instrument="BTC-USDT",
+        intent=INTENT_ENTRY,
+        side="buy",
+        ord_type="limit",
+        price="100",
+        size="0.001",
+        stop_loss="95",
+    )
+    driver.project_private_orders([{
+        "instId": "BTC-USDT",
+        "clOrdId": entry.client_order_id,
+        "ordId": entry.exchange_order_id,
+        "state": "filled",
+        "side": "buy",
+        "accFillSz": "0.001",
+        "tradeId": f"fill-{entry.client_order_id}",
+        "fillSz": "0.001",
+        "fillPx": "100",
+        "fillFee": fee,
+        "fillFeeCcy": "BTC",
+    }])
+
+
+def _exit_demo_position_leaving(
+    driver: DemoTradingDriver, residue: str, *, partial_then_cancel: bool = False
+) -> None:
+    """Project a sell on the 0.001 BTC seed position that leaves ``residue`` BTC.
+
+    Fills are projected as strings and the store sums Decimals, so the ledger
+    net becomes exactly ``residue``: sub-lot dust (below one lot) after a full
+    exit, or an unsellable remainder (between one lot and the venue minimum)
+    after a partially filled then cancelled exit (design section 6, row 13).
+    """
+    sold = str(Decimal("0.001") - Decimal(residue))
+    exit_ = driver.lifecycle.submit(
+        signal_id=f"seed-exit-{residue}",
+        instrument="BTC-USDT",
+        intent=INTENT_EXIT,
+        side="sell",
+        ord_type="limit",
+        price="100",
+        size="0.001" if partial_then_cancel else sold,
+    )
+    row = {
+        "instId": "BTC-USDT",
+        "clOrdId": exit_.client_order_id,
+        "ordId": exit_.exchange_order_id,
+        "side": "sell",
+        "accFillSz": sold,
+    }
+    driver.project_private_orders([{
+        **row,
+        "state": "partially_filled" if partial_then_cancel else "filled",
+        "tradeId": f"fill-{exit_.client_order_id}",
+        "fillSz": sold,
+        "fillPx": "100",
+    }])
+    if partial_then_cancel:
+        driver.project_private_orders([{**row, "state": "canceled"}])
+    assert driver.store.position_summary(driver.account_id, "BTC-USDT")[0] == Decimal(residue)
+
+
+def _events(session_factory, event_type: str) -> list[dict]:
+    session = session_factory()
+    try:
+        return [
+            {
+                "severity": e.severity,
+                "message": e.message,
+                # SQLite returns naive UTC datetimes.
+                "event_time": e.event_time.replace(tzinfo=e.event_time.tzinfo or timezone.utc),
+                "payload": json.loads(e.payload_json),
+            }
+            for e in session.scalars(
+                select(DemoEvent)
+                .where(DemoEvent.event_type == event_type)
+                .order_by(DemoEvent.id.asc())
+            )
+        ]
+    finally:
+        session.close()
+
+
+def _risk_decision_reasons(session_factory) -> list[str]:
+    return [e["payload"]["reason"] for e in _events(session_factory, "risk_decision")]
+
+
+def test_dust_does_not_block_entry_with_position_already_open(session_factory):
+    """Design 7.C item 21 (reproduction A inverted): sub-lot fee dust never blocks an entry."""
+    rest, state, cb = FakeRest(), _connected_state(), {"t": T0}
+    driver = _armed_driver(session_factory, rest, state, cb)
+    _open_demo_position(driver)
+    _exit_demo_position_leaving(driver, "1.2E-10")  # the live June 11, 2026 residue
+    seeded = len(rest.placed)
+    for now in _feed_candles(state, cb, n=40):
+        driver._private_last_msg = now
+        driver.step(now)
+    reasons = _risk_decision_reasons(session_factory)
+    assert reasons, "LONG signals must reach the entry gate"
+    assert "position_already_open" not in reasons
+    assert "max_open_positions" not in reasons
+    assert "ok" in reasons  # the first cleared LONG entered
+    assert rest.placed[seeded:] and {p["side"] for p in rest.placed[seeded:]} == {"buy"}
+    assert _events(session_factory, "unsellable_remainder") == []  # dust is not a remainder
+    view = driver._position_view("BTC-USDT", driver._instrument_meta["BTC-USDT"])
+    assert (view.net, view.sellable, view.remainder, view.flat) == (
+        Decimal("1.2E-10"), Decimal(0), Decimal(0), True,
+    )
+
+
+def test_dust_does_not_count_as_open_position_for_max_open_positions_or_exposure(
+    session_factory,
+):
+    """Design 7.C item 22: dust is not an open position for the caps; marked equity still includes it."""
+    rest, state, cb = FakeRest(), _connected_state(), {"t": T0}
+    driver = _armed_driver(session_factory, rest, state, cb, demo_max_open_positions=1)
+    _open_demo_position(driver)
+    # A sellable position without a usable quote keeps the fail-closed answer...
+    assert driver._equity_exposure(cb["t"]) == (Decimal(0), Decimal("Infinity"), 1)
+    _fresh_book(state, cb, bid="99.9", ask="100.1")
+    # ...and with one it is one open position with its marked exposure.
+    assert driver._equity_exposure(cb["t"]) == (
+        Decimal("1000") + Decimal("0.001") * Decimal("99.9"),
+        Decimal("0.001") * Decimal("99.9"),
+        1,
+    )
+    _exit_demo_position_leaving(driver, "1.2E-10")
+    equity, exposure, open_positions = driver._equity_exposure(cb["t"])
+    assert open_positions == 0
+    assert open_positions < driver._settings.demo_max_open_positions
+    assert exposure == Decimal(0)
+    assert equity == Decimal("1000") + Decimal("1.2E-10") * Decimal("99.9")
+
+
+def test_dust_with_stale_stop_skips_stop_check_and_evaluates_strategy(session_factory):
+    """Design 7.C item 23 (reproduction C): dust + the old stop + a low under it -> no exit attempt, strategy evaluated."""
+    rest, state, cb = FakeRest(), _connected_state(), {"t": T0}
+    driver = _armed_driver(session_factory, rest, state, cb)
+    _open_demo_position(driver)  # the stop level 95 stays persisted on the entry intent
+    _exit_demo_position_leaving(driver, "1.2E-10")
+    assert driver.store.position_summary(driver.account_id, "BTC-USDT") == (
+        Decimal("1.2E-10"), Decimal("95"),
+    )
+    seeded = len(rest.placed)
+    # 29 rising candles: the 30-bar rule is still warming up (FLAT); nothing to sell.
+    for now in _feed_candles(state, cb, n=29):
+        driver._private_last_msg = now
+        driver.step(now)
+    assert rest.placed[seeded:] == []
+    assert _risk_decision_reasons(session_factory) == []
+    # The 30th candle spikes under the stale stop (low 90 <= 95) but closes high,
+    # so the rule's first computable signal on it is LONG.
+    spike_ts = T0 + timedelta(minutes=29)
+    cb["t"] = spike_ts + timedelta(minutes=1, seconds=1)
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1m", spike_ts, 114.3, 115.0, 90.0, 114.5, 10.0, True),
+        "okx-business",
+    )
+    _fresh_book(state, cb, bid="114.4", ask="114.6")
+    driver._private_last_msg = cb["t"]
+    driver.step(cb["t"])
+    assert _events(session_factory, "exit_precision_rejected") == []  # no stop exit attempted
+    decisions = _events(session_factory, "risk_decision")
+    assert len(decisions) == 1 and decisions[0]["event_time"] == cb["t"]
+    assert decisions[0]["payload"]["reason"] == "ok"
+    assert [p["side"] for p in rest.placed[seeded:]] == ["buy"]
+
+
+@pytest.mark.parametrize("exit_kind", ["stop", "flat"])
+def test_sellable_position_still_exits_on_stop_breach_and_on_flat(session_factory, exit_kind):
+    """Design 7.C item 24: a sellable position still exits on a stop breach and on FLAT; the raw net is passed, validate_sell floors it."""
+    rest, state = FakeRest(), _connected_state()
+    cb = {"t": T0 + timedelta(minutes=1, seconds=1)}
+    driver = _armed_driver(session_factory, rest, state, cb)
+    _open_demo_position_with_base_fee(driver, fee="-0.00000000012")
+    net = Decimal("0.001") - Decimal("0.00000000012")
+    assert driver.store.position_summary(driver.account_id, "BTC-USDT")[0] == net
+
+    passed: list[Decimal] = []
+    original = driver._runtime.consider_exit
+
+    def spy(**kwargs):
+        passed.append(kwargs["base_balance"])
+        return original(**kwargs)
+
+    driver._runtime.consider_exit = spy
+    if exit_kind == "stop":
+        candle = CandleUpdate("BTC-USDT", "1m", T0, 100, 101, 90, 92, 10, True)  # low 90 <= 95
+        _fresh_book(state, cb, bid="91.9", ask="92.1")
+    else:
+        candle = CandleUpdate("BTC-USDT", "1m", T0, 100, 101, 96, 100, 10, True)  # warm-up FLAT
+        _fresh_book(state, cb, bid="99.9", ask="100.1")
+    state.apply_candle(candle, "okx-business")
+    seeded = len(rest.placed)
+    results = driver.step(cb["t"])
+    assert results and [p["side"] for p in rest.placed[seeded:]] == ["sell"]
+    assert passed == [net]  # the RAW net reached consider_exit
+    assert rest.placed[-1]["sz"] == "0.00099999"  # validate_sell floored it to the lot
+    signal_id = driver.store.get_intent(driver.account_id, results[-1].client_order_id).signal_id
+    if exit_kind == "stop":
+        assert signal_id == f"stop|BTC-USDT|{T0.isoformat()}"
+    else:
+        assert signal_id.startswith("BTC-USDT|1m|")
+    view = driver._position_view("BTC-USDT", driver._instrument_meta["BTC-USDT"])
+    assert (view.net, view.sellable, view.remainder, view.flat) == (
+        net, Decimal("0.00099999"), Decimal(0), False,
+    )
+
+
+def test_unsellable_remainder_is_reported_not_traded_and_does_not_block_entry(session_factory):
+    """Design 7.C item 25 (section 6 row 13): 0 < floored < min_size -> one event, no sell, entry not blocked."""
+    rest, state, cb = FakeRest(), _connected_state(), {"t": T0}
+    driver = _armed_driver(session_factory, rest, state, cb)
+    _open_demo_position(driver)
+    # 100 lots remain after a partially filled then cancelled exit: below the 0.00001 minimum.
+    _exit_demo_position_leaving(driver, "0.000001", partial_then_cancel=True)
+    seeded = len(rest.placed)
+
+    # Candle 1: low under the stale stop (95) while the rule still says FLAT: nothing is sold.
+    cb["t"] = T0 + timedelta(minutes=1, seconds=1)
+    state.apply_candle(CandleUpdate("BTC-USDT", "1m", T0, 100, 101, 90, 92, 10, True), "okx-business")
+    _fresh_book(state, cb, bid="91.9", ask="92.1")
+    driver._private_last_msg = cb["t"]
+    assert driver.step(cb["t"]) == []
+    events = _events(session_factory, "unsellable_remainder")
+    assert len(events) == 1 and events[0]["severity"] == "warning"
+    payload = events[0]["payload"]
+    assert payload["instrument"] == "BTC-USDT"
+    assert Decimal(payload["net"]) == Decimal("0.000001")
+    assert Decimal(payload["floored"]) == Decimal("0.000001")
+    assert Decimal(payload["min_size"]) == Decimal("0.00001")
+    assert _events(session_factory, "exit_precision_rejected") == []
+
+    # Candle 2, same remainder: not reported again, still nothing sold.
+    cb["t"] = T0 + timedelta(minutes=2, seconds=1)
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1m", T0 + timedelta(minutes=1), 100, 101, 90, 92, 10, True),
+        "okx-business",
+    )
+    _fresh_book(state, cb, bid="91.9", ask="92.1")
+    driver._private_last_msg = cb["t"]
+    assert driver.step(cb["t"]) == []
+    assert len(_events(session_factory, "unsellable_remainder")) == 1
+    assert rest.placed[seeded:] == []
+
+    # Rising candles until the rule says LONG: the remainder does not block the entry.
+    for now in _feed_candles(state, cb, n=40, start=T0 + timedelta(minutes=2)):
+        driver._private_last_msg = now
+        driver.step(now)
+    reasons = _risk_decision_reasons(session_factory)
+    assert "ok" in reasons
+    assert "position_already_open" not in reasons
+    assert "max_open_positions" not in reasons
+    assert [p["side"] for p in rest.placed[seeded:]] == ["buy"]
+    assert len(_events(session_factory, "unsellable_remainder")) == 1
+    assert _events(session_factory, "exit_precision_rejected") == []
+    view = driver._position_view("BTC-USDT", driver._instrument_meta["BTC-USDT"])
+    assert (view.net, view.remainder, view.sellable, view.flat) == (
+        Decimal("0.000001"), Decimal("0.000001"), Decimal(0), False,
+    )
+
+
+@pytest.mark.parametrize(
+    "residue, partial_then_cancel, without_quote",
+    [
+        # Sub-lot dust (worth less than one lot) is marked at zero and skipped...
+        ("1.2E-10", False, (Decimal("1000"), Decimal(0), 0)),
+        # ...an unsellable remainder (worth up to one venue-minimum order) cannot
+        # be marked and fails closed exactly as a sellable position does.
+        ("0.000001", True, (Decimal(0), Decimal("Infinity"), 1)),
+    ],
+    ids=["sub_lot_dust", "unsellable_remainder"],
+)
+def test_equity_includes_residue_value_but_exposure_excludes_it(
+    session_factory, residue, partial_then_cancel, without_quote
+):
+    """Design 7.C item 26: marked equity = cash + residue value; exposure and the open-position count exclude it."""
+    rest, state, cb = FakeRest(), _connected_state(), {"t": T0}
+    driver = _armed_driver(session_factory, rest, state, cb)
+    _open_demo_position(driver)
+    _exit_demo_position_leaving(driver, residue, partial_then_cancel=partial_then_cancel)
+    # No usable quote: never looser than before this change (see the parametrization).
+    assert driver._equity_exposure(cb["t"]) == without_quote
+    _fresh_book(state, cb, bid="99.9", ask="100.1")
+    equity, exposure, open_positions = driver._equity_exposure(cb["t"])
+    assert equity == Decimal("1000") + Decimal(residue) * Decimal("99.9")
+    assert exposure == Decimal(0)
+    assert open_positions == 0
+
+
+@pytest.mark.parametrize(
+    "residue, partial_then_cancel, expected",
+    [
+        (None, False, "position BTC-USDT: 0.001 OPEN (sellable 0.001, stop=95)"),
+        ("1.2E-10", False,
+         "position BTC-USDT: FLAT at lot precision (sub-lot dust 1.2E-10; sellable 0)"),
+        ("0.000001", True,
+         "position BTC-USDT: unsellable remainder 0.000001 (below minimum 0.00001; "
+         "net 0.000001): reported, not traded, not an open position"),
+    ],
+    ids=["open", "dust", "remainder"],
+)
+def test_print_positions_reports_sellable_and_remainder_state(
+    session_factory, capsys, residue, partial_then_cancel, expected
+):
+    """Operator report: the --reconcile/--arm position lines use the driver's PositionView definitions."""
+    rest, state, cb = FakeRest(), _connected_state(), {"t": T0}
+    driver = _armed_driver(session_factory, rest, state, cb)
+    _open_demo_position(driver)
+    if residue is not None:
+        _exit_demo_position_leaving(driver, residue, partial_then_cancel=partial_then_cancel)
+    _print_positions(driver, driver._settings)
+    assert expected in capsys.readouterr().out
+
+
+def test_sellable_position_blocks_entry_with_position_already_open(session_factory):
+    """Regression guard for the rewired entry gate (review finding safety-F2).
+
+    A real sellable position still refuses every LONG with position_already_open,
+    reaches the gate as the SELLABLE size and is counted as one open position for
+    the max_open_positions cap (a Decimal(0) or open_positions=0 wiring would pass
+    the behavioural tests of items 21-26, which only assert the reason's absence).
+    """
+    rest, state, cb = FakeRest(), _connected_state(), {"t": T0}
+    driver = _armed_driver(session_factory, rest, state, cb)
+    _open_demo_position(driver)
+    seeded = len(rest.placed)
+
+    seen: list[tuple[Decimal, int, Decimal, Decimal]] = []
+    original = driver._runtime.consider_entry
+
+    def spy(ctx):
+        seen.append((
+            ctx.instrument_position_size,
+            ctx.open_positions,
+            ctx.existing_exposure,
+            Decimal(str(ctx.quote.bid)),
+        ))
+        return original(ctx)
+
+    driver._runtime.consider_entry = spy
+    for now in _feed_candles(state, cb, n=40):
+        driver._private_last_msg = now
+        driver.step(now)
+    reasons = _risk_decision_reasons(session_factory)
+    assert reasons and set(reasons) == {"position_already_open"}
+    # The only order is the warm-up FLAT exit (open item 6); the fake venue keeps it
+    # live, so the position stays sellable for every later LONG. No second BUY.
+    assert [p["side"] for p in rest.placed[seeded:]] == ["sell"]
+    assert len(seen) == len(reasons)
+    assert {size for size, _, _, _ in seen} == {Decimal("0.001")}  # the sellable size reached the gate
+    assert {count for _, count, _, _ in seen} == {1}  # one open position for the cap
+    # ...and its exposure is marked at the step's bid.
+    assert all(exposure == Decimal("0.001") * bid for _, _, exposure, bid in seen)
+
+
+@pytest.mark.parametrize(
+    "net, expected",
+    [
+        ("0", (Decimal(0), Decimal(0), True)),
+        ("1.2E-10", (Decimal(0), Decimal(0), True)),  # below one lot: flat (dust)
+        ("0.00000001", (Decimal(0), Decimal("0.00000001"), False)),  # one lot: remainder
+        ("0.00000999999", (Decimal(0), Decimal("0.00000999"), False)),  # largest remainder
+        ("0.00001", (Decimal("0.00001"), Decimal(0), False)),  # exactly the minimum: sellable
+        ("0.00001000001", (Decimal("0.00001"), Decimal(0), False)),
+        ("0.001", (Decimal("0.001"), Decimal(0), False)),
+    ],
+)
+def test_position_view_boundaries_are_exclusive_and_agree_with_validate_sell(net, expected):
+    """flat / sellable / remainder are exclusive at every boundary and match validate_sell."""
+    meta = parse_instruments(FakeRest().instruments)["BTC-USDT"]
+    view = PositionView.from_summary(Decimal(net), None, meta)
+    assert (view.sellable, view.remainder, view.flat) == expected
+    assert [view.flat, view.sellable > 0, view.remainder > 0].count(True) == 1
+    if view.sellable > 0:
+        validated = validate_sell(meta=meta, price=Decimal("100"), base_balance=Decimal(net))
+        assert validated.size == view.sellable
+    else:
+        with pytest.raises(PrecisionError):
+            validate_sell(meta=meta, price=Decimal("100"), base_balance=Decimal(net))
+
+
+@pytest.mark.parametrize(
+    "residue, partial_then_cancel, without_btc_quote",
+    [
+        ("1.2E-10", False, (Decimal("1000"), Decimal(0), 0)),
+        ("0.000001", True, (Decimal(0), Decimal("Infinity"), 2)),
+    ],
+    ids=["sub_lot_dust", "unsellable_remainder"],
+)
+def test_two_instrument_residue_without_quote_dust_is_skipped_remainder_fails_closed(
+    session_factory, residue, partial_then_cancel, without_btc_quote
+):
+    """Phase 5 two-instrument shape: a BTC residue while the BTC book is unusable.
+
+    Sub-lot dust is marked at zero, so it cannot block an ETH entry's equity (G3);
+    an unsellable remainder fails closed for every instrument, as before this change.
+    """
+    rest = FakeRest()
+    rest.instruments.append({
+        "instType": "SPOT", "instId": "ETH-USDT", "baseCcy": "ETH", "quoteCcy": "USDT",
+        "tickSz": "0.01", "lotSz": "0.000001", "minSz": "0.001", "state": "live",
+    })
+    state, cb = _connected_state(), {"t": T0}
+    driver = _armed_driver(
+        session_factory, rest, state, cb, demo_instruments=("BTC-USDT", "ETH-USDT")
+    )
+    assert set(driver._instrument_meta) == {"BTC-USDT", "ETH-USDT"}
+    _open_demo_position(driver)
+    _exit_demo_position_leaving(driver, residue, partial_then_cancel=partial_then_cancel)
+    assert driver._equity_exposure(cb["t"]) == without_btc_quote
+    _fresh_book(state, cb, bid="99.9", ask="100.1")
+    assert driver._equity_exposure(cb["t"]) == (
+        Decimal("1000") + Decimal(residue) * Decimal("99.9"), Decimal(0), 0,
+    )
+
+
+def test_remainder_is_merged_by_the_next_entry_and_a_new_remainder_is_reported_again(
+    session_factory,
+):
+    """Design section 6 row 13: the next entry merges the remainder into ONE sellable
+    position whose stop exit sells the whole floored net; the dedupe memory resets with
+    it, so a later, new remainder is reported again."""
+    rest, state, cb = FakeRest(), _connected_state(), {"t": T0}
+    driver = _armed_driver(session_factory, rest, state, cb)
+    meta = driver._instrument_meta["BTC-USDT"]
+    _open_demo_position(driver)
+    _exit_demo_position_leaving(driver, "0.000001", partial_then_cancel=True)
+    seeded = len(rest.placed)
+    last_ts = None
+    for now in _feed_candles(state, cb, n=40):
+        driver._private_last_msg = now
+        driver.step(now)
+        last_ts = now - timedelta(minutes=1, seconds=1)
+    buys = [p for p in rest.placed[seeded:] if p["side"] == "buy"]
+    assert len(buys) == 1
+    assert len(_events(session_factory, "unsellable_remainder")) == 1
+    buy = buys[0]
+    intent = driver.store.get_intent(driver.account_id, buy["clOrdId"])
+    assert intent.stop_loss is not None
+
+    # The entry fills: remainder + new size is one sellable position, no remainder.
+    driver.project_private_orders([{
+        "instId": "BTC-USDT",
+        "clOrdId": buy["clOrdId"],
+        "ordId": intent.exchange_order_id,
+        "state": "filled",
+        "side": "buy",
+        "accFillSz": buy["sz"],
+        "tradeId": f"fill-{buy['clOrdId']}",
+        "fillSz": buy["sz"],
+        "fillPx": buy["px"],
+    }])
+    net = Decimal("0.000001") + Decimal(buy["sz"])
+    view = driver._position_view("BTC-USDT", meta)
+    assert (view.net, view.sellable, view.remainder, view.flat) == (
+        net, floor_size(net, meta.lot_size), Decimal(0), False,
+    )
+    assert view.sellable == net  # the merged net is a lot multiple: nothing left over
+    assert view.stop == Decimal(intent.stop_loss)  # the NEW entry's stop, not the seed's
+
+    # A candle under that stop sells the whole floored net in one exit.
+    stop = float(view.stop)
+    ts = last_ts + timedelta(minutes=1)
+    cb["t"] = ts + timedelta(minutes=1, seconds=1)
+    close = stop - 0.5
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1m", ts, close + 1.0, close + 1.5, stop - 1.0, close, 10.0, True),
+        "okx-business",
+    )
+    _fresh_book(state, cb, bid=f"{close - 0.1:.2f}", ask=f"{close + 0.1:.2f}")
+    driver._private_last_msg = cb["t"]
+    driver.step(cb["t"])
+    sells = [p for p in rest.placed[seeded:] if p["side"] == "sell"]
+    assert len(sells) == 1 and Decimal(sells[0]["sz"]) == view.sellable
+    assert len(_events(session_factory, "unsellable_remainder")) == 1  # merged: nothing new
+
+    # That exit partially fills, then is cancelled from outside the code: a NEW
+    # remainder of a different value, reported once more.
+    sell = sells[0]
+    sell_intent = driver.store.get_intent(driver.account_id, sell["clOrdId"])
+    sold = decimal_to_str(net - Decimal("0.000002"))
+    row = {
+        "instId": "BTC-USDT",
+        "clOrdId": sell["clOrdId"],
+        "ordId": sell_intent.exchange_order_id,
+        "side": "sell",
+        "accFillSz": sold,
+    }
+    driver.project_private_orders([{
+        **row, "state": "partially_filled", "tradeId": f"fill-{sell['clOrdId']}",
+        "fillSz": sold, "fillPx": sell["px"],
+    }])
+    driver.project_private_orders([{**row, "state": "canceled"}])
+    assert driver.store.position_summary(driver.account_id, "BTC-USDT")[0] == Decimal("0.000002")
+    ts2 = ts + timedelta(minutes=1)
+    cb["t"] = ts2 + timedelta(minutes=1, seconds=1)
+    state.apply_candle(
+        CandleUpdate("BTC-USDT", "1m", ts2, close, close + 0.5, close - 0.5, close, 10.0, True),
+        "okx-business",
+    )
+    _fresh_book(state, cb, bid=f"{close - 0.1:.2f}", ask=f"{close + 0.1:.2f}")
+    driver._private_last_msg = cb["t"]
+    driver.step(cb["t"])
+    events = _events(session_factory, "unsellable_remainder")
+    assert len(events) == 2
+    assert Decimal(events[1]["payload"]["floored"]) == Decimal("0.000002")
+    assert Decimal(events[1]["payload"]["net"]) == Decimal("0.000002")
+    assert len([p for p in rest.placed[seeded:] if p["side"] == "sell"]) == 1  # never sold alone
+    assert _events(session_factory, "exit_precision_rejected") == []
 
 
 # -- private projection -----------------------------------------------------

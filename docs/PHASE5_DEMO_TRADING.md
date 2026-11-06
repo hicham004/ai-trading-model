@@ -166,6 +166,43 @@ A `consistent=False` result blocks new entries; the runtime cannot be armed into
 an inconsistent state, and health reports `reconciliation_consistent=false`
 until a successful reconciliation.
 
+**Lot-precision gating (2026-11-05, plan row R14 part A).** What counts as an
+open position in the safety core is the **sellable size**: the fill-derived net
+floored to the instrument's lot size, when that floored size is at least the
+venue minimum size (`PositionView` in `app/execution/driver.py`, computed from
+`position_summary` and the validated instrument metadata; one definition, used
+by the per-candle stop check, the FLAT exit, the entry gate and the
+open-position / exposure caps). Sub-lot fee dust (`floor(position, lot_size)
+== 0`, the official flatness definition of `docs/PHASE5_VALIDATION.md`; worth
+less than one lot, `lot_size x price`, about 0.001 USDT on BTC-USDT at a
+100,000 USDT price) and an unsellable remainder (`0 < floored < min_size`,
+reachable through a partially filled then cancelled order: an exit, or an entry
+cancelled by the kill switch, the venue or the operator; entries require twice
+the minimum, so fees alone cannot produce it; worth less than one venue-minimum
+order, `min_size x price`, about 1 USDT on BTC-USDT at that price) are reported
+(the `unsellable_remainder` warning event and the `--reconcile`/`--arm`
+position lines), never traded, never block an entry, and are excluded from
+exposure and from the open-position count. Exits for sellable positions are
+unchanged: the raw net is passed to `validate_sell`, which floors it.
+
+Marked equity includes the value of dust and remainders whenever a usable quote
+exists (equity stays cash + holdings). Without a usable quote the rule is the
+fail-closed one from before this change for everything that is not flat at lot
+precision: a sellable position or an unsellable remainder cannot be marked, so
+the entry is blocked with `equity_unavailable` and no daily baseline is
+created. Only sub-lot dust is marked at zero and skipped, so dust never blocks
+an entry on another instrument; a daily baseline created in that state is off
+by less than one lot's value.
+
+Observability: the `unsellable_remainder` event is recorded once per change of
+value per process run (an unchanged remainder is reported once more after a
+restart). Reconciliation and the reports keep using the raw net. The shadow
+supervisor's `stop_eval` journal lines and the daily report's breach count are
+shadow-evaluation observability on the raw net: they can show a breach against
+dust or a remainder with a stale stop level, which is not a missed exit (the
+driver evaluates no stop without a sellable position); aligning them to the
+sellable definition is a later reviewed supervisor change.
+
 ## Risk, Kill Switch, And Arming
 
 - Every entry passes the accepted Phase 4 deterministic `RiskManager` (minimum
@@ -197,7 +234,10 @@ until a successful reconciliation.
   imports, API startup, tests, and ordinary readiness checks.
 - Runtime lock: a single-runner advisory lock (atomic acquire; never
   auto-stolen). A heartbeat-expired lock is released only by the explicit
-  `--release-stale-lock` operator command.
+  `--release-stale-lock` operator command. Releasing a stale lock also disarms
+  (clears `armed_until` and records `disarmed_on_stale_lock_release`), so a
+  restart after a hard crash starts DISARMED until `--arm` or the supervisor's
+  gate re-arms it (R14 part A, 2026-11-05); a fresh lock is never touched.
 
 ## Operator Commands (local CLI only; never HTTP)
 
@@ -331,7 +371,8 @@ invalid account.
   entries are blocked, and the runtime cannot be armed. An operator
   investigates on OKX; foreign orders are never auto-cancelled.
 - Crashed runner: the lock is not auto-stolen; once the heartbeat is stale, an
-  operator runs `--release-stale-lock`, then `--reconcile` before re-arming.
+  operator runs `--release-stale-lock` (which also disarms), then `--reconcile`
+  before re-arming.
 - To stop trading immediately: `--engage-kill-switch` (blocks entries, cancels
   pending entries) and/or `--disarm` (blocks all new submissions; protective
   exits require re-arming).
