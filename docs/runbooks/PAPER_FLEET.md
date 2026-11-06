@@ -181,7 +181,11 @@ restarted), `uninstall` (the records stay), a re-install from the existing check
 refusal (stopped before writing anything) and the refusal to overwrite another folder's unit all
 behaved as described. The first run found one bug, fixed before release: the recorder's maths
 libraries open one thread per core, which broke a 32-task cap on a 16-core machine (`can't start new
-thread`); both units now use one thread per library and allow 128 tasks. Measured on Linux:
+thread`); both units now use one thread per library and allow 128 tasks. After the push, the
+published line itself, pasted as written on a fresh stand-in server, downloaded the script from
+GitHub, installed commit f8e07a8 and ended with `DONE.` in 9 minutes 47 seconds over a home
+connection (the Python packages took most of it), with both fake keys out of reach and the fake
+shadow run never restarted. Measured on Linux:
 the offline check passes on Python 3.12 in 85 s at no more than 405 MB; a first start from nothing builds the same 33 accounts as the laptop (fingerprint 93cfcc282a1d) and runs its first cycle with 0 errors at no more than 243 MB; a steady cycle takes 9 s at no more than 284 MB; the recorder's first pass (42,414 candles, 15 order books, 0 errors) takes 3.5 minutes at no more than 308 MB; as services, with one thread per maths library, the fleet held about 165 MB and the recorder 65 to 100 MB; the Python environment takes 652 MB of disk.
 
 Day to day, in the same console:
