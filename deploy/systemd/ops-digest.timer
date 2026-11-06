@@ -1,0 +1,19 @@
+# Starts ops-digest.service every day at 07:00 Beirut time (docs/runbooks/OPS_DIGEST.md).
+# systemd follows Beirut's summer and winter time by itself. Persistent=true: if the
+# server was off at 07:00, the digest is sent once when it is back.
+#
+# Install: copy to /etc/systemd/system/ next to ops-digest.service, then
+#   sudo systemctl daemon-reload && sudo systemctl enable --now ops-digest.timer
+
+[Unit]
+Description=Daily ops digest at 07:00 Beirut time
+Documentation=file:///path/to/ai-trading-model/docs/runbooks/OPS_DIGEST.md
+
+[Timer]
+OnCalendar=*-*-* 07:00:00 Asia/Beirut
+Persistent=true
+AccuracySec=1min
+Unit=ops-digest.service
+
+[Install]
+WantedBy=timers.target

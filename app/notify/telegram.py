@@ -1,9 +1,9 @@
-"""A small, boring Telegram notifier for AgentOps travel mode.
+"""A small, boring Telegram notifier for the operator.
 
 Design goals (deliberately minimal):
 
-- One-way, fire-and-forget operator notifications (CI status, PR activity,
-  safety-check failures, daily-report-ready).
+- One-way, fire-and-forget operator notifications (shadow runtime events,
+  daily-report-ready).
 - **Never logs or echoes secrets.** The bot token and chat id are redacted from
   any returned error text, and the token is never printed.
 - **Offline-testable.** The HTTP call is an injectable ``transport`` callable,
@@ -29,14 +29,9 @@ REDACTION = "***"
 _TELEGRAM_API = "https://api.telegram.org"
 _TRUTHY = {"1", "true", "yes", "on"}
 
-# Stable, human-readable labels for the events CI/automation reports. Keeping
+# Stable, human-readable labels for the events the runtime reports. Keeping
 # these as data (not f-strings scattered around) makes formatting testable.
 EVENT_LABELS: dict[str, str] = {
-    "ci_pass": "✅ CI passed",
-    "ci_fail": "❌ CI failed",
-    "pr_opened": "\U0001f4ec PR opened",
-    "pr_updated": "\U0001f501 PR updated",
-    "safety_fail": "\U0001f6d1 Travel-mode safety check FAILED",
     "report_ready": "\U0001f4ca Daily report ready",
     "shadow_alert": "Shadow ALERT written",
     "shadow_disarmed": "Shadow runtime disarmed",

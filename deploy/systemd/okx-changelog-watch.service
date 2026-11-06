@@ -1,0 +1,59 @@
+# OKX API changelog watcher - OBSERVABILITY ONLY (docs/runbooks/OPS_DIGEST.md).
+#
+# Started once a day by okx-changelog-watch.timer (06:30 Beirut time, before the digest).
+# It reads one public page, https://www.okx.com/docs-v5/log_en/ (no keys, no API call),
+# remembers which entries it has seen, and sends a Telegram message when a new or edited
+# entry mentions a host, port, path, channel or authentication detail this system uses.
+# It holds no OKX keys, never opens the demo database, places and changes no orders, and
+# stopping it changes nothing in trading.
+#
+# Install (runbook step 3): replace /path/to/ai-trading-model and CHANGE_ME_USER below,
+# copy this file and okx-changelog-watch.timer to /etc/systemd/system/, then
+#   sudo systemctl daemon-reload && sudo systemctl enable --now okx-changelog-watch.timer
+
+[Unit]
+Description=OKX API changelog watcher (one public page a day; no orders, no OKX keys)
+Documentation=file:///path/to/ai-trading-model/docs/runbooks/OPS_DIGEST.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=CHANGE_ME_USER
+Group=CHANGE_ME_USER
+WorkingDirectory=/path/to/ai-trading-model
+# The same environment file as the digest (Telegram bot only; the watcher never uses an AI key).
+# Never point this at the repository .env: that file holds the OKX demo keys.
+EnvironmentFile=/etc/ai-trading/ops.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/path/to/ai-trading-model/.venv/bin/python scripts/watch_okx_changelog.py --send
+TimeoutStartSec=180
+
+# Hardening: the whole system read-only except the ops folder (its state lives in logs/ops/okx_changelog).
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/path/to/ai-trading-model/logs/ops
+# It never needs the OKX demo keys or the demo database: make both unreachable.
+InaccessiblePaths=-/path/to/ai-trading-model/.env -/run/postgresql
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+UMask=0027
+Nice=10
+CPUQuota=50%
+MemoryMax=512M
+TasksMax=32

@@ -174,7 +174,8 @@ Implementation detail and limitations are in
 `docs/PHASE5_DEMO_TRADING.md`; the independent review is in
 `docs/PHASE5_REVIEW_NOTES.md`. Acceptance was the human owner's explicit
 decision; no agent may self-approve a phase. Phase 6a was separately
-authorized after Phase 5; Phase 6b and every later phase remain unauthorized.
+authorized after Phase 5; Phase 6b was authorized for log-only operation on
+June 30, 2026 (GitHub issue #12); every later phase remains unauthorized.
 
 ## Phase 6 - Demo Shadow Period And News/Event Research
 
@@ -206,13 +207,15 @@ endpoint, no strategy/risk retuning, no news agent, and no later phase.
 
 ### Phase 6b - AI News And Event Research Agent
 
-**Status: Planned, not authorized**
+**Status: Authorized for log-only operation (human owner, June 30, 2026,
+GitHub issue #12; reconfirmed October 20, 2026)**
 
 - Ingest approved news, macro, official-source, and social-watchlist data.
 - Classify event type, source quality, asset impact, and confidence.
 - Produce structured research outputs.
-- Defensive v1 may be designed to block/reduce only, never boost, but
-  implementation is not authorized yet.
+- Defensive v1 blocks/reduces only, never boosts. It runs log-only; using it
+  to gate demo or live entries is not authorized and needs a separate owner
+  decision.
 - Never place, approve, modify, or cancel orders.
 
 ## Phase 7 - Walk-Forward And Long Evaluation

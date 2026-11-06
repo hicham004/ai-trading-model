@@ -53,8 +53,12 @@ live automation can be considered.
   runtime is hosted on a static-IP DigitalOcean Singapore VPS under
   `shadow.service`. This authorizes no real-money path, no production OKX
   endpoint, no retuning, no new strategy authority, and no phase advancement.
-- **Phase 6b and later:** not authorized. Phase 6b is design-only until the
-  human owner explicitly approves implementation.
+- **Phase 6b:** authorized for log-only operation only (human owner, June 30,
+  2026, GitHub issue #12; reconfirmed October 20, 2026): a separate log-only
+  news/event observer per `docs/PHASE6B_DESIGN.md`. It has no effect on
+  orders, sizing or exits; using news to gate demo or live entries needs a
+  separate owner decision.
+- **Phase 7 and later:** not authorized.
 
 Phase 2/2B acceptance does not authorize live data, local forward paper
 trading, authenticated OKX demo access, or real trading. Phase 3A authorizes

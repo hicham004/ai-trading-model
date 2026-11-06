@@ -1,0 +1,279 @@
+{
+ "note": "Plan row R20. The markets, sleeves, book construction, brakes, caps, costs, gates, candidate rule, rotation rule, readings and verdict rules of the breadth study, fixed BEFORE the first run. Never edited.",
+ "written_at": "2026-11-05T06:55:50+00:00",
+ "data_end": "2026-10-20T10:00:00+00:00",
+ "gates": {
+  "profit_factor_min": 1.2,
+  "max_drawdown_max": 0.2,
+  "sharpe_min": 0.7,
+  "calmar_min": 0.5,
+  "rolling_12m_positive_min": 0.75,
+  "worst_calendar_year_min": -0.1,
+  "min_trades": 30,
+  "robust_share_min": 0.5,
+  "min_year_days": 60
+ },
+ "tier_gates": {
+  "reference": {
+   "max_drawdown_max": 0.2,
+   "worst_calendar_year_min": -0.1
+  },
+  "higher": {
+   "max_drawdown_max": 0.25,
+   "worst_calendar_year_min": -0.15
+  }
+ },
+ "payoff_min": 2.0,
+ "markets": [
+  "BTC-USDT",
+  "ETH-USDT",
+  "SOL-USDT",
+  "XRP-USDT",
+  "DOGE-USDT",
+  "LINK-USDT",
+  "TRX-USDT",
+  "ADA-USDT",
+  "LTC-USDT"
+ ],
+ "rules": [
+  "S1",
+  "S1+VC",
+  "S1+S5"
+ ],
+ "timeframe": "6H",
+ "mode": "none",
+ "funding_coverage_min": 0.9,
+ "cells": [
+  {
+   "tier": "reference",
+   "brakes": false,
+   "variant": "none",
+   "key": "reference|nobrakes|none",
+   "label": "vt10/30 crash15/90dh ladder, brakes off"
+  },
+  {
+   "tier": "trader",
+   "brakes": true,
+   "variant": "none",
+   "key": "trader|brakes|none",
+   "label": "vt20/30 crash15/90dh cap2 turtle, brakes on"
+  }
+ ],
+ "judged_cell": {
+  "tier": "trader",
+  "brakes": true,
+  "variant": "none",
+  "key": "trader|brakes|none",
+  "label": "vt20/30 crash15/90dh cap2 turtle, brakes on"
+ },
+ "tier": {
+  "name": "trader",
+  "label": "vt20/30 crash15/90dh cap2 turtle",
+  "sizing": {
+   "kind": "vol_target",
+   "fraction": 1.0,
+   "target_vol": 0.2,
+   "vol_lookback": 30,
+   "crash_dd": 0.15,
+   "crash_window_days": 90.0,
+   "crash_mode": "half",
+   "ladder": false,
+   "cap": 1.0,
+   "risk_cap": 0.02,
+   "label": "vt20/30 crash15/90dh cap2"
+  },
+  "turtle_ladder": true,
+  "description": "20 % volatility target, at most 2 % of equity at risk on one stop, the same crash de-risking, the Turtle ladder on entries"
+ },
+ "brakes_on": {
+  "ladder": {
+   "kind": "turtle",
+   "steps": [
+    [
+     0.1,
+     0.8
+    ],
+    [
+     0.2,
+     0.64
+    ]
+   ]
+  },
+  "hard_stop_dd": 0.3,
+  "max_entries_per_market_per_day": 1,
+  "max_entries_per_day": 3,
+  "no_entry_bar_after_exit": true,
+  "daily_loss_limit": 0.03,
+  "weekly_loss_limit": 0.06,
+  "monthly_loss_limit": 0.1,
+  "heat_cap": 0.06,
+  "heat_group_share": 0.5,
+  "corr_threshold": 0.7,
+  "corr_lookback_days": 60,
+  "label": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)"
+ },
+ "book_config": {
+  "brakes": {
+   "ladder": {
+    "kind": "turtle",
+    "steps": [
+     [
+      0.1,
+      0.8
+     ],
+     [
+      0.2,
+      0.64
+     ]
+    ]
+   },
+   "hard_stop_dd": 0.3,
+   "max_entries_per_market_per_day": 1,
+   "max_entries_per_day": 3,
+   "no_entry_bar_after_exit": true,
+   "daily_loss_limit": 0.03,
+   "weekly_loss_limit": 0.06,
+   "monthly_loss_limit": 0.1,
+   "heat_cap": 0.06,
+   "heat_group_share": 0.5,
+   "corr_threshold": 0.7,
+   "corr_lookback_days": 60,
+   "label": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7)"
+  },
+  "corr_cap": 0.5,
+  "corr_lookback_days": 60,
+  "corr_min_days": 20,
+  "corr_threshold": 0.7,
+  "rebalance_threshold": 0.25,
+  "init_cash": 10000.0,
+  "label": "turtle x0.8@-10%, x0.64@-20%; hard stop -30%; entry caps 1/market/day, 3/day, none on the bar after an exit; loss limits 3%/24h, 6%/week, 10%/month; heat cap 6% (group 50%, corr >= 0.7); correlation cap 50% per bet (corr >= 0.70 over 60d); no portfolio volatility target, no weekly cash-out (the tier sizes each entry)"
+ },
+ "costs": {
+  "majors": {
+   "fee_rate": 0.001,
+   "slippage_rate": 0.0005
+  },
+  "altcoins": {
+   "fee_rate": 0.001,
+   "slippage_rate": 0.0015
+  }
+ },
+ "ablations": {
+  "heat_8pct": {
+   "label": "the heat-cap variant of section 4.3: 8 % instead of 6 %",
+   "brakes": "heat8"
+  },
+  "no_brakes": {
+   "label": "every book brake off (the correlation cap and the cash constraint stay)",
+   "brakes": null
+  },
+  "no_corr_cap": {
+   "label": "the brakes on, allocator v2's correlation cap off",
+   "corr_cap": null
+  },
+  "uniform_cost": {
+   "label": "every market at the engine's 0.30 % round trip (no altcoin surcharge)",
+   "uniform_cost": true
+  },
+  "raw": {
+   "label": "no brake, no correlation cap: the sleeves share one equity and the cash constraint only",
+   "brakes": null,
+   "corr_cap": null
+  }
+ },
+ "rotation": {
+  "top_n": 3,
+  "lookback_days": 21,
+  "sma_days": 200,
+  "vol_target": 0.2,
+  "vol_lookback_days": 30,
+  "costs_per_side": {
+   "BTC-USDT": 0.0015,
+   "ETH-USDT": 0.0015,
+   "SOL-USDT": 0.0025,
+   "XRP-USDT": 0.0025,
+   "DOGE-USDT": 0.0025,
+   "LINK-USDT": 0.0025,
+   "TRX-USDT": 0.0025,
+   "ADA-USDT": 0.0025,
+   "LTC-USDT": 0.0025
+  },
+  "beats_margin_calmar": 0.1
+ },
+ "cost_scenarios": {
+  "measured_btc_eth": [
+   0.0005,
+   0.0005
+  ],
+  "altcoin": [
+   0.001,
+   0.0015
+  ]
+ },
+ "configuration": {
+  "markets": [
+   "BTC-USDT",
+   "ETH-USDT",
+   "SOL-USDT",
+   "XRP-USDT",
+   "DOGE-USDT",
+   "LINK-USDT",
+   "TRX-USDT",
+   "ADA-USDT",
+   "LTC-USDT"
+  ],
+  "rules": [
+   "S1",
+   "S1+VC",
+   "S1+S5"
+  ],
+  "cells": [
+   "reference|nobrakes|none",
+   "trader|brakes|none"
+  ],
+  "book": true,
+  "rotation": true,
+  "reproduction": true,
+  "data_end": "2026-10-20T10:00:00+00:00",
+  "quick": false,
+  "lake_dir": null
+ },
+ "preregistration": {
+  "fixed_on": "2026-11-05, before any run (plan row R20)",
+  "question": "(1) Does the S1 family (S1; S1+VC; S1+S5 where the market has funding data) on the nine liquid OKX USDT markets, run as ONE account at the Trader tier under the section 4.3 brakes and allocator v2's correlation cap, pass the section 4.6 gates at the portfolio level, how much of a smoother curve do the imperfectly correlated markets buy (the diversification gain in Calmar beside the sleeves on their own, holding BTC with policy sizing and the equal-weight hold of the nine), how often does each book-level brake act and what does it cost, and does the book qualify as a candidate under the R5b rule? (2) Does one fixed rotation rule (the top 3 of the nine by trailing 3-week return, weekly, long only, under the BTC 200-day filter, 20 % volatility target) beat holding BTC with the same sizing after costs?",
+  "markets": "the nine liquid OKX USDT spot markets the lake holds: BTC-USDT, ETH-USDT, SOL-USDT, XRP-USDT, DOGE-USDT, LINK-USDT, TRX-USDT, ADA-USDT, LTC-USDT (BTC and ETH from Sprint 2c; the seven others exactly as the replication study fixed them, checked against docs/research/replication_v1d_preregistration.json), in this fixed order; 6H bars resampled from the stored 1H candles; no regime gate (mode 'none')",
+  "sleeves": "per market the S1 family: S1 (time-series momentum, multi-lookback vote, ATR stop), S1+VC (S1 with new entries only on a 30-day volume z-score above 1, round 1) and S1+S5 (S1 with the positioning filter) - S1+S5 only where the market's Binance funding covers at least 90 % of its in-sample bars (the replication study's rule; a market below it has its S1+S5 reported 'run without S5' and left out of the book, never counted twice); so up to 27 sleeves. Each sleeve's rule in each walk-forward window is the one Sprint 2c's own runner selects on that market (train Sharpe at full size, at least 20 train trades, entries among bracket-free rules then the exit bracket among siblings, the S0 no-trade filter with the FOMC calendar), with Sprint 2c's grids and brackets (none / tp2 / trail1 / time30; none for S1+S5): nothing is retuned, nothing is swept for the book",
+  "sleeve_verdicts": "every sleeve is also judged on its own at the Trader cell (vt20/30 crash15/90dh cap2, the Turtle ladder, the section 4.3 brakes on one sleeve) by the section 4.6 gates, exactly as the Trader Policy study judged the five confirmed configurations; the Reference cell runs beside it for the reproduction of the stored numbers and for information",
+  "book": "ONE account: the sleeves share one equity from the first bar on which any sleeve's first walk-forward test window starts; a sleeve joins when its own first test window starts (SOL's history is shorter) and the book runs continuously to the in-sample end (the sleeves' own walk-forward verdicts restart flat every 180 days; the book does not, because the account's ladder, hard stop and loss limits are about a continuous equity). Each entry is sized by the Trader tier on the BOOK's equity marked at the previous close (20 % volatility target over 30 bars of that market, half size in that market's crash state, at most 2 % of equity at risk on the stop), takes at most the cash left (spot, no leverage: an open position is never sold to make room for a new one) and keeps the rule's own stop and exit, Sprint 2c's 0.25 reduce-only rebalance included. Several sleeves may hold the same market; they count as one bet",
+  "brakes": "the section 4.3 brakes at BOOK level, entries only, with their fixed numbers: the Turtle ladder (x0.8 at -10 % from the book's equity peak, x0.64 at -20 %, restored on a new high); the hard stop (-30 %: no new entry until the simulated account ends); the entry caps - at most 1 new entry per MARKET per UTC day across the market's sleeves, 3 per day across the book, none in a market on the bar after an exit there (when more entries want the same bar than the caps allow, the rules' own strength decides, ties by the fixed market order, then the sleeve order S1, S1+VC, S1+S5); the loss limits on the book's equity (3 % over the trailing 24 hours blocks entries for the next 24 hours; 6 % from Monday 00:00 UTC until the next Monday; 10 % from the month's start until the next month); the heat cap (the current risk, price to current stop on current equity, of the open positions plus the entries wanted, at most 6 % in total and 3 % per bet, a bet being the sleeves whose markets' trailing 60-day daily-return correlation is 0.70 or more, or the same market; when the wanted entries would exceed it, every open and new position of the bet with a positive risk is sized down equally - an open position whose stop has moved above the price carries no risk and is left alone). The brakes are read from the same EntryBrakes state machine the single-sleeve studies ran (one column, the book's equity), so their arithmetic is R18's",
+  "allocator_v2": "reused for its daily record and its correlation cap only: at the first bar of every UTC day the sleeves of one bet may hold at most 50 % of equity at the previous close; above it the bet's positions are scaled down equally at the open and the bet's new entries that day are scaled by the same factor (groups by the 60-day correlation >= 0.70, at least 20 days, as in R5b); its portfolio volatility target and its weekly cash-out are OFF so the tier is not sized twice - the effective risk per position (the per-entry risk after the ladder, heat and correlation multipliers and the cash constraint) is reported",
+  "costs": "BTC-USDT and ETH-USDT at the engine's 0.10 % fee + 0.05 % slippage a side (0.30 % a round trip); the seven altcoins at 0.10 % + 0.15 % a side (0.50 % a round trip, plan section 4.2); the book is also replayed with every market at 0.30 % as an ablation",
+  "ablations": {
+   "heat_8pct": "the heat-cap variant of section 4.3: 8 % instead of 6 %",
+   "no_brakes": "every book brake off (the correlation cap and the cash constraint stay)",
+   "no_corr_cap": "the brakes on, allocator v2's correlation cap off",
+   "uniform_cost": "every market at the engine's 0.30 % round trip (no altcoin surcharge)",
+   "raw": "no brake, no correlation cap: the sleeves share one equity and the cash constraint only"
+  },
+  "ablation_rule": "ablations are diagnostics that explain the result; none is a candidate and none opens a holdout",
+  "gates": "the plan's section 4.6 gates at the Trader tier on the book's continuous equity: profit factor > 1.2 (pooled over the book's trades), Sharpe > 0.7, Calmar > 0.5, >= 75 % of rolling 12-month windows positive, >= 30 trades, max drawdown <= 25 %, worst calendar year >= -15 %, average win / average loss >= 2; the +-30 % robustness gate is carried by the sleeves (the R5b construction) and counted as passed at the book level; expectancy in R is reported, not gated",
+  "candidate_rule": "the R5b rule, pre-registered for portfolio studies: the book is a CANDIDATE only when it passes the gates AND (every sleeve in it passes the section 4.6 gates on its own at the Trader cell, OR the book's own holdout confirms it); a book that passes the gates but is not a candidate is 'passed, not a candidate' and nothing joins the fleet",
+  "comparison_lines": "(a) holding BTC with policy sizing: the always-long control at the Trader cell on BTC-USDT 6H, run by the same runner (the stored R19/R18 numbers must reproduce), and the same hold run as one sleeve through the book simulator (continuous, no window restarts); (b) the equal-weight hold of the nine: 1/9 in every market with a close that day, re-sized weekly to the 20 % volatility target of the basket (the rotation's own machinery, the same costs), and plain equal-weight buy-and-hold; (c) each sleeve on its own at the Trader cell; (d) BTC buy-and-hold over the book's span",
+  "diversification_reading": "the diversification gain in Calmar = the book's Calmar minus (i) the median Calmar of its sleeves at the Trader cell, (ii) the Calmar of the best sleeve, (iii) the Calmar of holding BTC with policy sizing (the Trader-cell control); the book's volatility beside the average sleeve volatility; the pairwise daily-return correlations of the nine markets over the in-sample years and since 2024-01-01 (in-sample part only; the plan's own figure for the four confirmed markets is 0.73-0.82 for 2024-26), and the correlations of the sleeves' daily P&L contributions inside the book",
+  "brake_judgement": "every book-level brake is judged by its trigger counts and its cost: the book beside each ablation (the same signals, one layer off); a brake that costs more than 0.1 Calmar is flagged for the owner, never silently kept or dropped; the loss limits and the heat cap, which cannot act on one sleeve, are read here for the first time",
+  "rotation": {
+   "rule": "at every Sunday close (so the fill is Monday 00:00 UTC): rank the nine markets with at least 22 daily closes by their trailing 21-day close-to-close return, hold the top 3 at equal weight (ties by the fixed market order), long only; only while BTC's daily close is above its 200-day simple moving average - a BTC close below it at any day's close sends the basket to cash at the next open and keeps it there until a Sunday on which BTC is above it again; no per-coin stop: the weekly rebalance and the filter are its only exits; sized at each rebalance by a 20 % volatility target: the scale is min(1, 20 % / the annualized standard deviation of the equal-weight basket's last 30 daily returns); costs on the traded notional at every fill: 0.15 % a side on BTC/ETH (0.30 % a round trip), 0.25 % a side on the altcoins (+10 bps); one close per UTC day (the last 6H bar's close) and the next day's first open as the fill",
+   "comparison": "holding BTC with the same policy sizing and machinery: always long BTC, re-sized every Monday to the same 20 % volatility target of BTC's own trailing 30 daily returns, 0.15 % a side on the re-sizing; also the equal-weight hold of the nine with the same sizing, plain BTC buy-and-hold, and the stored always-long BTC-USDT 6H control at the Trader cell",
+   "span": "the in-sample period only: from the first Monday on which BTC's 200-day average, the 21-day lookback and the 30-day volatility are all available (2020-07 on this data) to the in-sample end (the last full UTC day before the holdout split); every comparison line is run over exactly the same days",
+   "pass_rule": "the rotation 'beats BTC' when, over that span, its Calmar exceeds the BTC comparison's by more than 0.1, its CAGR exceeds the BTC comparison's, and its max drawdown is at most 25 %",
+   "expectation": "stated before the run: it does NOT beat BTC after costs (plan section 2.7: post-2020 long-only top-coin momentum has not reliably beaten holding Bitcoin after costs; the 1-4 week effect lives in the largest coins and decays within weeks); if it passes anyway its holdout is opened once and, if that confirms it (positive return and ahead of the BTC comparison over the same days), it is recorded for the fleet as one account; if it fails the question is closed with our own numbers"
+  },
+  "holdout": "the last 12 months (2025-10-20 -> 2026-10-20), opened once, only by the full pre-registered study (every market, rule and cell, the book and the rotation, with the reproduction, never --quick): (a) by the runner for the sleeves that pass on their own at the Trader cell and for the hold controls (the comparison line, as in every study); (b) for the BOOK only when it passes the section 4.6 gates on the walk-forward years - the book runs over the untouched months with each sleeve's most-often-selected rule (the runner's own holdout construction), starting flat, the correlations warmed up on history; the v1c verdict (positive return, pooled profit factor > 1, >= 10 trades); (c) for the rotation only when it passes its in-sample rule. Every opening goes into an append-only ledger the report shows, beside the earlier looks at the same months (R12, R13, R16, R18, R19). CAVEAT, stated before the run: these months were opened before for every market (hold + policy lost on all nine) and for several of these very sleeves, so their falling direction is known; a confirmation is necessary, not sufficient, and the paper fleet's forward record is the judge",
+  "fleet": "a book that is a candidate is RECORDED for the paper fleet as one portfolio account (a source-tagged row naming the study, the tier, the brakes, the correlation cap, the sleeves and their rules); a rotation that passes and is confirmed is recorded likewise. The fleet has no account type that runs a multi-market Trader-tier book or a weekly rotation, so nothing is appended to the shortlist by this row: applying a recorded row is the next plan row's work (the R18a/R18b precedent), through the R18 loader extension, never omitting the protocol check; existing accounts are untouched; nothing joins demo or live",
+  "protocol": "Sprint 2c's own runner (scripts/run_research_v1c.py loaded as a module, its run_series) with Sprint 2c's defaults for everything the cell does not define: the grids and brackets, the S0 filter with the FOMC calendar, the walk-forward (train 540 d, purge 7 d, test 180 d, Sharpe with >= 20 train trades, entries then bracket) and the 0.25 reduce-only rebalance; the tier replaces only the policy sizing (and adds its brakes); every job's protocol check is recorded and the study stops on any mismatch the job does not explain (a tier is a recorded policy_sizing mismatch, never hidden); the book is a replay of the selected rules, not a selection",
+  "data": "OKX public 1H spot candles of the nine markets (6H resampled from 1H), frozen in a study lake at Sprint 2c's data end (bar close <= 2026-10-20T10:00:00+00:00) so the walk-forward and the untouched 12 months (2025-10-20 -> 2026-10-20) are the same calendar window as in Sprint 2c, R12, R13, R16, R18 and R19; Binance public funding (and open interest for BTC/ETH) for the S5 filter as before; one close per UTC day from the 6H bars for the correlations and the rotation",
+  "reproduction": "before anything is judged, the same code path re-runs, at the Reference cell, hold / S1 / S1+S5 on every market (Sprint 2c's stored numbers for BTC/ETH, the replication study's for the seven others) and S1+VC on every market (round 1's for BTC/ETH, round 2's for the seven), and, at the Trader cell, hold on every market (round 3's) and S1+S5 BTC-USDT 6H, S1 and S1+S5 SOL-USDT 6H (the Trader Policy study's); each must give the stored walk-forward numbers to 6 decimals, the same trade counts, the same most-selected rules and the same gate verdicts, otherwise the study stops",
+  "no_changes_after_results": "no gate, tier, brake number, cap, rule, market, cost, threshold or verdict rule changes after the results are in; if a gate looks wrong the report says so"
+ },
+ "sha256": "df5bafc764ef9a233a7868d2a37052d290d9b7254c4353ec2e53acf03dc4229d"
+}

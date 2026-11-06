@@ -1,0 +1,4403 @@
+{
+  "generated_at": "2026-11-05T08:29:06Z",
+  "pairs": [
+    "XCRCL-USDT",
+    "XGOOGL-USDT",
+    "XQQQ-USDT",
+    "XINTC-USDT",
+    "XSOXL-USDT",
+    "XMSTR-USDT",
+    "XSNDK-USDT",
+    "XNVDA-USDT",
+    "XSPCX-USDT",
+    "XMU-USDT",
+    "XAMD-USDT",
+    "XSKHY-USDT",
+    "XSPY-USDT",
+    "XMRVL-USDT",
+    "XTSLA-USDT"
+  ],
+  "rows": [
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2689,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.10354912336805,
+        "first_candle": "2026-07-16T07:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 6.226282016502278,
+          "mean": 0.32322952771510094,
+          "median_abs": 1.860584031898214,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 3.827279333309144,
+          "mean": -0.25621032630367097,
+          "median_abs": 1.6332088019661866,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T06:00:00Z",
+        "us_hours_volume_share": 0.5573843464066243,
+        "weekday_days": 79,
+        "weekday_volume_mean": 8805933.177255657,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 6.226282016502278,
+          "mean": 3.2476941895405935,
+          "median_abs": 3.1580424038228925,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 6.226282016502278,
+          "mean": 1.7838821650612455,
+          "median_abs": 1.5135080496824533,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 61.41,
+            "friday": "2026-07-17",
+            "friday_close": 60.59,
+            "gap_pct": 1.3931225882518903,
+            "jump_pct": -0.04884004981088745,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 61.44,
+            "weekend_dev_pct": 1.912604275962287,
+            "weekend_fall_pct": 0.44661392571970615
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 65.23,
+            "friday": "2026-07-24",
+            "friday_close": 62.58,
+            "gap_pct": 2.509007352168803,
+            "jump_pct": 1.6383674045580707,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 64.17,
+            "weekend_dev_pct": 3.0839448383079713,
+            "weekend_fall_pct": 0.8182957815174736
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 59.84,
+            "friday": "2026-07-31",
+            "friday_close": 62.62,
+            "gap_pct": -6.226282016502278,
+            "jump_pct": 1.6852437932985138,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 58.84,
+            "weekend_dev_pct": 6.226282016502278,
+            "weekend_fall_pct": 6.226282016502278
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 65.03,
+            "friday": "2026-08-07",
+            "friday_close": 66.69,
+            "gap_pct": 0.29944624861018737,
+            "jump_pct": -2.820077724925622,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 66.89,
+            "weekend_dev_pct": 2.42938921484721,
+            "weekend_fall_pct": 0.0
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 74.27,
+            "friday": "2026-08-14",
+            "friday_close": 71.71,
+            "gap_pct": -0.0837053620302531,
+            "jump_pct": 3.5913947407024116,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 71.65,
+            "weekend_dev_pct": 1.081841341830282,
+            "weekend_fall_pct": 0.910561730160238
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 88.4,
+            "friday": "2026-08-21",
+            "friday_close": 88.01,
+            "gap_pct": 2.235922594454455,
+            "jump_pct": -1.7937700686667206,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 90.0,
+            "weekend_dev_pct": 2.834129762209223,
+            "weekend_fall_pct": 2.2521921728172063
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 87.4,
+            "friday": "2026-08-28",
+            "friday_close": 87.23,
+            "gap_pct": -0.10322877558310943,
+            "jump_pct": 0.297926197219383,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 87.14,
+            "weekend_dev_pct": 3.54746955380063,
+            "weekend_fall_pct": 1.3038897011442139
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 98.46,
+            "friday": "2026-09-04",
+            "friday_close": 101.96,
+            "gap_pct": -1.8610713349258927,
+            "jump_pct": -1.6319491828601178,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 100.08,
+            "weekend_dev_pct": 3.3845972780608267,
+            "weekend_fall_pct": 2.472448834359208
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 92.93,
+            "friday": "2026-09-11",
+            "friday_close": 90.73,
+            "gap_pct": 1.226874847959703,
+            "jump_pct": 1.1689709908113517,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 91.85,
+            "weekend_dev_pct": 1.8130684501116168,
+            "weekend_fall_pct": 1.7231263982206928
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 95.62,
+            "friday": "2026-09-18",
+            "friday_close": 91.76,
+            "gap_pct": 6.057333582006489,
+            "jump_pct": -1.9367805443222723,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 97.49,
+            "weekend_dev_pct": 6.057333582006489,
+            "weekend_fall_pct": 2.650331806017
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 86.67,
+            "friday": "2026-09-25",
+            "friday_close": 88.99,
+            "gap_pct": -1.8600967288705355,
+            "jump_pct": -0.7815233433811895,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 87.35,
+            "weekend_dev_pct": 3.989067570090684,
+            "weekend_fall_pct": 3.989067570090684
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 83.09,
+            "friday": "2026-10-02",
+            "friday_close": 81.28,
+            "gap_pct": 2.5748325534529375,
+            "jump_pct": -0.37239516878111434,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 83.4,
+            "weekend_dev_pct": 3.232139969337814,
+            "weekend_fall_pct": 0.0
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 85.05,
+            "friday": "2026-10-09",
+            "friday_close": 84.63,
+            "gap_pct": -0.01181683900930674,
+            "jump_pct": 0.5068673549949275,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 84.62,
+            "weekend_dev_pct": 2.8882874148786146,
+            "weekend_fall_pct": 0.01181683900930674
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 83.1,
+            "friday": "2026-10-16",
+            "friday_close": 82.39,
+            "gap_pct": 2.2680518608489564,
+            "jump_pct": -1.4099887074585813,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 84.28,
+            "weekend_dev_pct": 3.5062022220994757,
+            "weekend_fall_pct": 1.7879486819888057
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 79.97,
+            "friday": "2026-10-23",
+            "friday_close": 85.95,
+            "gap_pct": -3.384137415196833,
+            "jump_pct": -3.827279333309144,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 83.09,
+            "weekend_dev_pct": 3.384137415196833,
+            "weekend_fall_pct": 3.384137415196833
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 74.02,
+            "friday": "2026-10-30",
+            "friday_close": 72.72,
+            "gap_pct": 0.1374192878064018,
+            "jump_pct": 1.6344684210722555,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 72.82,
+            "weekend_dev_pct": 2.5926121274072633,
+            "weekend_fall_pct": 0.5654017682362816
+          }
+        ],
+        "weekend_to_weekday_volume": 0.22711468959085868,
+        "weekend_volume_mean": 1999956.7801102623,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.1859427296392711
+      },
+      "instrument": "XCRCL-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.00001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "190000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.01",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 36077438.9502967,
+      "rank": 1,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 119335.0006803,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 126313.7817244,
+            "mid_median": 75.515,
+            "n": 1,
+            "spread_bps_median": 3.972720651526337,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 119335.0006803,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 126313.7817244,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 75.515,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 76.24,
+            "enabled": true,
+            "sell_limit": 74.72,
+            "ts": 1793866474749
+          },
+          "slot": "adhoc",
+          "spread_bps": 3.972720651526337,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2689,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.10354912336805,
+        "first_candle": "2026-07-16T07:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 1.6438878505496906,
+          "mean": 0.34672625795255324,
+          "median_abs": 0.63579699207326,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 2.739355747034385,
+          "mean": 0.4538080105598355,
+          "median_abs": 0.8036926436830506,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T06:00:00Z",
+        "us_hours_volume_share": 0.4376087355371324,
+        "weekday_days": 79,
+        "weekday_volume_mean": 2797089.388493239,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 1.7083431901606807,
+          "mean": 1.0198765080422443,
+          "median_abs": 0.9312179374983667,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 1.4978489702225044,
+          "mean": 0.5256401657404048,
+          "median_abs": 0.4693941102155287,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 358.97,
+            "friday": "2026-07-17",
+            "friday_close": 347.0,
+            "gap_pct": 0.6520482119678441,
+            "jump_pct": 2.739355747034385,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 349.27,
+            "weekend_dev_pct": 0.7293224391355901,
+            "weekend_fall_pct": 0.34931255657864774
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 328.24,
+            "friday": "2026-07-24",
+            "friday_close": 320.43,
+            "gap_pct": 1.443822330082869,
+            "jump_pct": 0.9642981063388213,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 325.09,
+            "weekend_dev_pct": 1.6067213533654676,
+            "weekend_fall_pct": 0.6638093072873807
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 371.34,
+            "friday": "2026-07-31",
+            "friday_close": 357.17,
+            "gap_pct": 1.6438878505496906,
+            "jump_pct": 2.246734756070312,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 363.09,
+            "weekend_dev_pct": 1.6438878505496906,
+            "weekend_fall_pct": 1.4978489702225044
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 354.9,
+            "friday": "2026-08-07",
+            "friday_close": 355.11,
+            "gap_pct": 0.3569976665356743,
+            "jump_pct": -0.41615176468178744,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 356.38,
+            "weekend_dev_pct": 1.09504966090121,
+            "weekend_fall_pct": 0.14654081810764022
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 344.46,
+            "friday": "2026-08-14",
+            "friday_close": 346.23,
+            "gap_pct": 0.27688864276727776,
+            "jump_pct": -0.7894207120495678,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 347.19,
+            "weekend_dev_pct": 0.9371654860811538,
+            "weekend_fall_pct": 0.0
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 347.97,
+            "friday": "2026-08-21",
+            "friday_close": 344.74,
+            "gap_pct": -0.2963137281222943,
+            "jump_pct": 1.228889671687232,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 343.72,
+            "weekend_dev_pct": 0.8405716818781381,
+            "weekend_fall_pct": 0.5264165020448532
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 340.69,
+            "friday": "2026-08-28",
+            "friday_close": 346.63,
+            "gap_pct": -0.7587201924257208,
+            "jump_pct": -0.9697753817646395,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 344.01,
+            "weekend_dev_pct": 0.7587201924257208,
+            "weekend_fall_pct": 0.7587201924257208
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 334.09,
+            "friday": "2026-09-04",
+            "friday_close": 338.39,
+            "gap_pct": -0.6195457721786758,
+            "jump_pct": -0.6593200989795012,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 336.3,
+            "weekend_dev_pct": 0.6195457721786758,
+            "weekend_fall_pct": 0.6195457721786758
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 346.5,
+            "friday": "2026-09-11",
+            "friday_close": 338.94,
+            "gap_pct": 1.2927234501459755,
+            "jump_pct": 0.9132483563272474,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 343.35,
+            "weekend_dev_pct": 1.7083431901606807,
+            "weekend_fall_pct": 1.0707978980909567
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 353.53,
+            "friday": "2026-09-18",
+            "friday_close": 349.26,
+            "gap_pct": 0.43141075152474584,
+            "jump_pct": 0.7837609338217031,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 350.77,
+            "weekend_dev_pct": 1.1416006576929478,
+            "weekend_fall_pct": 0.07160554246408368
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 341.97,
+            "friday": "2026-09-25",
+            "friday_close": 344.06,
+            "gap_pct": -0.8376553904430275,
+            "jump_pct": 0.22835070523341042,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 341.19,
+            "weekend_dev_pct": 1.0489044787735824,
+            "weekend_fall_pct": 1.0489044787735824
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 344.74,
+            "friday": "2026-10-02",
+            "friday_close": 343.62,
+            "gap_pct": -0.29144343315085197,
+            "jump_pct": 0.61685484239328,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 342.62,
+            "weekend_dev_pct": 0.3892072646756695,
+            "weekend_fall_pct": 0.29144343315085197
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 353.72,
+            "friday": "2026-10-09",
+            "friday_close": 351.77,
+            "gap_pct": -0.13085283769587427,
+            "jump_pct": 0.6836615142060417,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 351.31,
+            "weekend_dev_pct": 0.47078929837049865,
+            "weekend_fall_pct": 0.19349520876483323
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 343.61,
+            "friday": "2026-10-16",
+            "friday_close": 341.02,
+            "gap_pct": 0.6809208476679925,
+            "jump_pct": 0.07569582287606842,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 343.35,
+            "weekend_dev_pct": 0.9252703889155796,
+            "weekend_fall_pct": 0.7594302533705423
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 318.88,
+            "friday": "2026-10-23",
+            "friday_close": 320.76,
+            "gap_pct": 0.6153865574378286,
+            "jump_pct": -1.2032189048721706,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 322.74,
+            "weekend_dev_pct": 0.7454376672680094,
+            "weekend_fall_pct": 0.41237171838620407
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 286.02,
+            "friday": "2026-10-30",
+            "friday_close": 280.62,
+            "gap_pct": 1.088065172577398,
+            "jump_pct": 0.8179645753165334,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 283.69,
+            "weekend_dev_pct": 1.6574867463032952,
+            "weekend_fall_pct": 0.0
+          }
+        ],
+        "weekend_to_weekday_volume": 0.3613692448276553,
+        "weekend_volume_mean": 1010782.0800352499,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.4834510970621049
+      },
+      "instrument": "XGOOGL-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.00001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "140000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.01",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 12400459.2919526,
+      "rank": 2,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 75904.30070970001,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 64979.2713809,
+            "mid_median": 292.03999999999996,
+            "n": 1,
+            "spread_bps_median": 2.054513080400023,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 75904.30070970001,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 64979.2713809,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 292.03999999999996,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 294.97,
+            "enabled": true,
+            "sell_limit": 289.12,
+            "ts": 1793866475640
+          },
+          "slot": "adhoc",
+          "spread_bps": 2.054513080400023,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2690,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.14521579003473,
+        "first_candle": "2026-07-16T06:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 1.6820863144593738,
+          "mean": 0.19712344369076493,
+          "median_abs": 0.5057149872227079,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 1.1338006355222547,
+          "mean": -0.05648886205551962,
+          "median_abs": 0.34652548102917075,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T05:00:00Z",
+        "us_hours_volume_share": 0.4278178083831361,
+        "weekday_days": 79,
+        "weekday_volume_mean": 1111955.6544815875,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 1.794478646622901,
+          "mean": 0.8956781141452439,
+          "median_abs": 0.8700806954232871,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 1.794478646622901,
+          "mean": 0.4728046294655469,
+          "median_abs": 0.30526176258135335,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 706.2,
+            "friday": "2026-07-17",
+            "friday_close": 697.2,
+            "gap_pct": 0.8085411817562693,
+            "jump_pct": 0.47407580308574304,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 702.86,
+            "weekend_dev_pct": 1.0117889509739635,
+            "weekend_fall_pct": 0.3606610753384703
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 686.69,
+            "friday": "2026-07-24",
+            "friday_close": 685.06,
+            "gap_pct": 1.3714533808724747,
+            "jump_pct": -1.1338006355222547,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 694.52,
+            "weekend_dev_pct": 1.6159276674693401,
+            "weekend_fall_pct": 0.07155217407700301
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 693.45,
+            "friday": "2026-07-31",
+            "friday_close": 688.43,
+            "gap_pct": 0.2741615497866521,
+            "jump_pct": 0.45238809022920146,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 690.32,
+            "weekend_dev_pct": 0.9613304151867954,
+            "weekend_fall_pct": 0.7728464493502633
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 722.94,
+            "friday": "2026-08-07",
+            "friday_close": 723.54,
+            "gap_pct": -0.15491441312148782,
+            "jump_pct": 0.0719543950898924,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 722.42,
+            "weekend_dev_pct": 0.4646842102894613,
+            "weekend_fall_pct": 0.26571467929758713
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 734.01,
+            "friday": "2026-08-14",
+            "friday_close": 731.6,
+            "gap_pct": 0.23755250293556548,
+            "jump_pct": 0.09132109538452647,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 733.34,
+            "weekend_dev_pct": 0.6132062547949602,
+            "weekend_fall_pct": 0.08614972807650888
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 704.91,
+            "friday": "2026-08-21",
+            "friday_close": 713.6,
+            "gap_pct": -0.5762084665702324,
+            "jump_pct": -0.649036151147381,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 709.5,
+            "weekend_dev_pct": 0.8076247238228076,
+            "weekend_fall_pct": 0.8076247238228076
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 715.05,
+            "friday": "2026-08-28",
+            "friday_close": 716.95,
+            "gap_pct": -0.3829066418521139,
+            "jump_pct": 0.11754335764171435,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 714.21,
+            "weekend_dev_pct": 0.615601804182718,
+            "weekend_fall_pct": 0.615601804182718
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 718.03,
+            "friday": "2026-09-04",
+            "friday_close": 719.15,
+            "gap_pct": 0.2791067624101159,
+            "jump_pct": -0.4349675768844171,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 721.16,
+            "weekend_dev_pct": 0.5975298692992537,
+            "weekend_fall_pct": 0.20879740325088839
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 706.05,
+            "friday": "2026-09-11",
+            "friday_close": 715.22,
+            "gap_pct": -1.6820863144593738,
+            "jump_pct": 0.3916731985724691,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 703.29,
+            "weekend_dev_pct": 1.794478646622901,
+            "weekend_fall_pct": 1.794478646622901
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 732.67,
+            "friday": "2026-09-18",
+            "friday_close": 721.34,
+            "gap_pct": 0.969856744409835,
+            "jump_pct": 0.5886235031814576,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 728.37,
+            "weekend_dev_pct": 1.0137808113864784,
+            "weekend_fall_pct": 0.3165789925330028
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 739.07,
+            "friday": "2026-09-25",
+            "friday_close": 744.45,
+            "gap_pct": -0.4402179924782224,
+            "jump_pct": -0.2850871716371964,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 741.18,
+            "weekend_dev_pct": 0.9325366670237667,
+            "weekend_fall_pct": 0.9325366670237667
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 751.83,
+            "friday": "2026-10-02",
+            "friday_close": 749.34,
+            "gap_pct": -0.1228501383007439,
+            "jump_pct": 0.45459168437319597,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 748.42,
+            "weekend_dev_pct": 0.4779442888273962,
+            "weekend_fall_pct": 0.1763103518110202
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 748.76,
+            "friday": "2026-10-09",
+            "friday_close": 751.77,
+            "gap_pct": -0.09981435360472063,
+            "jump_pct": -0.3013777634858724,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 751.02,
+            "weekend_dev_pct": 0.4830222106292633,
+            "weekend_fall_pct": 0.1450963680962513
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 718.33,
+            "friday": "2026-10-16",
+            "friday_close": 711.07,
+            "gap_pct": 1.252199996839916,
+            "jump_pct": -0.23638043209938536,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 720.03,
+            "weekend_dev_pct": 1.327168763366574,
+            "weekend_fall_pct": 0.7169804753358585
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 707.58,
+            "friday": "2026-10-23",
+            "friday_close": 705.25,
+            "gap_pct": 0.5712119819671935,
+            "jump_pct": -0.24137723718438484,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 709.29,
+            "weekend_dev_pct": 0.6078616398440793,
+            "weekend_fall_pct": 0.2939445326297039
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 696.14,
+            "friday": "2026-10-30",
+            "friday_close": 692.08,
+            "gap_pct": 0.8488893184611117,
+            "jump_pct": -0.2639659524856224,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 697.98,
+            "weekend_dev_pct": 1.006362902604143,
+            "weekend_fall_pct": 0.0
+          }
+        ],
+        "weekend_to_weekday_volume": 0.20003965362105616,
+        "weekend_volume_mean": 222435.22396447157,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.11152416356877323
+      },
+      "instrument": "XQQQ-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.000001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "150000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.001",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 11886094.67519215,
+      "rank": 3,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 49828.01943851,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 66497.91269524,
+            "mid_median": 686.755,
+            "n": 1,
+            "spread_bps_median": 1.0192863539389787,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 49828.01943851,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 66497.91269524,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 686.755,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 693.57,
+            "enabled": true,
+            "sell_limit": 679.82,
+            "ts": 1793866476532
+          },
+          "slot": "adhoc",
+          "spread_bps": 1.0192863539389787,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2689,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.10354912336805,
+        "first_candle": "2026-07-16T07:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 6.923597346942986,
+          "mean": -0.1414199844687043,
+          "median_abs": 2.1212911929836418,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 3.3967570623143235,
+          "mean": -0.2552851330450113,
+          "median_abs": 1.255733940428354,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T06:00:00Z",
+        "us_hours_volume_share": 0.5187722807838838,
+        "weekday_days": 79,
+        "weekday_volume_mean": 3003405.9169274378,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 6.923597346942986,
+          "mean": 3.581921161786365,
+          "median_abs": 3.564748160712763,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 6.923597346942986,
+          "mean": 2.4566851332350876,
+          "median_abs": 2.0365739565383905,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 98.79,
+            "friday": "2026-07-17",
+            "friday_close": 95.34,
+            "gap_pct": 2.1171400977875057,
+            "jump_pct": 1.437553430182798,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 97.38,
+            "weekend_dev_pct": 3.087971901538519,
+            "weekend_fall_pct": 2.560292820743159
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 90.88,
+            "friday": "2026-07-24",
+            "friday_close": 92.32,
+            "gap_pct": 1.824672283619504,
+            "jump_pct": -3.3967570623143235,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 94.02,
+            "weekend_dev_pct": 3.66886807737385,
+            "weekend_fall_pct": 1.0015324299685022
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 88.4,
+            "friday": "2026-07-31",
+            "friday_close": 90.31,
+            "gap_pct": -2.3641233249961755,
+            "jump_pct": 0.22650066308520617,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 88.2,
+            "weekend_dev_pct": 3.4606282440516756,
+            "weekend_fall_pct": 2.7617381629601336
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 97.39,
+            "friday": "2026-08-07",
+            "friday_close": 101.74,
+            "gap_pct": -5.07037296657471,
+            "jump_pct": 0.7006726244236013,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 96.71,
+            "weekend_dev_pct": 5.07037296657471,
+            "weekend_fall_pct": 5.07037296657471
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 103.56,
+            "friday": "2026-08-14",
+            "friday_close": 102.63,
+            "gap_pct": 0.5635459920219001,
+            "jump_pct": 0.3385407305495021,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 103.21,
+            "weekend_dev_pct": 2.425761449108584,
+            "weekend_fall_pct": 0.20482816232187057
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 85.92,
+            "friday": "2026-08-21",
+            "friday_close": 90.06,
+            "gap_pct": -2.109593494363393,
+            "jump_pct": -2.59635491692371,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 88.18,
+            "weekend_dev_pct": 2.109593494363393,
+            "weekend_fall_pct": 2.109593494363393
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 90.44,
+            "friday": "2026-08-28",
+            "friday_close": 89.44,
+            "gap_pct": -0.5268775150113,
+            "jump_pct": 1.638741315309318,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 88.97,
+            "weekend_dev_pct": 1.6301996726977817,
+            "weekend_fall_pct": 1.4528100562909743
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 101.15,
+            "friday": "2026-09-04",
+            "friday_close": 95.69,
+            "gap_pct": 4.914342524547701,
+            "jump_pct": 0.6347338577106035,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 100.51,
+            "weekend_dev_pct": 5.023724527200104,
+            "weekend_fall_pct": 0.40839891310150284
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 96.31,
+            "friday": "2026-09-11",
+            "friday_close": 102.85,
+            "gap_pct": -6.923597346942986,
+            "jump_pct": 0.35365129432367187,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 95.97,
+            "weekend_dev_pct": 6.923597346942986,
+            "weekend_fall_pct": 6.923597346942986
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 118.56,
+            "friday": "2026-09-18",
+            "friday_close": 108.64,
+            "gap_pct": 5.628358357028133,
+            "jump_pct": 3.1095914167109338,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 114.93,
+            "weekend_dev_pct": 5.654457796038351,
+            "weekend_fall_pct": 0.20270899781938637
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 118.22,
+            "friday": "2026-09-25",
+            "friday_close": 122.98,
+            "gap_pct": -1.7637141486106844,
+            "jump_pct": -2.183730364299333,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 120.83,
+            "weekend_dev_pct": 3.9643635553325787,
+            "weekend_fall_pct": 3.9643635553325787
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 116.18,
+            "friday": "2026-10-02",
+            "friday_close": 119.39,
+            "gap_pct": -3.633352067172392,
+            "jump_pct": 0.9078787878813457,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 115.13,
+            "weekend_dev_pct": 4.042421787706033,
+            "weekend_fall_pct": 4.042421787706033
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 101.88,
+            "friday": "2026-10-09",
+            "friday_close": 104.81,
+            "gap_pct": -1.7614392564090666,
+            "jump_pct": -1.0739144506739102,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 102.98,
+            "weekend_dev_pct": 1.7614392564090666,
+            "weekend_fall_pct": 1.7614392564090666
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 93.95,
+            "friday": "2026-10-16",
+            "friday_close": 90.07,
+            "gap_pct": 4.111061723686635,
+            "jump_pct": 0.10649628269565903,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 93.85,
+            "weekend_dev_pct": 4.398341806351041,
+            "weekend_fall_pct": 3.46790271410677
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 87.31,
+            "friday": "2026-10-23",
+            "friday_close": 87.05,
+            "gap_pct": 2.125442288179778,
+            "jump_pct": -1.8272085273279524,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 88.92,
+            "weekend_dev_pct": 2.125442288179778,
+            "weekend_fall_pct": 1.411407048406948
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 64.62,
+            "friday": "2026-10-30",
+            "friday_close": 65.83,
+            "gap_pct": 0.6057871017102824,
+            "jump_pct": -2.4609572100535915,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 66.23,
+            "weekend_dev_pct": 1.963554418713388,
+            "weekend_fall_pct": 1.963554418713388
+          }
+        ],
+        "weekend_to_weekday_volume": 0.22959109167494807,
+        "weekend_volume_mean": 689555.2432103688,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.5206396429899591
+      },
+      "instrument": "XINTC-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.00001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "140000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.01",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 11308220.0946045,
+      "rank": 4,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 32203.2660882,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 47215.373448,
+            "mid_median": 57.010000000000005,
+            "n": 1,
+            "spread_bps_median": 3.5081564637788327,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 32203.2660882,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 47215.373448,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 57.010000000000005,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 57.57,
+            "enabled": true,
+            "sell_limit": 56.42,
+            "ts": 1793866477433
+          },
+          "slot": "adhoc",
+          "spread_bps": 3.5081564637788327,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2689,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.10354912336805,
+        "first_candle": "2026-07-16T07:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 17.933799693414866,
+          "mean": 0.48427645001361946,
+          "median_abs": 5.4905903117821975,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 9.63857323274885,
+          "mean": -1.6186420799073995,
+          "median_abs": 1.919820579898706,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T06:00:00Z",
+        "us_hours_volume_share": 0.5081799458701591,
+        "weekday_days": 79,
+        "weekday_volume_mean": 6419847.836470193,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 17.933799693414866,
+          "mean": 6.943456412713983,
+          "median_abs": 7.081177685645649,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 17.933799693414866,
+          "mean": 3.90657875741391,
+          "median_abs": 2.344190193219025,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 143.6,
+            "friday": "2026-07-17",
+            "friday_close": 135.95,
+            "gap_pct": 6.361864249667837,
+            "jump_pct": -0.887415696103409,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 144.88,
+            "weekend_dev_pct": 7.419203314001686,
+            "weekend_fall_pct": 4.436817918381903
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 132.63,
+            "friday": "2026-07-24",
+            "friday_close": 137.1,
+            "gap_pct": 6.323844226548145,
+            "jump_pct": -9.63857323274885,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 146.05,
+            "weekend_dev_pct": 8.531409497030383,
+            "weekend_fall_pct": 0.2775547760933274
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 107.42,
+            "friday": "2026-07-31",
+            "friday_close": 114.85,
+            "gap_pct": -7.802037434318515,
+            "jump_pct": 1.113982968539127,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 106.23,
+            "weekend_dev_pct": 8.009349985010083,
+            "weekend_fall_pct": 8.009349985010083
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 137.5,
+            "friday": "2026-08-07",
+            "friday_close": 140.25,
+            "gap_pct": -0.1498448316340852,
+            "jump_pct": -1.830417897983883,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 140.04,
+            "weekend_dev_pct": 4.154900291287227,
+            "weekend_fall_pct": 0.8233445473408565
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 153.32,
+            "friday": "2026-08-14",
+            "friday_close": 145.19,
+            "gap_pct": 2.61043984651051,
+            "jump_pct": 2.8379612551652937,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 149.03,
+            "weekend_dev_pct": 4.537665896007881,
+            "weekend_fall_pct": 0.9411182879798365
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 107.76,
+            "friday": "2026-08-21",
+            "friday_close": 120.72,
+            "gap_pct": -5.77140587679002,
+            "jump_pct": -5.585322358958474,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 113.95,
+            "weekend_dev_pct": 6.325813949727772,
+            "weekend_fall_pct": 6.325813949727772
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 113.66,
+            "friday": "2026-08-28",
+            "friday_close": 111.43,
+            "gap_pct": 0.07176819183078148,
+            "jump_pct": 1.909726289170495,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 111.51,
+            "weekend_dev_pct": 3.1883302913774094,
+            "weekend_fall_pct": 2.351767714391699
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 122.97,
+            "friday": "2026-09-04",
+            "friday_close": 117.44,
+            "gap_pct": 6.318585260665994,
+            "jump_pct": -1.7172994288509487,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 125.1,
+            "weekend_dev_pct": 8.508655795687158,
+            "weekend_fall_pct": 1.2854748954618653
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 102.67,
+            "friday": "2026-09-11",
+            "friday_close": 121.82,
+            "gap_pct": -17.933799693414866,
+            "jump_pct": 0.831341283668361,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 101.82,
+            "weekend_dev_pct": 17.933799693414866,
+            "weekend_fall_pct": 17.933799693414866
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 134.33,
+            "friday": "2026-09-18",
+            "friday_close": 123.51,
+            "gap_pct": 6.9429987499642385,
+            "jump_pct": 1.454734712535659,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 132.39,
+            "weekend_dev_pct": 7.048691044266425,
+            "weekend_fall_pct": 3.225289846920687
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 143.88,
+            "friday": "2026-09-25",
+            "friday_close": 151.43,
+            "gap_pct": -2.6227501876606545,
+            "jump_pct": -2.4916351264534438,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 147.51,
+            "weekend_dev_pct": 7.562798037685334,
+            "weekend_fall_pct": 7.562798037685334
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 159.49,
+            "friday": "2026-10-02",
+            "friday_close": 163.67,
+            "gap_pct": -2.3366126720463507,
+            "jump_pct": -0.25048544626660973,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 159.89,
+            "weekend_dev_pct": 3.109931539650564,
+            "weekend_fall_pct": 2.3366126720463507
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 131.44,
+            "friday": "2026-10-09",
+            "friday_close": 140.0,
+            "gap_pct": -3.4887259000440665,
+            "jump_pct": -2.820468987985106,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 135.2,
+            "weekend_dev_pct": 3.636764417087483,
+            "weekend_fall_pct": 3.636764417087483
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 100.62,
+            "friday": "2026-10-16",
+            "friday_close": 94.15,
+            "gap_pct": 9.902075920086041,
+            "jump_pct": -3.2558969240849382,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 103.95,
+            "weekend_dev_pct": 9.902075920086041,
+            "weekend_fall_pct": 1.7356338842222534
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 85.7,
+            "friday": "2026-10-23",
+            "friday_close": 83.85,
+            "gap_pct": 4.112248604078545,
+            "jump_pct": -1.929914870626917,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 87.37,
+            "weekend_dev_pct": 4.112248604078545,
+            "weekend_fall_pct": 1.6231194928582438
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 78.26,
+            "friday": "2026-10-30",
+            "friday_close": 77.04,
+            "gap_pct": 5.209774746774376,
+            "jump_pct": -3.6385898175347466,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 81.16,
+            "weekend_dev_pct": 7.113664327024873,
+            "weekend_fall_pct": 0.0
+          }
+        ],
+        "weekend_to_weekday_volume": 0.21773536082266612,
+        "weekend_volume_mean": 1397827.88510045,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.1859427296392711
+      },
+      "instrument": "XSOXL-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "",
+        "lotSz": "0.00001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "100000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.01",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 9130216.3745364,
+      "rank": 5,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 3330.3068049,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 3657.8141629,
+            "mid_median": 62.325,
+            "n": 1,
+            "spread_bps_median": 8.02246289610979,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 3330.3068049,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 3657.8141629,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 62.325,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 62.84,
+            "enabled": true,
+            "sell_limit": 61.6,
+            "ts": 1793866478344
+          },
+          "slot": "adhoc",
+          "spread_bps": 8.02246289610979,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2688,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.04104912336805,
+        "first_candle": "2026-07-16T08:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 7.599857715422766,
+          "mean": 1.0903540574488524,
+          "median_abs": 1.80646878930578,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 3.0485709836793755,
+          "mean": 0.351012104816625,
+          "median_abs": 1.0926752880047257,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T07:30:00Z",
+        "us_hours_volume_share": 0.5458013788850256,
+        "weekday_days": 79,
+        "weekday_volume_mean": 5004604.882590201,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 7.599857715422766,
+          "mean": 3.3211412812754233,
+          "median_abs": 3.1226072507757507,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 3.7974395913584833,
+          "mean": 1.2559795664971203,
+          "median_abs": 1.146150964766733,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 95.46,
+            "friday": "2026-07-17",
+            "friday_close": 94.17,
+            "gap_pct": 2.0183592767204637,
+            "jump_pct": -0.6577940711426083,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 96.09,
+            "weekend_dev_pct": 2.578759248924531,
+            "weekend_fall_pct": 0.0
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 97.25,
+            "friday": "2026-07-24",
+            "friday_close": 91.93,
+            "gap_pct": 2.5771854786098376,
+            "jump_pct": 3.0485709836793755,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 94.33,
+            "weekend_dev_pct": 3.6736645715157645,
+            "weekend_fall_pct": 0.7205271346877495
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 95.29,
+            "friday": "2026-07-31",
+            "friday_close": 93.51,
+            "gap_pct": -0.45016153189569413,
+            "jump_pct": 2.335810623169839,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 93.09,
+            "weekend_dev_pct": 1.7367353085714003,
+            "weekend_fall_pct": 1.7367353085714003
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 97.52,
+            "friday": "2026-08-07",
+            "friday_close": 100.15,
+            "gap_pct": -0.6310433120958098,
+            "jump_pct": -2.030114381785319,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 99.52,
+            "weekend_dev_pct": 3.1742457656065883,
+            "weekend_fall_pct": 0.6310433120958098
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 95.28,
+            "friday": "2026-08-14",
+            "friday_close": 93.16,
+            "gap_pct": 0.8018431800382052,
+            "jump_pct": 1.4483048230522417,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 93.91,
+            "weekend_dev_pct": 1.7661912457832087,
+            "weekend_fall_pct": 0.02147074619090257
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 122.95,
+            "friday": "2026-08-21",
+            "friday_close": 119.27,
+            "gap_pct": 3.4527386375172187,
+            "jump_pct": -0.41394483035482194,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 123.46,
+            "weekend_dev_pct": 3.4527386375172187,
+            "weekend_fall_pct": 1.5717747948457164
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 126.95,
+            "friday": "2026-08-28",
+            "friday_close": 127.44,
+            "gap_pct": 0.9372139828863032,
+            "jump_pct": -1.322449727996864,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 128.64,
+            "weekend_dev_pct": 4.42060925044957,
+            "weekend_fall_pct": 0.47192159316464466
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 137.7,
+            "friday": "2026-09-04",
+            "friday_close": 142.62,
+            "gap_pct": -2.8735974400922233,
+            "jump_pct": -0.6370370464626227,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 138.58,
+            "weekend_dev_pct": 2.8735974400922233,
+            "weekend_fall_pct": 2.8735974400922233
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 133.95,
+            "friday": "2026-09-11",
+            "friday_close": 130.99,
+            "gap_pct": -0.16809294911466088,
+            "jump_pct": 2.4026541072206697,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 130.77,
+            "weekend_dev_pct": 2.17634766678251,
+            "weekend_fall_pct": 2.17634766678251
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 167.6,
+            "friday": "2026-09-18",
+            "friday_close": 154.0,
+            "gap_pct": 7.599857715422766,
+            "jump_pct": 0.8629008480125875,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 166.16,
+            "weekend_dev_pct": 7.599857715422766,
+            "weekend_fall_pct": 1.6432986243396879
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 159.74,
+            "friday": "2026-09-25",
+            "friday_close": 158.7,
+            "gap_pct": -0.1261034215028022,
+            "jump_pct": 0.779290017190755,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 158.5,
+            "weekend_dev_pct": 2.662737528675978,
+            "weekend_fall_pct": 2.662737528675978
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 164.09,
+            "friday": "2026-10-02",
+            "friday_close": 160.01,
+            "gap_pct": 2.3470906335756743,
+            "jump_pct": 0.1707838170518953,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 163.81,
+            "weekend_dev_pct": 3.4761544669662787,
+            "weekend_fall_pct": 0.0
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 157.43,
+            "friday": "2026-10-09",
+            "friday_close": 154.42,
+            "gap_pct": 0.3361782323086907,
+            "jump_pct": 1.594296982278126,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 154.94,
+            "weekend_dev_pct": 2.847303741619283,
+            "weekend_fall_pct": 0.012952528999383322
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 139.75,
+            "friday": "2026-10-16",
+            "friday_close": 136.92,
+            "gap_pct": 1.945600733857224,
+            "jump_pct": 0.10022910346518905,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 139.61,
+            "weekend_dev_pct": 3.070968735944913,
+            "weekend_fall_pct": 1.775826794149436
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 139.85,
+            "friday": "2026-10-23",
+            "friday_close": 146.26,
+            "gap_pct": -1.988741141807889,
+            "jump_pct": -2.492802877675741,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 143.38,
+            "weekend_dev_pct": 3.7974395913584833,
+            "weekend_fall_pct": 3.7974395913584833
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 133.62,
+            "friday": "2026-10-30",
+            "friday_close": 130.85,
+            "gap_pct": 1.6673368447543357,
+            "jump_pct": 0.42749530736329805,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 133.05,
+            "weekend_dev_pct": 3.8309095851760544,
+            "weekend_fall_pct": 0.0
+          }
+        ],
+        "weekend_to_weekday_volume": 0.3524256151932293,
+        "weekend_volume_mean": 1763750.9545458904,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.5580357142857143
+      },
+      "instrument": "XMSTR-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.00001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "150000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.01",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 8107631.1244908,
+      "rank": 6,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 65846.253525,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 74456.7316002,
+            "mid_median": 143.515,
+            "n": 1,
+            "spread_bps_median": 2.090373828519746,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 65846.253525,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 74456.7316002,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 143.515,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 144.92,
+            "enabled": true,
+            "sell_limit": 142.04,
+            "ts": 1793866479233
+          },
+          "slot": "adhoc",
+          "spread_bps": 2.090373828519746,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2690,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.14521579003473,
+        "first_candle": "2026-07-16T06:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 6.291692571902216,
+          "mean": -0.10629908293757696,
+          "median_abs": 2.1871976815772634,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 10.712906768254312,
+          "mean": -0.4939368725430535,
+          "median_abs": 2.820272886389504,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T05:00:00Z",
+        "us_hours_volume_share": 0.5453827588328446,
+        "weekday_days": 79,
+        "weekday_volume_mean": 10262171.565635027,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 6.291692571902216,
+          "mean": 3.651219668307306,
+          "median_abs": 3.8044171587066966,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 6.291692571902216,
+          "mean": 2.217806641455751,
+          "median_abs": 1.6542627152253415,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1411.98,
+            "friday": "2026-07-17",
+            "friday_close": 1359.16,
+            "gap_pct": 3.0419329118135865,
+            "jump_pct": 0.7706783680036131,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 1401.14,
+            "weekend_dev_pct": 4.646951525470778,
+            "weekend_fall_pct": 1.180459020545051
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1336.07,
+            "friday": "2026-07-24",
+            "friday_close": 1438.06,
+            "gap_pct": 3.35665535880653,
+            "jump_pct": -10.712906768254312,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 1487.15,
+            "weekend_dev_pct": 4.862922012297126,
+            "weekend_fall_pct": 0.7027121954179145
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1220.77,
+            "friday": "2026-07-31",
+            "friday_close": 1216.31,
+            "gap_pct": -3.7997760070743096,
+            "jump_pct": 4.165788200275081,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 1170.96,
+            "weekend_dev_pct": 4.510260091730662,
+            "weekend_fall_pct": 4.510260091730662
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1246.29,
+            "friday": "2026-08-07",
+            "friday_close": 1213.9,
+            "gap_pct": -1.458813865215272,
+            "jump_pct": 4.092095979823454,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 1196.32,
+            "weekend_dev_pct": 1.6065980958061092,
+            "weekend_fall_pct": 1.458813865215272
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1778.28,
+            "friday": "2026-08-14",
+            "friday_close": 1638.37,
+            "gap_pct": 3.6161407494592033,
+            "jump_pct": 4.5783352364822,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 1698.7,
+            "weekend_dev_pct": 6.207228735469672,
+            "weekend_fall_pct": 0.0
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1431.47,
+            "friday": "2026-08-21",
+            "friday_close": 1595.85,
+            "gap_pct": -5.812867921226624,
+            "jump_pct": -5.057594213772239,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 1505.73,
+            "weekend_dev_pct": 5.812867921226624,
+            "weekend_fall_pct": 5.812867921226624
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1530.88,
+            "friday": "2026-08-28",
+            "friday_close": 1485.45,
+            "gap_pct": -0.37905403395993836,
+            "jump_pct": 3.3915517146280836,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 1479.83,
+            "weekend_dev_pct": 1.863840573977616,
+            "weekend_fall_pct": 1.863840573977616
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 1779.07,
+            "friday": "2026-09-04",
+            "friday_close": 1737.78,
+            "gap_pct": 1.3466446443654583,
+            "jump_pct": 1.0015872861712372,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 1761.34,
+            "weekend_dev_pct": 3.9977803052824887,
+            "weekend_fall_pct": 0.45679561729030754
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1534.07,
+            "friday": "2026-09-11",
+            "friday_close": 1633.69,
+            "gap_pct": -6.291692571902216,
+            "jump_pct": 0.0,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 1534.07,
+            "weekend_dev_pct": 6.291692571902216,
+            "weekend_fall_pct": 6.291692571902216
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1778.5,
+            "friday": "2026-09-18",
+            "friday_close": 1789.7,
+            "gap_pct": 1.2217622958602457,
+            "jump_pct": -1.8495318593455299,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 1811.7,
+            "weekend_dev_pct": 1.849711565235411,
+            "weekend_fall_pct": 1.849711565235411
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1716.9,
+            "friday": "2026-09-25",
+            "friday_close": 1777.1,
+            "gap_pct": -2.2593079365620383,
+            "jump_pct": -1.186940374265381,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 1737.4,
+            "weekend_dev_pct": 3.609466067842928,
+            "weekend_fall_pct": 3.609466067842928
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1720.9,
+            "friday": "2026-10-02",
+            "friday_close": 1718.9,
+            "gap_pct": 0.4353764169758964,
+            "jump_pct": -0.3190905733004892,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 1726.4,
+            "weekend_dev_pct": 0.9841459540392268,
+            "weekend_fall_pct": 0.19216776913859035
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1482.5,
+            "friday": "2026-10-09",
+            "friday_close": 1584.5,
+            "gap_pct": -1.9758450297873382,
+            "jump_pct": -4.67805979612216,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 1553.5,
+            "weekend_dev_pct": 2.1175611060690023,
+            "weekend_fall_pct": 2.1175611060690023
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1388.3,
+            "friday": "2026-10-16",
+            "friday_close": 1303.2,
+            "gap_pct": 3.9790154806064173,
+            "jump_pct": 2.346704394685713,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 1356.1,
+            "weekend_dev_pct": 4.332346727843647,
+            "weekend_fall_pct": 3.816540769169199
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1251.7,
+            "friday": "2026-10-23",
+            "friday_close": 1239.7,
+            "gap_pct": 2.115087426592489,
+            "jump_pct": -1.1517661776048307,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 1266.2,
+            "weekend_dev_pct": 2.115087426592489,
+            "weekend_fall_pct": 1.2745230771829816
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 1128.8,
+            "friday": "2026-10-30",
+            "friday_close": 1153.1,
+            "gap_pct": 1.163956754246678,
+            "jump_pct": -3.293841378093296,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 1166.6,
+            "weekend_dev_pct": 3.6110540121309045,
+            "weekend_fall_pct": 0.3474940513482462
+          }
+        ],
+        "weekend_to_weekday_volume": 0.15931612462304445,
+        "weekend_volume_mean": 1634929.4040537733,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.11152416356877323
+      },
+      "instrument": "XSNDK-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.000001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "210000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.001",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.1"
+      },
+      "quote_volume_24h_at_selection": 7898077.417508,
+      "rank": 7,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 19085.1281956,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 80037.3050686,
+            "mid_median": 1011.25,
+            "n": 1,
+            "spread_bps_median": 2.966625463534779,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 19085.1281956,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 80037.3050686,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 1011.25,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 1021.0,
+            "enabled": true,
+            "sell_limit": 1000.7,
+            "ts": 1793866480131
+          },
+          "slot": "adhoc",
+          "spread_bps": 2.966625463534779,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2690,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.14521579003473,
+        "first_candle": "2026-07-16T06:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 2.8143401042473246,
+          "mean": 0.41537953501557234,
+          "median_abs": 0.7406318817128539,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 3.3042331530289357,
+          "mean": -0.3108510461047355,
+          "median_abs": 0.743726512167111,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T05:00:00Z",
+        "us_hours_volume_share": 0.5061398073329266,
+        "weekday_days": 79,
+        "weekday_volume_mean": 1066408.4721093494,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 2.946309770381704,
+          "mean": 1.3385941847402474,
+          "median_abs": 1.206207946128157,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 2.946309770381704,
+          "mean": 0.6853992067107206,
+          "median_abs": 0.43293506431038264,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 205.91,
+            "friday": "2026-07-17",
+            "friday_close": 203.52,
+            "gap_pct": 1.2645726703448732,
+            "jump_pct": -0.09708267351508372,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 206.11,
+            "weekend_dev_pct": 1.2645726703448732,
+            "weekend_fall_pct": 0.6655352525522157
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 201.82,
+            "friday": "2026-07-24",
+            "friday_close": 207.15,
+            "gap_pct": 0.6975374043261161,
+            "jump_pct": -3.3042331530289357,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 208.6,
+            "weekend_dev_pct": 1.2520851491978726,
+            "weekend_fall_pct": 0.19812033830720863
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 202.15,
+            "friday": "2026-07-31",
+            "friday_close": 200.92,
+            "gap_pct": -0.9953814832957951,
+            "jump_pct": 1.605699203789402,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 198.93,
+            "weekend_dev_pct": 1.1060343464118907,
+            "weekend_fall_pct": 1.1060343464118907
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 222.17,
+            "friday": "2026-08-07",
+            "friday_close": 224.1,
+            "gap_pct": -0.46067572581907973,
+            "jump_pct": -0.40427689596542515,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 223.07,
+            "weekend_dev_pct": 0.7158608636783833,
+            "weekend_fall_pct": 0.46067572581907973
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 226.49,
+            "friday": "2026-08-14",
+            "friday_close": 225.27,
+            "gap_pct": 0.5224487222320596,
+            "jump_pct": 0.01766238358459284,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 226.45,
+            "weekend_dev_pct": 0.6901155458385908,
+            "weekend_fall_pct": 0.28450786028235336
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 209.8,
+            "friday": "2026-08-21",
+            "friday_close": 214.68,
+            "gap_pct": 0.32553625921067064,
+            "jump_pct": -2.6249213938537945,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 215.38,
+            "weekend_dev_pct": 2.215812608223635,
+            "weekend_fall_pct": 0.07921899806170896
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 218.91,
+            "friday": "2026-08-28",
+            "friday_close": 217.62,
+            "gap_pct": 0.3715174551863378,
+            "jump_pct": 0.21950893709090205,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 218.43,
+            "weekend_dev_pct": 0.7188511072394304,
+            "weekend_fall_pct": 0.40519440280168556
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 229.78,
+            "friday": "2026-09-04",
+            "friday_close": 230.24,
+            "gap_pct": 0.9251719615658035,
+            "jump_pct": -1.1251633329497028,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 232.38,
+            "weekend_dev_pct": 1.2259499135815775,
+            "weekend_fall_pct": 0.26529252082788085
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 210.91,
+            "friday": "2026-09-11",
+            "friday_close": 218.37,
+            "gap_pct": -2.8143401042473246,
+            "jump_pct": -0.6615968558279928,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 212.31,
+            "weekend_dev_pct": 2.946309770381704,
+            "weekend_fall_pct": 2.946309770381704
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 224.28,
+            "friday": "2026-09-18",
+            "friday_close": 222.03,
+            "gap_pct": 0.7090955122569697,
+            "jump_pct": 0.29918082554172404,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 223.61,
+            "weekend_dev_pct": 1.1864659786747365,
+            "weekend_fall_pct": 0.8276283588905161
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 231.81,
+            "friday": "2026-09-25",
+            "friday_close": 224.96,
+            "gap_pct": 2.0198262072930935,
+            "jump_pct": 0.979719991837111,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 229.55,
+            "weekend_dev_pct": 2.0198262072930935,
+            "weekend_fall_pct": 0.7854378115144272
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 237.48,
+            "friday": "2026-10-02",
+            "friday_close": 234.04,
+            "gap_pct": 0.6176408789854432,
+            "jump_pct": 0.8414959692584983,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 235.49,
+            "weekend_dev_pct": 0.8805757208836812,
+            "weekend_fall_pct": 0.05128643586216503
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 227.3,
+            "friday": "2026-10-09",
+            "friday_close": 229.61,
+            "gap_pct": -0.32717546143630455,
+            "jump_pct": -0.6839732031071182,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 228.86,
+            "weekend_dev_pct": 0.8888562000268153,
+            "weekend_fall_pct": 0.32717546143630455
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 215.77,
+            "friday": "2026-10-16",
+            "friday_close": 214.32,
+            "gap_pct": 1.8308417081677975,
+            "jump_pct": -1.1565616766737448,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 218.28,
+            "weekend_dev_pct": 1.8308417081677975,
+            "weekend_fall_pct": 1.2536258269420566
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 214.93,
+            "friday": "2026-10-23",
+            "friday_close": 211.57,
+            "gap_pct": 0.772168251168738,
+            "jump_pct": 0.803479821227104,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 213.21,
+            "weekend_dev_pct": 0.9034080169006553,
+            "weekend_fall_pct": 0.2271330177247029
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 208.24,
+            "friday": "2026-10-30",
+            "friday_close": 205.13,
+            "gap_pct": 1.187288304309759,
+            "jump_pct": 0.31744531491669525,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 207.58,
+            "weekend_dev_pct": 1.5719411489992219,
+            "weekend_fall_pct": 1.0832111795556294
+          }
+        ],
+        "weekend_to_weekday_volume": 0.23849477831302698,
+        "weekend_volume_mean": 254332.8521468531,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.26022304832713755
+      },
+      "instrument": "XNVDA-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.00001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "120000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.01",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 4968995.5931302,
+      "rank": 8,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 48548.9859579,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 85444.8094968,
+            "mid_median": 198.75,
+            "n": 1,
+            "spread_bps_median": 2.0125786163532307,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 48548.9859579,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 85444.8094968,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 198.75,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 200.69,
+            "enabled": true,
+            "sell_limit": 196.71,
+            "ts": 1793866481037
+          },
+          "slot": "adhoc",
+          "spread_bps": 2.0125786163532307,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2690,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.14521579003473,
+        "first_candle": "2026-07-16T06:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 2.5735355079088795,
+          "mean": -0.005701632476168637,
+          "median_abs": 1.0624042162235612,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 5.7098913759605905,
+          "mean": 0.6386273258853707,
+          "median_abs": 1.812075316508521,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T05:00:00Z",
+        "us_hours_volume_share": 0.6000050937864578,
+        "weekday_days": 79,
+        "weekday_volume_mean": 5642645.965012776,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 4.268806194267651,
+          "mean": 2.2452814353709334,
+          "median_abs": 2.3147141104883895,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 3.6965920766192295,
+          "mean": 1.059189657509523,
+          "median_abs": 0.5976605571870788,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 121.18,
+            "friday": "2026-07-17",
+            "friday_close": 124.05,
+            "gap_pct": 1.122256267462125,
+            "jump_pct": -3.463022929558822,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 125.45,
+            "weekend_dev_pct": 4.052207046651676,
+            "weekend_fall_pct": 0.04031445327731307
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 110.71,
+            "friday": "2026-07-24",
+            "friday_close": 115.18,
+            "gap_pct": -1.6633492133116705,
+            "jump_pct": -2.294846007403421,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 113.28,
+            "weekend_dev_pct": 3.6965920766192295,
+            "weekend_fall_pct": 3.6965920766192295
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 109.67,
+            "friday": "2026-07-31",
+            "friday_close": 108.42,
+            "gap_pct": -1.3464152514152663,
+            "jump_pct": 2.492743545407801,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 106.97,
+            "weekend_dev_pct": 1.7492072343338994,
+            "weekend_fall_pct": 1.7492072343338994
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 131.85,
+            "friday": "2026-08-07",
+            "friday_close": 132.99,
+            "gap_pct": 1.0025521649849973,
+            "jump_pct": -1.8634546275626294,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 134.33,
+            "weekend_dev_pct": 4.268806194267651,
+            "weekend_fall_pct": 0.679042898929975
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 148.29,
+            "friday": "2026-08-14",
+            "friday_close": 139.82,
+            "gap_pct": 0.17150211435326992,
+            "jump_pct": 5.7098913759605905,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 140.06,
+            "weekend_dev_pct": 2.437508082144195,
+            "weekend_fall_pct": 0.5162782154441826
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 135.27,
+            "friday": "2026-08-21",
+            "friday_close": 136.97,
+            "gap_pct": -2.5735355079088795,
+            "jump_pct": 1.3246212433461522,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 133.49,
+            "weekend_dev_pct": 2.723471813080313,
+            "weekend_fall_pct": 2.723471813080313
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 142.67,
+            "friday": "2026-08-28",
+            "friday_close": 141.42,
+            "gap_pct": -0.8806875103915892,
+            "jump_pct": 1.7606960054544127,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 140.18,
+            "weekend_dev_pct": 0.9877500808408903,
+            "weekend_fall_pct": 0.9877500808408903
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 148.29,
+            "friday": "2026-09-04",
+            "friday_close": 147.85,
+            "gap_pct": 0.9625490800547617,
+            "jump_pct": -0.6653921112056163,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 149.28,
+            "weekend_dev_pct": 2.200831329408762,
+            "weekend_fall_pct": 0.09473542459776634
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 148.54,
+            "friday": "2026-09-11",
+            "friday_close": 151.24,
+            "gap_pct": -2.483643409325662,
+            "jump_pct": 0.6822737311674834,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 147.53,
+            "weekend_dev_pct": 2.5039803242857674,
+            "weekend_fall_pct": 2.5039803242857674
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 155.59,
+            "friday": "2026-09-18",
+            "friday_close": 152.75,
+            "gap_pct": 0.3659417270658154,
+            "jump_pct": 1.4762327004508482,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 153.31,
+            "weekend_dev_pct": 1.1391498286095558,
+            "weekend_fall_pct": 0.2687733107062575
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 149.55,
+            "friday": "2026-09-25",
+            "friday_close": 148.61,
+            "gap_pct": 0.870968925374512,
+            "jump_pct": -0.24043289482662505,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 149.91,
+            "weekend_dev_pct": 0.870968925374512,
+            "weekend_fall_pct": 0.06057954615987279
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 164.5,
+            "friday": "2026-10-02",
+            "friday_close": 158.94,
+            "gap_pct": -0.17632246381764707,
+            "jump_pct": 3.6147022331569683,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 158.66,
+            "weekend_dev_pct": 1.101250023143342,
+            "weekend_fall_pct": 0.17632246381764707
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 166.15,
+            "friday": "2026-10-09",
+            "friday_close": 162.58,
+            "gap_pct": 1.3987096254660971,
+            "jump_pct": 0.7733710227516056,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 164.87,
+            "weekend_dev_pct": 1.44722093561641,
+            "weekend_fall_pct": 0.0
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 148.11,
+            "friday": "2026-10-16",
+            "friday_close": 146.29,
+            "gap_pct": 1.2566819595148302,
+            "jump_pct": -0.02025316462617557,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 148.14,
+            "weekend_dev_pct": 2.4285968915680174,
+            "weekend_fall_pct": 2.4285968915680174
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 145.39,
+            "friday": "2026-10-23",
+            "friday_close": 147.61,
+            "gap_pct": 0.43263773289293406,
+            "jump_pct": -1.9480250934500731,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 148.25,
+            "weekend_dev_pct": 1.1451020989667062,
+            "weekend_fall_pct": 1.0213897864912365
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 140.95,
+            "friday": "2026-10-30",
+            "friday_close": 134.98,
+            "gap_pct": 1.4489276393826738,
+            "jump_pct": 2.8789321851034333,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 136.95,
+            "weekend_dev_pct": 3.171860081024005,
+            "weekend_fall_pct": 0.0
+          }
+        ],
+        "weekend_to_weekday_volume": 0.20905660125319156,
+        "weekend_volume_mean": 1179632.3875206062,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.0
+      },
+      "instrument": "XSPCX-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.00001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "260000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.01",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 4941371.2884075,
+      "rank": 9,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 65279.8787694,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 97548.5962109,
+            "mid_median": 133.63,
+            "n": 1,
+            "spread_bps_median": 2.9933398189023452,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 65279.8787694,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 97548.5962109,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 133.63,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 134.96,
+            "enabled": true,
+            "sell_limit": 132.28,
+            "ts": 1793866481930
+          },
+          "slot": "adhoc",
+          "spread_bps": 2.9933398189023452,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2693,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.3118824567014,
+        "first_candle": "2026-07-16T03:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 6.497247847646635,
+          "mean": -0.11683379900954644,
+          "median_abs": 2.183493328631976,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 3.6174238278620208,
+          "mean": -0.390570283481964,
+          "median_abs": 1.3040566328459169,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T01:00:00Z",
+        "us_hours_volume_share": 0.5216285629234774,
+        "weekday_days": 79,
+        "weekday_volume_mean": 4641693.957954557,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 6.497247847646635,
+          "mean": 3.164845231874577,
+          "median_abs": 3.2290014403319756,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 6.497247847646635,
+          "mean": 2.032634868771442,
+          "median_abs": 1.8091257326353076,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 884.22,
+            "friday": "2026-07-17",
+            "friday_close": 854.79,
+            "gap_pct": 2.9747668588048044,
+            "jump_pct": 0.4102407131573219,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 880.6,
+            "weekend_dev_pct": 4.596789354124993,
+            "weekend_fall_pct": 1.8406767651517983
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 910.42,
+            "friday": "2026-07-24",
+            "friday_close": 922.27,
+            "gap_pct": 2.1252174324964637,
+            "jump_pct": -3.418416516408309,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 942.08,
+            "weekend_dev_pct": 3.999109003405372,
+            "weekend_fall_pct": 1.1439289431452326
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 798.61,
+            "friday": "2026-07-31",
+            "friday_close": 823.56,
+            "gap_pct": -4.389722916336742,
+            "jump_pct": 1.3133538918894776,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 788.19,
+            "weekend_dev_pct": 4.641247439185511,
+            "weekend_fall_pct": 4.641247439185511
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 881.32,
+            "friday": "2026-08-07",
+            "friday_close": 878.33,
+            "gap_pct": -1.9509841726276598,
+            "jump_pct": 2.290824808852655,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 861.36,
+            "weekend_dev_pct": 1.9509841726276598,
+            "weekend_fall_pct": 1.9509841726276598
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1022.0,
+            "friday": "2026-08-14",
+            "friday_close": 972.18,
+            "gap_pct": 2.602190492425884,
+            "jump_pct": 2.3953893338426484,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 997.81,
+            "weekend_dev_pct": 3.413673423293933,
+            "weekend_fall_pct": 0.061736018752991624
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 899.38,
+            "friday": "2026-08-21",
+            "friday_close": 966.42,
+            "gap_pct": -3.5718647009582534,
+            "jump_pct": -3.6174238278620208,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 932.51,
+            "weekend_dev_pct": 3.5718647009582534,
+            "weekend_fall_pct": 3.5718647009582534
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 949.95,
+            "friday": "2026-08-28",
+            "friday_close": 933.1,
+            "gap_pct": -0.6645114290296261,
+            "jump_pct": 2.4542089680869106,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 926.92,
+            "weekend_dev_pct": 1.777574700118817,
+            "weekend_fall_pct": 1.777574700118817
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 1022.98,
+            "friday": "2026-09-04",
+            "friday_close": 1014.61,
+            "gap_pct": 1.8069368228679696,
+            "jump_pct": -0.985373399523953,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 1033.11,
+            "weekend_dev_pct": 3.792684458509904,
+            "weekend_fall_pct": 0.5227465422598796
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 906.93,
+            "friday": "2026-09-11",
+            "friday_close": 975.73,
+            "gap_pct": -6.497247847646635,
+            "jump_pct": -0.814816069211158,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 914.35,
+            "weekend_dev_pct": 6.497247847646635,
+            "weekend_fall_pct": 6.497247847646635
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1046.5,
+            "friday": "2026-09-18",
+            "friday_close": 1015.52,
+            "gap_pct": 1.8623747535778679,
+            "jump_pct": 1.1426718792115993,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 1034.61,
+            "weekend_dev_pct": 2.2126175314698426,
+            "weekend_fall_pct": 1.4291412170525124
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1058.95,
+            "friday": "2026-09-25",
+            "friday_close": 1081.74,
+            "gap_pct": -0.8345410910529802,
+            "jump_pct": -1.2947593738023562,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 1072.75,
+            "weekend_dev_pct": 2.2994247911285974,
+            "weekend_fall_pct": 2.2994247911285974
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 1059.86,
+            "friday": "2026-10-02",
+            "friday_close": 1074.66,
+            "gap_pct": -0.32714948019935286,
+            "jump_pct": -1.059601375154736,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 1071.15,
+            "weekend_dev_pct": 0.7978442718526881,
+            "weekend_fall_pct": 0.7978442718526881
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 987.0,
+            "friday": "2026-10-09",
+            "friday_close": 1029.4,
+            "gap_pct": -2.2785310828790024,
+            "jump_pct": -1.9276036956382647,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 1006.21,
+            "weekend_dev_pct": 2.279524916143599,
+            "weekend_fall_pct": 2.279524916143599
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 912.14,
+            "friday": "2026-10-16",
+            "friday_close": 880.69,
+            "gap_pct": 3.4243270753004587,
+            "jump_pct": 0.08445251693328583,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 911.37,
+            "weekend_dev_pct": 3.5208384173899225,
+            "weekend_fall_pct": 3.327175811480846
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 894.21,
+            "friday": "2026-10-23",
+            "friday_close": 878.22,
+            "gap_pct": 2.2417692247674887,
+            "jump_pct": -0.43741770537398605,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 898.13,
+            "weekend_dev_pct": 2.2417692247674887,
+            "weekend_fall_pct": 0.38103976283805163
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 875.71,
+            "friday": "2026-10-30",
+            "friday_close": 886.08,
+            "gap_pct": 1.6076292763365727,
+            "jump_pct": -2.7848546847105387,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 900.44,
+            "weekend_dev_pct": 3.044329457370018,
+            "weekend_fall_pct": 0.0
+          }
+        ],
+        "weekend_to_weekday_volume": 0.19013288130237083,
+        "weekend_volume_mean": 882538.6463497055,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.11139992573338284
+      },
+      "instrument": "XMU-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.000001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "240000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.001",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 4887895.92613577,
+      "rank": 10,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 61216.81588801,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 56357.58632534,
+            "mid_median": 776.63,
+            "n": 1,
+            "spread_bps_median": 3.0902746481594727,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 61216.81588801,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 56357.58632534,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 776.63,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 784.21,
+            "enabled": true,
+            "sell_limit": 768.68,
+            "ts": 1793866482844
+          },
+          "slot": "adhoc",
+          "spread_bps": 3.0902746481594727,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2688,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.04104912336805,
+        "first_candle": "2026-07-16T08:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 5.929244768110078,
+          "mean": 0.17623001809256883,
+          "median_abs": 1.8658097583871693,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 5.84442014464031,
+          "mean": -0.41947624886714496,
+          "median_abs": 1.1096342797336618,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T07:30:00Z",
+        "us_hours_volume_share": 0.49377344714815335,
+        "weekday_days": 79,
+        "weekday_volume_mean": 971446.6049078293,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 5.929244768110078,
+          "mean": 2.4994346740471127,
+          "median_abs": 2.4156908087714393,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 5.929244768110078,
+          "mean": 1.5649770860289864,
+          "median_abs": 1.0372170412584132,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 511.32,
+            "friday": "2026-07-17",
+            "friday_close": 499.37,
+            "gap_pct": 2.7961146297378874,
+            "jump_pct": -0.43128329523270315,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 513.53,
+            "weekend_dev_pct": 3.1363138283866334,
+            "weekend_fall_pct": 2.155757561325748
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 504.77,
+            "friday": "2026-07-24",
+            "friday_close": 522.47,
+            "gap_pct": 2.3979515507738043,
+            "jump_pct": -5.84442014464031,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 535.15,
+            "weekend_dev_pct": 3.605247046892994,
+            "weekend_fall_pct": 0.26831761886155203
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 471.23,
+            "friday": "2026-07-31",
+            "friday_close": 476.66,
+            "gap_pct": -2.599260125356833,
+            "jump_pct": 1.453545032281861,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 464.43,
+            "weekend_dev_pct": 3.2102006220848653,
+            "weekend_fall_pct": 2.717755038554961
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 476.96,
+            "friday": "2026-08-07",
+            "friday_close": 483.47,
+            "gap_pct": -1.0165879347345628,
+            "jump_pct": -0.3390756121408501,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 478.58,
+            "weekend_dev_pct": 1.0165879347345628,
+            "weekend_fall_pct": 1.0165879347345628
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 511.67,
+            "friday": "2026-08-14",
+            "friday_close": 514.76,
+            "gap_pct": -0.32300146775449207,
+            "jump_pct": -0.2790871957971118,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 513.1,
+            "weekend_dev_pct": 1.4675376428943496,
+            "weekend_fall_pct": 0.32300146775449207
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 454.67,
+            "friday": "2026-08-21",
+            "friday_close": 473.3,
+            "gap_pct": -1.7993151925921107,
+            "jump_pct": -2.216440389955878,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 464.86,
+            "weekend_dev_pct": 2.219678617031793,
+            "weekend_fall_pct": 2.219678617031793
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 471.19,
+            "friday": "2026-08-28",
+            "friday_close": 466.61,
+            "gap_pct": -0.44461223432948954,
+            "jump_pct": 1.4213741053841604,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 464.54,
+            "weekend_dev_pct": 1.0578461477822636,
+            "weekend_fall_pct": 1.0578461477822636
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 492.85,
+            "friday": "2026-09-04",
+            "friday_close": 477.32,
+            "gap_pct": 2.05902128862152,
+            "jump_pct": 1.1427529723777825,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 487.25,
+            "weekend_dev_pct": 2.307045931248646,
+            "weekend_fall_pct": 0.48933743200023966
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 485.75,
+            "friday": "2026-09-11",
+            "friday_close": 515.73,
+            "gap_pct": -5.929244768110078,
+            "jump_pct": -0.05968367828616367,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 486.04,
+            "weekend_dev_pct": 5.929244768110078,
+            "weekend_fall_pct": 5.929244768110078
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 606.37,
+            "friday": "2026-09-18",
+            "friday_close": 559.24,
+            "gap_pct": 3.531080545125514,
+            "jump_pct": 4.560083623797395,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 579.34,
+            "weekend_dev_pct": 3.531080545125514,
+            "weekend_fall_pct": 1.2559769242281236
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 614.16,
+            "friday": "2026-09-25",
+            "friday_close": 630.23,
+            "gap_pct": -0.6622646190552574,
+            "jump_pct": -1.920670541520591,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 626.07,
+            "weekend_dev_pct": 2.5243356862942323,
+            "weekend_fall_pct": 2.5243356862942323
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 629.17,
+            "friday": "2026-10-02",
+            "friday_close": 633.37,
+            "gap_pct": -0.8833125139575515,
+            "jump_pct": 0.21798460464274808,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 627.8,
+            "weekend_dev_pct": 1.4327611303159888,
+            "weekend_fall_pct": 0.8833125139575515
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 596.86,
+            "friday": "2026-10-09",
+            "friday_close": 608.33,
+            "gap_pct": -0.826976198136353,
+            "jump_pct": -1.076515587089541,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 603.32,
+            "weekend_dev_pct": 1.006146092445502,
+            "weekend_fall_pct": 1.006146092445502
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 547.65,
+            "friday": "2026-10-16",
+            "friday_close": 529.73,
+            "gap_pct": 3.3853098145596263,
+            "jump_pct": -0.05841441541763697,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 547.97,
+            "weekend_dev_pct": 3.580385582204343,
+            "weekend_fall_pct": 2.5253432799884874
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 518.73,
+            "friday": "2026-10-23",
+            "friday_close": 517.47,
+            "gap_pct": 1.2024731905072499,
+            "jump_pct": -0.9592767764912038,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 523.73,
+            "weekend_dev_pct": 1.2616464840822588,
+            "weekend_fall_pct": 0.6669922933941944
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 503.9,
+            "friday": "2026-10-30",
+            "friday_close": 505.87,
+            "gap_pct": 1.932304324182228,
+            "jump_pct": -2.322492683786277,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 515.74,
+            "weekend_dev_pct": 2.7048967251197817,
+            "weekend_fall_pct": 0.0
+          }
+        ],
+        "weekend_to_weekday_volume": 0.1859082960752755,
+        "weekend_volume_mean": 180599.98304652591,
+        "weekends": 16,
+        "zero_volume_hours_pct": 1.9345238095238095
+      },
+      "instrument": "XAMD-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.000001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "100000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.001",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 3419858.13208433,
+      "rank": 11,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 28139.44715413,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 32613.530061330002,
+            "mid_median": 477.175,
+            "n": 1,
+            "spread_bps_median": 2.7243673704614753,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 28139.44715413,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 32613.530061330002,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 477.175,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 481.79,
+            "enabled": true,
+            "sell_limit": 472.24,
+            "ts": 1793866483935
+          },
+          "slot": "adhoc",
+          "spread_bps": 2.7243673704614753,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2690,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.14521579003473,
+        "first_candle": "2026-07-16T06:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 7.867471840411168,
+          "mean": 0.24736395258180477,
+          "median_abs": 3.255454969449775,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 7.749655734829119,
+          "mean": -0.6778864027074047,
+          "median_abs": 1.3720254209580123,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T05:00:00Z",
+        "us_hours_volume_share": 0.4451162489141727,
+        "weekday_days": 79,
+        "weekday_volume_mean": 3170372.396809108,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 7.867471840411168,
+          "mean": 4.18019787085774,
+          "median_abs": 4.262393948159435,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 7.867471840411168,
+          "mean": 2.2624723763667083,
+          "median_abs": 1.8335742467815668,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 158.97,
+            "friday": "2026-07-17",
+            "friday_close": 153.65,
+            "gap_pct": 5.291904665589034,
+            "jump_pct": -1.8880830059603633,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 162.0,
+            "weekend_dev_pct": 6.280825841849165,
+            "weekend_fall_pct": 1.1191582501418125
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 150.04,
+            "friday": "2026-07-24",
+            "friday_close": 154.78,
+            "gap_pct": 4.639372871966465,
+            "jump_pct": -7.749655734829119,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 162.13,
+            "weekend_dev_pct": 5.871496835925243,
+            "weekend_fall_pct": 0.1034259949984305
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 138.55,
+            "friday": "2026-07-31",
+            "friday_close": 143.82,
+            "gap_pct": -3.5672572202945174,
+            "jump_pct": -0.16586741624153128,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 138.78,
+            "weekend_dev_pct": 4.453640585988083,
+            "weekend_fall_pct": 4.290430750929811
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 136.77,
+            "friday": "2026-08-07",
+            "friday_close": 138.11,
+            "gap_pct": -2.529738597270263,
+            "jump_pct": 1.554759977632501,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 134.66,
+            "weekend_dev_pct": 2.529738597270263,
+            "weekend_fall_pct": 2.529738597270263
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 173.71,
+            "friday": "2026-08-14",
+            "friday_close": 166.38,
+            "gap_pct": 3.374326692107796,
+            "jump_pct": 0.9369646337012337,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 172.09,
+            "weekend_dev_pct": 4.42060925044957,
+            "weekend_fall_pct": 0.048094265685955116
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 153.41,
+            "friday": "2026-08-21",
+            "friday_close": 163.41,
+            "gap_pct": -3.601186542524181,
+            "jump_pct": -2.7136438781768932,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 157.63,
+            "weekend_dev_pct": 3.6531547966270423,
+            "weekend_fall_pct": 3.601186542524181
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 164.73,
+            "friday": "2026-08-28",
+            "friday_close": 161.0,
+            "gap_pct": -0.4856494197492279,
+            "jump_pct": 2.7759899171920095,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 160.22,
+            "weekend_dev_pct": 2.7709581427760255,
+            "weekend_fall_pct": 2.7709581427760255
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 187.22,
+            "friday": "2026-09-04",
+            "friday_close": 176.84,
+            "gap_pct": 2.6450958985568764,
+            "jump_pct": 3.0588067999987487,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 181.58,
+            "weekend_dev_pct": 6.390568692077822,
+            "weekend_fall_pct": 1.1374098962928707
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 176.81,
+            "friday": "2026-09-11",
+            "friday_close": 189.93,
+            "gap_pct": -7.867471840411168,
+            "jump_pct": 0.7094844869964794,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 175.56,
+            "weekend_dev_pct": 7.867471840411168,
+            "weekend_fall_pct": 7.867471840411168
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 187.96,
+            "friday": "2026-09-18",
+            "friday_close": 187.58,
+            "gap_pct": 0.8229188219570506,
+            "jump_pct": -0.6205435065747927,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 189.13,
+            "weekend_dev_pct": 1.5079251889932908,
+            "weekend_fall_pct": 1.0396106707817507
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 183.54,
+            "friday": "2026-09-25",
+            "friday_close": 191.49,
+            "gap_pct": -2.892763690617937,
+            "jump_pct": -1.347532363902919,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 186.03,
+            "weekend_dev_pct": 4.104178645869299,
+            "weekend_fall_pct": 4.104178645869299
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 191.28,
+            "friday": "2026-10-02",
+            "friday_close": 195.13,
+            "gap_pct": -0.5962495176706957,
+            "jump_pct": -1.3965184780131055,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 193.97,
+            "weekend_dev_pct": 1.133857429202581,
+            "weekend_fall_pct": 1.133857429202581
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 162.57,
+            "friday": "2026-10-09",
+            "friday_close": 169.45,
+            "gap_pct": -2.630943975385822,
+            "jump_pct": -1.5139780053069616,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 165.05,
+            "weekend_dev_pct": 2.630943975385822,
+            "weekend_fall_pct": 2.630943975385822
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 142.42,
+            "friday": "2026-10-16",
+            "friday_close": 136.7,
+            "gap_pct": 4.372633173493796,
+            "jump_pct": -0.27346369108632157,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 142.81,
+            "weekend_dev_pct": 4.666298606186984,
+            "weekend_fall_pct": 2.962244728074586
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 140.25,
+            "friday": "2026-10-23",
+            "friday_close": 137.15,
+            "gap_pct": 3.136583246791754,
+            "jump_pct": -0.9014505448724267,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 141.52,
+            "weekend_dev_pct": 3.136583246791754,
+            "weekend_fall_pct": 0.8273283636119612
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 153.02,
+            "friday": "2026-10-30",
+            "friday_close": 149.19,
+            "gap_pct": 3.8462486747699165,
+            "jump_pct": -1.3114516338750148,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 155.04,
+            "weekend_dev_pct": 5.464914257919735,
+            "weekend_fall_pct": 0.033519927910818245
+          }
+        ],
+        "weekend_to_weekday_volume": 0.255361288230546,
+        "weekend_volume_mean": 809590.3794197375,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.14869888475836432
+      },
+      "instrument": "XSKHY-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.00001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "160000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.01",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 2532931.4340842,
+      "rank": 12,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 69620.9734948,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 72751.1828254,
+            "mid_median": 138.055,
+            "n": 1,
+            "spread_bps_median": 5.070442939407712,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 69620.9734948,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 72751.1828254,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 138.055,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 139.4,
+            "enabled": true,
+            "sell_limit": 136.63,
+            "ts": 1793866484837
+          },
+          "slot": "adhoc",
+          "spread_bps": 5.070442939407712,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2690,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.14521579003473,
+        "first_candle": "2026-07-16T06:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 1.051113201771534,
+          "mean": 0.14596909274764439,
+          "median_abs": 0.3612190537373292,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 0.4865472185805877,
+          "mean": -0.003673581872913627,
+          "median_abs": 0.10028800845918492,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T05:00:00Z",
+        "us_hours_volume_share": 0.2603905746717325,
+        "weekday_days": 79,
+        "weekday_volume_mean": 2973235.2247806513,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 1.0885448560192434,
+          "mean": 0.5130539362194477,
+          "median_abs": 0.4692980741879399,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 0.8086049754995399,
+          "mean": 0.2783184911254642,
+          "median_abs": 0.24724727536648433,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 747.94,
+            "friday": "2026-07-17",
+            "friday_close": 744.37,
+            "gap_pct": 0.46508283079885565,
+            "jump_pct": 0.013370950293367889,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 747.84,
+            "weekend_dev_pct": 0.531919711202694,
+            "weekend_fall_pct": 0.24210807150855757
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 744.26,
+            "friday": "2026-07-24",
+            "friday_close": 740.07,
+            "gap_pct": 1.051113201771534,
+            "jump_pct": -0.4865472185805877,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 747.89,
+            "weekend_dev_pct": 1.0885448560192434,
+            "weekend_fall_pct": 0.0
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 753.68,
+            "friday": "2026-07-31",
+            "friday_close": 747.12,
+            "gap_pct": 0.5898619854640695,
+            "jump_pct": 0.28434400843090135,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 751.54,
+            "weekend_dev_pct": 0.5898619854640695,
+            "weekend_fall_pct": 0.5879764029688543
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 773.87,
+            "friday": "2026-08-07",
+            "friday_close": 773.6,
+            "gap_pct": -0.051719680490873846,
+            "jump_pct": 0.08661534925857507,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 773.2,
+            "weekend_dev_pct": 0.2523864792244111,
+            "weekend_fall_pct": 0.2523864792244111
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 776.2,
+            "friday": "2026-08-14",
+            "friday_close": 776.66,
+            "gap_pct": 0.02574797892592003,
+            "jump_pct": -0.0849935018262551,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 776.86,
+            "weekend_dev_pct": 0.22507034908304469,
+            "weekend_fall_pct": 0.043786784817867255
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 764.19,
+            "friday": "2026-08-21",
+            "friday_close": 766.4,
+            "gap_pct": -0.18545369627194105,
+            "jump_pct": -0.10332403464397573,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 764.98,
+            "weekend_dev_pct": 0.2835435675303237,
+            "weekend_fall_pct": 0.2835435675303237
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 766.28,
+            "friday": "2026-08-28",
+            "friday_close": 769.86,
+            "gap_pct": -0.3917465038193086,
+            "jump_pct": -0.07435768998886327,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 766.85,
+            "weekend_dev_pct": 0.4191350099475178,
+            "weekend_fall_pct": 0.4191350099475178
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 768.4,
+            "friday": "2026-09-04",
+            "friday_close": 770.16,
+            "gap_pct": -0.05844649390012448,
+            "jump_pct": -0.17033896363082532,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 769.71,
+            "weekend_dev_pct": 0.3396117176521936,
+            "weekend_fall_pct": 0.3055978762769639
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 760.59,
+            "friday": "2026-09-11",
+            "friday_close": 764.89,
+            "gap_pct": -0.753264630977058,
+            "jump_pct": 0.1895061564413609,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 759.15,
+            "weekend_dev_pct": 0.8086049754995399,
+            "weekend_fall_pct": 0.8086049754995399
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 767.93,
+            "friday": "2026-09-18",
+            "friday_close": 761.82,
+            "gap_pct": 0.685471785582773,
+            "jump_pct": 0.11335579947220611,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 767.06,
+            "weekend_dev_pct": 0.7428172151597048,
+            "weekend_fall_pct": 0.0
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 768.21,
+            "friday": "2026-09-25",
+            "friday_close": 771.65,
+            "gap_pct": -0.3271073413443852,
+            "jump_pct": -0.11968726629441265,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 769.13,
+            "weekend_dev_pct": 0.584872995562576,
+            "weekend_fall_pct": 0.584872995562576
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 770.52,
+            "friday": "2026-10-02",
+            "friday_close": 769.25,
+            "gap_pct": -0.06632032961113529,
+            "jump_pct": 0.23128006879174134,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 768.74,
+            "weekend_dev_pct": 0.24150210392512014,
+            "weekend_fall_pct": 0.12097011692627777
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 779.4,
+            "friday": "2026-10-09",
+            "friday_close": 778.86,
+            "gap_pct": 0.12189881342891942,
+            "jump_pct": -0.052590736263837944,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 779.81,
+            "weekend_dev_pct": 0.3959487749266616,
+            "weekend_fall_pct": 0.0
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 767.27,
+            "friday": "2026-10-16",
+            "friday_close": 764.24,
+            "gap_pct": 0.4569258201085843,
+            "jump_pct": -0.061237387989337075,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 767.74,
+            "weekend_dev_pct": 0.7664470899381841,
+            "weekend_fall_pct": 0.5892444164850438
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 763.9,
+            "friday": "2026-10-23",
+            "friday_close": 760.78,
+            "gap_pct": 0.3306916036553498,
+            "jump_pct": 0.07857517428892996,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 763.3,
+            "weekend_dev_pct": 0.45507380030728356,
+            "weekend_fall_pct": 0.10915811254008162
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 761.28,
+            "friday": "2026-10-30",
+            "friday_close": 757.18,
+            "gap_pct": 0.44277014064113107,
+            "jump_pct": 0.09725198227439412,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 760.54,
+            "weekend_dev_pct": 0.4835223480685962,
+            "weekend_fall_pct": 0.1057110487194125
+          }
+        ],
+        "weekend_to_weekday_volume": 2.426331225085374,
+        "weekend_volume_mean": 7214053.465409026,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.03717472118959108
+      },
+      "instrument": "XSPY-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.000001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "200000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.001",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 1763260.96459641,
+      "rank": 13,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 57234.78753099,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 59590.3199806,
+            "mid_median": 767.3,
+            "n": 1,
+            "spread_bps_median": 0.7819627264441433,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 57234.78753099,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 59590.3199806,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 767.3,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 774.86,
+            "enabled": true,
+            "sell_limit": 759.51,
+            "ts": 1793866485729
+          },
+          "slot": "adhoc",
+          "spread_bps": 0.7819627264441433,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2689,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.10354912336805,
+        "first_candle": "2026-07-16T07:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 8.26632181035575,
+          "mean": -0.24016983893981547,
+          "median_abs": 1.7935658122407405,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 4.926890978036545,
+          "mean": -0.6584632553924636,
+          "median_abs": 1.0440752572671377,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T06:00:00Z",
+        "us_hours_volume_share": 0.51819478761987,
+        "weekday_days": 79,
+        "weekday_volume_mean": 1862882.357719306,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 8.26632181035575,
+          "mean": 3.2392428718584543,
+          "median_abs": 3.0618485578400154,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 8.26632181035575,
+          "mean": 2.319079422161297,
+          "median_abs": 1.790276675649937,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 193.54,
+            "friday": "2026-07-17",
+            "friday_close": 189.32,
+            "gap_pct": 2.6582062354875737,
+            "jump_pct": -0.45365579401264594,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 194.42,
+            "weekend_dev_pct": 3.2019367363906834,
+            "weekend_fall_pct": 2.638562532097397
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 193.41,
+            "friday": "2026-07-24",
+            "friday_close": 194.52,
+            "gap_pct": 2.9480937648033145,
+            "jump_pct": -3.520363519297967,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 200.34,
+            "weekend_dev_pct": 4.045178411311454,
+            "weekend_fall_pct": 1.0802534303117435
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 183.8,
+            "friday": "2026-07-31",
+            "friday_close": 187.87,
+            "gap_pct": -3.1578725621400134,
+            "jump_pct": 0.9676701263779296,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 182.03,
+            "weekend_dev_pct": 3.306309874642119,
+            "weekend_fall_pct": 3.306309874642119
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 217.94,
+            "friday": "2026-08-07",
+            "friday_close": 218.82,
+            "gap_pct": -0.05485463659217313,
+            "jump_pct": -0.34811321339820883,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 218.7,
+            "weekend_dev_pct": 2.656120793519733,
+            "weekend_fall_pct": 0.8766953083099133
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 236.09,
+            "friday": "2026-08-14",
+            "friday_close": 222.27,
+            "gap_pct": 1.105131938308117,
+            "jump_pct": 4.926890978036545,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 224.74,
+            "weekend_dev_pct": 2.921760379289347,
+            "weekend_fall_pct": 0.8584907235010183
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 225.5,
+            "friday": "2026-08-21",
+            "friday_close": 237.25,
+            "gap_pct": -3.7228179020585337,
+            "jump_pct": -1.3566099526718902,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 228.58,
+            "weekend_dev_pct": 3.968109308446343,
+            "weekend_fall_pct": 3.968109308446343
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 213.47,
+            "friday": "2026-08-28",
+            "friday_close": 216.59,
+            "gap_pct": -0.7042608916514254,
+            "jump_pct": -0.7467248959882541,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 215.07,
+            "weekend_dev_pct": 1.7324514704818093,
+            "weekend_fall_pct": 1.7324514704818093
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 224.31,
+            "friday": "2026-09-04",
+            "friday_close": 223.4,
+            "gap_pct": 1.3913499848343578,
+            "jump_pct": -0.9848362803510033,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 226.53,
+            "weekend_dev_pct": 2.4714447843388383,
+            "weekend_fall_pct": 1.2839460084151593
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 219.64,
+            "friday": "2026-09-11",
+            "friday_close": 235.95,
+            "gap_pct": -8.26632181035575,
+            "jump_pct": 1.1033142341832718,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 217.23,
+            "weekend_dev_pct": 8.26632181035575,
+            "weekend_fall_pct": 8.26632181035575
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 249.78,
+            "friday": "2026-09-18",
+            "friday_close": 244.02,
+            "gap_pct": 2.7604961783073776,
+            "jump_pct": -0.42746204953228406,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 250.85,
+            "weekend_dev_pct": 2.772454801485477,
+            "weekend_fall_pct": 1.486279527108009
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 254.0,
+            "friday": "2026-09-25",
+            "friday_close": 261.96,
+            "gap_pct": -1.2484077092423234,
+            "jump_pct": -1.837347623889294,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 258.71,
+            "weekend_dev_pct": 3.2630778108824603,
+            "weekend_fall_pct": 3.2630778108824603
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 269.41,
+            "friday": "2026-10-02",
+            "friday_close": 272.34,
+            "gap_pct": 0.20174978873330365,
+            "jump_pct": -1.283440077154102,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 272.89,
+            "weekend_dev_pct": 1.8084728301769784,
+            "weekend_fall_pct": 0.05141954790635337
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 272.67,
+            "friday": "2026-10-09",
+            "friday_close": 275.24,
+            "gap_pct": -1.397600768105448,
+            "jump_pct": 0.45948361455641223,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 271.42,
+            "weekend_dev_pct": 1.848101880818065,
+            "weekend_fall_pct": 1.848101880818065
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 237.07,
+            "friday": "2026-10-16",
+            "friday_close": 228.13,
+            "gap_pct": 4.470520911164476,
+            "jump_pct": -0.6265394841287294,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 238.56,
+            "weekend_dev_pct": 4.470520911164476,
+            "weekend_fall_pct": 2.9222208739880338
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 227.18,
+            "friday": "2026-10-23",
+            "friday_close": 228.74,
+            "gap_pct": 1.3634009118461319,
+            "jump_pct": -2.047734166825658,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 231.88,
+            "weekend_dev_pct": 1.3634009118461319,
+            "weekend_fall_pct": 1.3334997909405477
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 184.23,
+            "friday": "2026-10-30",
+            "friday_close": 196.7,
+            "gap_pct": -2.1895308563760327,
+            "jump_pct": -4.35994398218354,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 192.44,
+            "weekend_dev_pct": 3.7322232345856063,
+            "weekend_fall_pct": 2.1895308563760327
+          }
+        ],
+        "weekend_to_weekday_volume": 0.2137034937196875,
+        "weekend_volume_mean": 398104.4682333843,
+        "weekends": 16,
+        "zero_volume_hours_pct": 1.859427296392711
+      },
+      "instrument": "XMRVL-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.00001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "170000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.01",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 1704143.0149914,
+      "rank": 14,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 32271.1654802,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 21153.9616551,
+            "mid_median": 155.47,
+            "n": 1,
+            "spread_bps_median": 2.5728436354293733,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 32271.1654802,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 21153.9616551,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            209,
+            400
+          ],
+          "mid": 155.47,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 157.05,
+            "enabled": true,
+            "sell_limit": 153.93,
+            "ts": 1793866486637
+          },
+          "slot": "adhoc",
+          "spread_bps": 2.5728436354293733,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    },
+    {
+      "candles_1dutc": 112,
+      "history": {
+        "candles_1h": 2690,
+        "coverage_pct": 100.0,
+        "days_since_listing": 112.14521579003473,
+        "first_candle": "2026-07-16T06:00:00Z",
+        "full_days": 112,
+        "gap": {
+          "max_abs": 2.360101058074196,
+          "mean": 0.25192673420032813,
+          "median_abs": 0.5804414712293099,
+          "n": 16
+        },
+        "jump": {
+          "max_abs": 3.982739534265608,
+          "mean": 0.3851631327156444,
+          "median_abs": 1.8013708012415464,
+          "n": 16
+        },
+        "last_candle": "2026-11-05T07:00:00Z",
+        "listed_at": "2026-07-16T05:00:00Z",
+        "us_hours_volume_share": 0.5978440968533474,
+        "weekday_days": 79,
+        "weekday_volume_mean": 1517212.7787119825,
+        "weekend_days": 32,
+        "weekend_dev": {
+          "max_abs": 2.360101058074196,
+          "mean": 1.3032486921290092,
+          "median_abs": 1.1691893341976995,
+          "n": 16
+        },
+        "weekend_fall": {
+          "max_abs": 2.073541589457102,
+          "mean": 0.7571744977424151,
+          "median_abs": 0.6231651792045717,
+          "n": 16
+        },
+        "weekend_records": [
+          {
+            "closed_hours": 64,
+            "first_hour_close": 377.77,
+            "friday": "2026-07-17",
+            "friday_close": 381.94,
+            "gap_pct": 0.823951261359521,
+            "jump_pct": -1.9217496000064658,
+            "next_trading_day": "2026-07-20",
+            "pre_open": 385.1,
+            "weekend_dev_pct": 0.961483233267048,
+            "weekend_fall_pct": 0.49343932140563357
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 309.82,
+            "friday": "2026-07-24",
+            "friday_close": 313.24,
+            "gap_pct": 1.1742811631925139,
+            "jump_pct": -2.2720997836445265,
+            "next_trading_day": "2026-07-27",
+            "pre_open": 316.94,
+            "weekend_dev_pct": 1.555329979606415,
+            "weekend_fall_pct": 0.6373222103819587
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 319.42,
+            "friday": "2026-07-31",
+            "friday_close": 311.51,
+            "gap_pct": 0.48675921515661413,
+            "jump_pct": 2.0207818635639136,
+            "next_trading_day": "2026-08-03",
+            "pre_open": 313.03,
+            "weekend_dev_pct": 1.34442770879397,
+            "weekend_fall_pct": 1.34442770879397
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 329.61,
+            "friday": "2026-08-07",
+            "friday_close": 328.88,
+            "gap_pct": -0.09126031114322396,
+            "jump_pct": 0.3129797902708562,
+            "next_trading_day": "2026-08-10",
+            "pre_open": 328.58,
+            "weekend_dev_pct": 1.1758618063426036,
+            "weekend_fall_pct": 0.10039092457460397
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 339.78,
+            "friday": "2026-08-14",
+            "friday_close": 342.58,
+            "gap_pct": -0.6090081480271847,
+            "jump_pct": -0.21167762357984596,
+            "next_trading_day": "2026-08-17",
+            "pre_open": 340.5,
+            "weekend_dev_pct": 0.7242087931118498,
+            "weekend_fall_pct": 0.6090081480271847
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 354.22,
+            "friday": "2026-08-21",
+            "friday_close": 362.61,
+            "gap_pct": -0.07724777607072059,
+            "jump_pct": -2.263720975028188,
+            "next_trading_day": "2026-08-24",
+            "pre_open": 362.33,
+            "weekend_dev_pct": 1.1625168620527953,
+            "weekend_fall_pct": 0.4366819166340514
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 360.1,
+            "friday": "2026-08-28",
+            "friday_close": 348.77,
+            "gap_pct": -0.7858303849337894,
+            "jump_pct": 3.982739534265608,
+            "next_trading_day": "2026-08-31",
+            "pre_open": 346.04,
+            "weekend_dev_pct": 1.097831069110254,
+            "weekend_fall_pct": 0.7858303849337894
+          },
+          {
+            "closed_hours": 88,
+            "first_hour_close": 360.15,
+            "friday": "2026-09-04",
+            "friday_close": 353.91,
+            "gap_pct": 0.5466650223419389,
+            "jump_pct": 1.201131759009173,
+            "next_trading_day": "2026-09-08",
+            "pre_open": 355.85,
+            "weekend_dev_pct": 0.8553072426608722,
+            "weekend_fall_pct": 0.3623294931208791
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 360.37,
+            "friday": "2026-09-11",
+            "friday_close": 365.29,
+            "gap_pct": -1.6979274052318698,
+            "jump_pct": 0.3418996812212615,
+            "next_trading_day": "2026-09-14",
+            "pre_open": 359.14,
+            "weekend_dev_pct": 1.9153490936692692,
+            "weekend_fall_pct": 1.9153490936692692
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 375.8,
+            "friday": "2026-09-18",
+            "friday_close": 364.2,
+            "gap_pct": 1.4068610905226053,
+            "jump_pct": 1.7285308780631417,
+            "next_trading_day": "2026-09-21",
+            "pre_open": 369.36,
+            "weekend_dev_pct": 1.566469407805234,
+            "weekend_fall_pct": 0.38514490525259376
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 364.07,
+            "friday": "2026-09-25",
+            "friday_close": 372.07,
+            "gap_pct": -0.4633504154720839,
+            "jump_pct": -1.7102347619003904,
+            "next_trading_day": "2026-09-28",
+            "pre_open": 370.35,
+            "weekend_dev_pct": 0.9614160310768237,
+            "weekend_fall_pct": 0.9614160310768237
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 375.85,
+            "friday": "2026-10-02",
+            "friday_close": 370.67,
+            "gap_pct": -0.5518747944314351,
+            "jump_pct": 1.9396696660054007,
+            "next_trading_day": "2026-10-05",
+            "pre_open": 368.63,
+            "weekend_dev_pct": 0.9237692909736164,
+            "weekend_fall_pct": 0.682171509301256
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 380.52,
+            "friday": "2026-10-09",
+            "friday_close": 383.0,
+            "gap_pct": -0.041784185294036345,
+            "jump_pct": -0.6078408989449376,
+            "next_trading_day": "2026-10-12",
+            "pre_open": 382.84,
+            "weekend_dev_pct": 0.5779610475430311,
+            "weekend_fall_pct": 0.19339838241941917
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 362.46,
+            "friday": "2026-10-16",
+            "friday_close": 355.23,
+            "gap_pct": 0.14065491235301592,
+            "jump_pct": 1.8742107244199513,
+            "next_trading_day": "2026-10-19",
+            "pre_open": 355.73,
+            "weekend_dev_pct": 2.2601090051669788,
+            "weekend_fall_pct": 2.073541589457102
+          },
+          {
+            "closed_hours": 64,
+            "first_hour_close": 393.32,
+            "friday": "2026-10-23",
+            "friday_close": 372.67,
+            "gap_pct": 2.360101058074196,
+            "jump_pct": 3.0329209780452615,
+            "next_trading_day": "2026-10-26",
+            "pre_open": 381.57,
+            "weekend_dev_pct": 2.360101058074196,
+            "weekend_fall_pct": 0.8163750530921271
+          },
+          {
+            "closed_hours": 65,
+            "first_hour_close": 400.55,
+            "friday": "2026-10-30",
+            "friday_close": 400.05,
+            "gap_pct": 1.4098374448091886,
+            "jump_pct": -1.2849311083099029,
+            "next_trading_day": "2026-11-02",
+            "pre_open": 405.73,
+            "weekend_dev_pct": 1.4098374448091886,
+            "weekend_fall_pct": 0.31796529173797955
+          }
+        ],
+        "weekend_to_weekday_volume": 0.1874109594184079,
+        "weekend_volume_mean": 284342.30250028125,
+        "weekends": 16,
+        "zero_volume_hours_pct": 0.44609665427509293
+      },
+      "instrument": "XTSLA-USDT",
+      "parameters": {
+        "floatPxLmtPct": "0.01",
+        "groupId": "12",
+        "initPxLmtPct": "0.02",
+        "lever": "10",
+        "lotSz": "0.00001",
+        "maxLmtAmt": "20000000",
+        "maxMktAmt": "130000",
+        "maxPxLmtPct": "0.02",
+        "minSz": "0.01",
+        "openType": "pre_quote",
+        "state": "live",
+        "tickSz": "0.01"
+      },
+      "quote_volume_24h_at_selection": 1598132.3526958,
+      "rank": 15,
+      "snapshots": {
+        "by_slot": {
+          "adhoc": {
+            "ask_depth_05_median": 55883.0025462,
+            "band_covered_share": 1.0,
+            "bid_depth_05_median": 56024.1991593,
+            "mid_median": 379.04499999999996,
+            "n": 1,
+            "spread_bps_median": 1.846746428524138,
+            "us_session_open_share": 0.0
+          }
+        },
+        "empty_books": 0,
+        "latest": {
+          "ask_depth_05": 55883.0025462,
+          "band_covered_ask": true,
+          "band_covered_bid": true,
+          "bid_depth_05": 56024.1991593,
+          "fetched_at": "2026-11-05T08:11:18Z",
+          "levels_returned": [
+            400,
+            400
+          ],
+          "mid": 379.04499999999996,
+          "ny_time": "2026-11-05 03:11:18 EST",
+          "price_limit": {
+            "buy_limit": 382.82,
+            "enabled": true,
+            "sell_limit": 375.23,
+            "ts": 1793866487532
+          },
+          "slot": "adhoc",
+          "spread_bps": 1.846746428524138,
+          "us_session_open": false
+        },
+        "snapshots": 1
+      }
+    }
+  ],
+  "universe_selected_at": "2026-11-05T08:11:15Z"
+}

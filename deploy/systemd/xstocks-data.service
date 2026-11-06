@@ -1,0 +1,69 @@
+# Tokenized-stocks data collector - PUBLIC MARKET DATA ONLY (docs/runbooks/XSTOCKS_DATA.md, plan row R21).
+#
+# Collects OKX's public candles and order-book snapshots of the tokenized US stock pairs fixed in
+# docs/research/xstocks_universe.json into data/lake/xstocks/. It needs no keys, holds no keys,
+# places no orders, never touches shadow.service, the paper fleet, the news shadow or the demo
+# database, and stopping it changes nothing in trading.
+#
+# Install: scripts/vps_research_setup.sh fills in the path and the user below (its own checkout in
+# /opt/ai-trading-research, the user ai-research). By hand: replace /path/to/ai-trading-model and
+# CHANGE_ME_USER, copy this file to /etc/systemd/system/xstocks-data.service, then
+#   sudo systemctl daemon-reload && sudo systemctl enable --now xstocks-data.service
+
+[Unit]
+Description=Tokenized-stocks data collector (public market data only; no orders, no keys)
+Documentation=file:///path/to/ai-trading-model/docs/runbooks/XSTOCKS_DATA.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=CHANGE_ME_USER
+Group=CHANGE_ME_USER
+WorkingDirectory=/path/to/ai-trading-model
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+# One thread per maths library (numpy, pyarrow): the work is small, the CPU is capped anyway, the thread
+# count stays far below TasksMax on a many-core machine, and no result depends on the server's core count.
+Environment=OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
+ExecStart=/path/to/ai-trading-model/.venv/bin/python scripts/collect_xstocks.py --loop --log-level INFO
+# The loop runs until it is stopped; any exit is restarted after a minute, as the laptop wrapper does.
+Restart=always
+RestartSec=60
+# Exit code 2 is a setup problem a restart cannot fix (no universe file, a bad option): never retried.
+RestartPreventExitStatus=2
+KillSignal=SIGTERM
+TimeoutStopSec=60
+
+# Hardening: the whole system read-only except the collector's own folder.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/path/to/ai-trading-model/data/lake/xstocks
+# It never needs the OKX demo keys or the demo database: make both unreachable.
+InaccessiblePaths=-/path/to/ai-trading-model/.env -/run/postgresql
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+UMask=0027
+# A data collector must never starve the Phase 6a shadow run on the same host.
+Nice=10
+CPUQuota=25%
+MemoryMax=512M
+OOMScoreAdjust=900
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

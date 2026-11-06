@@ -145,14 +145,24 @@ docker-compose.yml
 
 Requirements:
 
-- Python 3.11+
+- Python 3.13 recommended (3.11+ supported; CI runs 3.13)
 - Docker and Docker Compose for PostgreSQL
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install -e .
 ```
+
+Dependencies are locked: `requirements.in` lists the direct, pinned
+dependencies and `requirements.txt` is the generated, fully pinned and
+hashed lockfile that `pip` installs (hash-checking is automatic). To change a
+dependency edit `requirements.in`, regenerate with
+`uv pip compile requirements.in --universal --generate-hashes --python-version 3.11 -o requirements.txt`,
+and commit both files; CI (`.github/workflows/audit.yml`) checks that they are
+in sync and runs `pip-audit` on the locked set. Database schema changes go
+through Alembic (`docs/runbooks/DB_MIGRATIONS.md`).
 
 Optional local configuration:
 
@@ -328,6 +338,27 @@ demo/simulated trading) was authorized, reviewed, and explicitly accepted by
 the human owner on June 10, 2026; see
 [`docs/PHASE5_DEMO_TRADING.md`](docs/PHASE5_DEMO_TRADING.md) and
 [`docs/PHASE5_REVIEW_NOTES.md`](docs/PHASE5_REVIEW_NOTES.md).
+
+## Research data lake and news ingestion (Sprint 1)
+
+Public OKX history and SWAP statistics can be backfilled into a local Parquet
+lake with DuckDB views (`docs/DATA_LAKE.md`), and a log-only news-ingestion
+skeleton collects official feeds into JSON lines without any LLM
+(`docs/NEWS_INGESTION.md`). Both are research tooling: nothing in them can
+reach an order.
+
+## Research lab (Sprint 2)
+
+`research/` holds the sweep / walk-forward harness and the ensemble v1
+candidate strategies; `scripts/run_research.py` writes
+`docs/research/ENSEMBLE_V1_REPORT.md`. Simulation only; see
+`docs/RESEARCH_LAB.md`.
+
+Sprint 2b adds the risk side: vol-targeted sizing, crash-state de-risking, a
+drawdown ladder, exit brackets, 6H bars, Binance public positioning history
+as research features, portfolio combination and risk-adjusted gates;
+`scripts/run_research_v1b.py` writes `docs/research/ENSEMBLE_V1B_REPORT.md`.
+Still simulation only; nothing in it can reach an order.
 
 ## Tests
 

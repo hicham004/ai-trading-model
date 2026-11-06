@@ -1,0 +1,68 @@
+# Phase 6b news shadow - LOG-ONLY observer (docs/runbooks/NEWS_SHADOW.md).
+#
+# It reads official RSS feeds, GDELT and public OKX market data, asks Claude to
+# classify the news, and writes what the news layer WOULD have done to new long
+# entries into logs/news_shadow/. It places no orders, holds no OKX keys, never
+# touches shadow.service or the demo database, reads the Phase 6a journal
+# read-only, and stopping it changes nothing in trading.
+#
+# Install (runbook steps 3-5): replace /path/to/ai-trading-model and
+# CHANGE_ME_USER below, copy this file to /etc/systemd/system/news-shadow.service,
+#   sudo systemctl daemon-reload && sudo systemctl enable --now news-shadow.service
+
+[Unit]
+Description=Phase 6b news shadow (log-only; no orders, no OKX keys)
+Documentation=file:///path/to/ai-trading-model/docs/runbooks/NEWS_SHADOW.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=CHANGE_ME_USER
+Group=CHANGE_ME_USER
+WorkingDirectory=/path/to/ai-trading-model
+# Only the news shadow's own variables: the capped Anthropic key and the spend cap.
+# Never point this at the repository .env: that file holds the OKX demo keys.
+EnvironmentFile=/etc/ai-trading/news-shadow.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/path/to/ai-trading-model/.venv/bin/python scripts/run_news_shadow.py --loop
+Restart=on-failure
+RestartSec=60
+# Exit code 2 is a setup problem (no key, a bad option, another instance running): never retried.
+RestartPreventExitStatus=2
+KillSignal=SIGTERM
+# Long enough for one AI request (300 s timeout) to finish before a stop kills it.
+TimeoutStopSec=420
+
+# Hardening: the whole system read-only except the news shadow's own two directories.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/path/to/ai-trading-model/logs/news_shadow /path/to/ai-trading-model/data/news
+# It never needs the OKX demo keys or the demo database: make both unreachable.
+InaccessiblePaths=-/path/to/ai-trading-model/.env -/run/postgresql
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+UMask=0027
+# A log-only observer must never starve the Phase 6a shadow run on the same host.
+Nice=10
+CPUQuota=50%
+MemoryMax=1G
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

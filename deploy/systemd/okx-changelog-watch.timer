@@ -1,0 +1,19 @@
+# Starts okx-changelog-watch.service every day at 06:30 Beirut time, so the 07:00 digest
+# shows a fresh check (docs/runbooks/OPS_DIGEST.md). Persistent=true: a check missed
+# while the server was off runs once when it is back.
+#
+# Install: copy to /etc/systemd/system/ next to okx-changelog-watch.service, then
+#   sudo systemctl daemon-reload && sudo systemctl enable --now okx-changelog-watch.timer
+
+[Unit]
+Description=Daily OKX API changelog check at 06:30 Beirut time
+Documentation=file:///path/to/ai-trading-model/docs/runbooks/OPS_DIGEST.md
+
+[Timer]
+OnCalendar=*-*-* 06:30:00 Asia/Beirut
+Persistent=true
+AccuracySec=1min
+Unit=okx-changelog-watch.service
+
+[Install]
+WantedBy=timers.target

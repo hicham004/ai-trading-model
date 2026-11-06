@@ -1,0 +1,129 @@
+{
+  "kind": "single_source_rumor",
+  "description": "Claims with one source and no market confirmation: insider rumors, anonymous accounts, Telegram channels, leaked memos, an unverified video, even a single official notice or a single wire exclusive. Design rule 3: single-source events have zero trade effect, whatever the confidence. Two cases repeat one rumor on two or three low-quality sites, which the deterministic rules count as separate families: only the classifier's judgment stops them.",
+  "cases": [
+    {
+      "id": "rum-sec-staking-ban",
+      "summary": "An 'insider' claims an imminent nationwide staking ban.",
+      "now": "2026-11-05T03:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "coinsentinelnews.com", "published": "-12m", "observed": "-9m", "title": "SEC set to ban crypto staking nationwide next week, insider claims"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "category_accept": ["ETF_SEC_DECISION"], "single_source": true, "signs": ["UNVERIFIED_RUMOR"]},
+      "why": "One low-quality site, an anonymous insider: single source."
+    },
+    {
+      "id": "rum-fed-emergency-hike",
+      "summary": "Unnamed sources claim a weekend emergency hike.",
+      "now": "2026-11-07T22:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "macrowhisper.net", "published": "-14m", "observed": "-10m", "title": "Sources: Fed planning emergency rate hike this weekend"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "FED_FOMC_RATES", "single_source": true, "signs": ["UNVERIFIED_RUMOR"]},
+      "why": "One unverified claim with unnamed sources."
+    },
+    {
+      "id": "rum-exchange-insolvent",
+      "summary": "A rumor that an exchange is insolvent.",
+      "now": "2026-11-12T06:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "chainwhisper24.com", "published": "-16m", "observed": "-12m", "title": "Rumor: exchange Lumora insolvent, withdrawals to be frozen Monday"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "single_source": true, "signs": ["UNVERIFIED_RUMOR"]},
+      "why": "Labelled a rumor by the site itself; one source."
+    },
+    {
+      "id": "rum-unverified-blasts",
+      "summary": "A wire reports unverified videos of explosions, without confirmation.",
+      "now": "2026-11-15T23:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-15m", "observed": "-12m", "title": "Unverified videos appear to show explosions near Iranian nuclear site; no official confirmation"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "GEOPOLITICAL_ESCALATION", "single_source": true, "signs": ["UNVERIFIED_RUMOR"]},
+      "why": "A credible outlet, but explicitly unverified and the only source; calm market."
+    },
+    {
+      "id": "rum-anonymous-account-stablecoin",
+      "summary": "An anonymous account claims a stablecoin will halt redemptions.",
+      "now": "2026-11-20T15:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "coinbuzzflash.com", "published": "-13m", "observed": "-10m", "title": "Anonymous X account claims ARVD issuer will halt redemptions tomorrow"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "single_source": true, "signs": ["SINGLE_SOCIAL_POST", "UNVERIFIED_RUMOR"]},
+      "why": "One anonymous social post relayed by one site."
+    },
+    {
+      "id": "rum-telegram-hack-claim",
+      "summary": "A Telegram channel claims an exchange cold-wallet breach.",
+      "now": "2026-11-23T11:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "darkwebwatchnews.com", "published": "-15m", "observed": "-12m", "title": "Telegram channel claims hackers breached Meridex cold wallets"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "single_source": true, "signs": ["SINGLE_SOCIAL_POST", "UNVERIFIED_RUMOR"]},
+      "why": "A claim from one Telegram channel, relayed once."
+    },
+    {
+      "id": "rum-official-notice-alone",
+      "summary": "An official status notice of delayed withdrawals, with a calm market.",
+      "now": "2026-12-01T08:35:00Z",
+      "items": [
+        {"key": "a", "source": "coinbase_status", "url": "https://status.coinbase.com/incidents/2c8v5n1q", "published": "-10m", "observed": "-8m", "title": "Investigating: delayed withdrawals for some users", "excerpt": "Some users may experience delays in BTC and ETH withdrawals. Funds are safe. We are investigating."}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "category_accept": ["EXCHANGE_HACK_EXPLOIT", "NONE"], "single_source": true},
+      "why": "Even an official notice is one source until independent reporting or the market confirms it; this one is minor and the market is calm."
+    },
+    {
+      "id": "rum-reuters-exclusive-alone",
+      "summary": "A single wire exclusive based on anonymous sources.",
+      "now": "2026-12-02T10:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-17m", "observed": "-14m", "title": "Exclusive: US Justice Department probing exchange Orvane over money laundering, sources say"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "single_source": true},
+      "why": "A credible outlet, but one source and a probe rather than an action."
+    },
+    {
+      "id": "rum-leaked-etf-memo",
+      "summary": "A 'leaked memo' claims the SEC will reject all ETF filings.",
+      "now": "2026-12-04T19:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "etfwatchdesk.com", "published": "-11m", "observed": "-8m", "title": "Leaked memo shows SEC will reject all pending crypto ETF filings"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "ETF_SEC_DECISION", "single_source": true, "signs": ["UNVERIFIED_RUMOR"]},
+      "why": "An unverifiable leak on one site."
+    },
+    {
+      "id": "rum-drone-strike-unconfirmed",
+      "summary": "A broadcaster reports unconfirmed drone-strike reports.",
+      "now": "2026-12-06T14:05:00Z",
+      "items": [
+        {"key": "a", "publisher": "bbc.co.uk", "published": "-12m", "observed": "-9m", "title": "Reports of drone strike at Saudi oil facility; officials have not commented"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "GEOPOLITICAL_ESCALATION", "single_source": true, "signs": ["UNVERIFIED_RUMOR"]},
+      "why": "One outlet relaying unconfirmed reports; calm market."
+    },
+    {
+      "id": "rum-two-blogs-same-rumor",
+      "summary": "Two low-quality sites repeat one unverified withdrawal-block rumor.",
+      "now": "2026-12-08T01:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "cryptomoonherald.com", "published": "-21m", "observed": "-18m", "title": "Insiders say exchange Velor is quietly blocking large withdrawals"},
+        {"key": "b", "publisher": "blockdispatch.io", "published": "-15m", "observed": "-12m", "title": "Velor users report blocked withdrawals as insolvency fears grow"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["MAJOR_EXCHANGE_PROTOCOL_INCIDENT"], "single_source": true, "independent": ["a"], "signs": ["UNVERIFIED_RUMOR"]},
+      "why": "Two sites repeating the same unverified claim (anonymous insiders, anecdotal user reports) is not independent credible reporting. GDELT rates both MEDIUM and the headlines differ, so only the classifier can stop it."
+    },
+    {
+      "id": "rum-three-blogs-etf-closure",
+      "summary": "Three low-quality sites spread one ETF-closure whisper.",
+      "now": "2026-12-11T04:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "bitcoinflashreport.com", "published": "-19m", "observed": "-16m", "title": "Halvorsen to shut its spot bitcoin ETF, trading desks whisper"},
+        {"key": "b", "publisher": "satoshisignal.net", "published": "-14m", "observed": "-11m", "title": "Spot bitcoin ETF closure rumors swirl around Halvorsen"},
+        {"key": "c", "publisher": "altcoinwatchdaily.com", "published": "-9m", "observed": "-6m", "title": "Is Halvorsen's bitcoin fund about to close? What traders are saying"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "ETF_SEC_DECISION", "category_accept": ["NONE"], "single_source": true, "independent": ["a"], "signs": ["UNVERIFIED_RUMOR"]},
+      "why": "Three sites, one whisper: no named source, no confirmation."
+    }
+  ]
+}

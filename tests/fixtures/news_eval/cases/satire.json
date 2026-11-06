@@ -1,0 +1,88 @@
+{
+  "kind": "satire",
+  "description": "Satire and parody, from obvious satire sites, from a parody account, reposted as news by a content farm, and a debunked viral story. Satire is never an event: NO_EFFECT, and SATIRE_OR_PARODY is one of the signs that vetoes any effect.",
+  "cases": [
+    {
+      "id": "sat-onion-fed-vibes",
+      "summary": "A satire site jokes about the Fed replacing rates with vibes.",
+      "now": "2026-11-13T18:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "theonion.com", "published": "-15m", "observed": "-12m", "title": "Fed Chair Announces Plan To Replace Interest Rates With General Vibe Of Economy"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "FED_FOMC_RATES", "category_accept": ["NONE"], "single_source": true, "signs": ["SATIRE_OR_PARODY"], "corroboration": "REJECTED"},
+      "why": "Obvious satire from a satire publication."
+    },
+    {
+      "id": "sat-bee-sec-math",
+      "summary": "A satire site jokes that the SEC banned math.",
+      "now": "2026-11-18T16:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "babylonbee.com", "published": "-14m", "observed": "-11m", "title": "SEC Bans Math After Bitcoin Holders Keep Using It To Count Gains"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "category_accept": ["NONE", "ETF_SEC_DECISION"], "single_source": true, "signs": ["SATIRE_OR_PARODY"], "corroboration": "REJECTED"},
+      "why": "Obvious satire."
+    },
+    {
+      "id": "sat-ceo-cat-hack",
+      "summary": "A crypto satire site reports an exchange hacked by the CEO's cat.",
+      "now": "2026-11-22T12:05:00Z",
+      "items": [
+        {"key": "a", "publisher": "coinbeatweekly.com", "published": "-13m", "observed": "-10m", "title": "Exchange Hacked By CEO's Cat, Who Now Controls 40,000 Bitcoin"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "EXCHANGE_HACK_EXPLOIT", "category_accept": ["NONE"], "single_source": true, "signs": ["SATIRE_OR_PARODY"], "corroboration": "REJECTED"},
+      "why": "An absurd claim (a cat controlling 40,000 bitcoin): satire, whatever the site is called."
+    },
+    {
+      "id": "sat-parody-sec-account",
+      "summary": "A site relays a parody account posing as the SEC chair.",
+      "now": "2026-11-26T21:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "cryptocurrentwire.com", "published": "-12m", "observed": "-9m", "title": "Parody account posing as SEC chair says agency will seize all bitcoin by Friday"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "category_accept": ["NONE", "ETF_SEC_DECISION"], "single_source": true, "signs": ["SATIRE_OR_PARODY", "SINGLE_SOCIAL_POST"], "corroboration": "REJECTED"},
+      "why": "The headline itself says the account is a parody."
+    },
+    {
+      "id": "sat-reposted-as-news",
+      "summary": "A satire piece and a content farm that rewrote it as news.",
+      "now": "2026-12-03T17:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "thehodlgazette.com", "published": "-40m", "observed": "-35m", "title": "Bitcoin Miners Unionize, Demand Lower Difficulty And Dental"},
+        {"key": "b", "publisher": "cryptobreakingupdates.com", "published": "-15m", "observed": "-12m", "title": "Bitcoin miners form union and threaten network-wide strike"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "category_accept": ["NONE"], "single_source": true, "independent": ["a"], "signs": ["SATIRE_OR_PARODY"], "corroboration": "REJECTED"},
+      "why": "The first headline is a joke (miners unionizing for dental cover); the second rewrites it as news. Two domains with different headlines look like two sources to the rules; only the classifier can see it is one joke."
+    },
+    {
+      "id": "sat-debunked-viral",
+      "summary": "Two wires report that a viral 'Fed bans crypto' story was satire.",
+      "now": "2026-12-07T09:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-18m", "observed": "-15m", "title": "Viral 'Fed to ban crypto' article was satire, Fed spokesperson says"},
+        {"key": "b", "publisher": "apnews.com", "published": "-12m", "observed": "-9m", "title": "Fact check: Fed did not announce a crypto ban; story came from a satire site"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "FED_FOMC_RATES", "category_accept": ["NONE", "MAJOR_REGULATORY_ACTION"], "single_source": false, "corroboration": "REJECTED"},
+      "why": "Well corroborated, but what is corroborated is that the claim is false."
+    },
+    {
+      "id": "sat-proof-of-nap",
+      "summary": "A parody site says Ethereum will switch to 'proof-of-nap'.",
+      "now": "2026-12-10T20:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "chaindigestnews.com", "published": "-14m", "observed": "-11m", "title": "Ethereum Foundation Announces Network Will Switch To Proof-Of-Nap To Save Energy"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "category_accept": ["NONE"], "single_source": true, "signs": ["SATIRE_OR_PARODY"], "corroboration": "REJECTED"},
+      "why": "An absurd claim (a blockchain switching to 'proof-of-nap'): parody, whatever the site is called."
+    },
+    {
+      "id": "sat-onion-liquidated",
+      "summary": "A satire site jokes about a trader liquidated beyond time itself.",
+      "now": "2026-12-12T22:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "theonion.com", "published": "-16m", "observed": "-13m", "title": "Leveraged Trader Liquidated So Hard He Now Owes Money To The Concept Of Time"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "LIQUIDATION_CASCADE", "category_accept": ["NONE"], "single_source": true, "signs": ["SATIRE_OR_PARODY"], "corroboration": "REJECTED"},
+      "why": "Obvious satire."
+    }
+  ]
+}

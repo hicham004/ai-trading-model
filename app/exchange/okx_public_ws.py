@@ -54,8 +54,8 @@ from app.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-OKX_PUBLIC_WS_URL = "wss://ws.okx.com:8443/ws/v5/public"
-OKX_BUSINESS_WS_URL = "wss://ws.okx.com:8443/ws/v5/business"
+OKX_PUBLIC_WS_URL = "wss://ws.okx.com/ws/v5/public"
+OKX_BUSINESS_WS_URL = "wss://ws.okx.com/ws/v5/business"
 
 SUPPORTED_INSTRUMENTS = ("BTC-USDT", "ETH-USDT")
 

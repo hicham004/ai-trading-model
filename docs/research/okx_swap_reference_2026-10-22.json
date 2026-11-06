@@ -1,0 +1,153 @@
+{
+ "fetched_at_utc": "2026-10-22 01:32",
+ "source": "OKX public REST (no key): /api/v5/public/instruments, /api/v5/public/funding-rate, /api/v5/public/position-tiers",
+ "note": "Reference data for docs/PHASE9_DESIGN_STUDY.md (plan row R9). Public market metadata only; values change over time.",
+ "instruments": {
+  "BTC-USDT-SWAP": {
+   "instId": "BTC-USDT-SWAP",
+   "instFamily": "BTC-USDT",
+   "ctType": "linear",
+   "ctVal": "0.01",
+   "ctValCcy": "BTC",
+   "ctMult": "1",
+   "lotSz": "0.01",
+   "minSz": "0.01",
+   "tickSz": "0.1",
+   "lever": "100",
+   "listTime": "1573557408000",
+   "settleCcy": "USDT",
+   "state": "live",
+   "maxMktSz": "35000",
+   "maxLmtSz": "100000000",
+   "ruleType": "normal",
+   "listTime_utc": "2019-11-12 11:16"
+  },
+  "ETH-USDT-SWAP": {
+   "instId": "ETH-USDT-SWAP",
+   "instFamily": "ETH-USDT",
+   "ctType": "linear",
+   "ctVal": "0.1",
+   "ctValCcy": "ETH",
+   "ctMult": "1",
+   "lotSz": "0.01",
+   "minSz": "0.01",
+   "tickSz": "0.01",
+   "lever": "100",
+   "listTime": "1573557408000",
+   "settleCcy": "USDT",
+   "state": "live",
+   "maxMktSz": "90000",
+   "maxLmtSz": "100000000",
+   "ruleType": "normal",
+   "listTime_utc": "2019-11-12 11:16"
+  }
+ },
+ "funding_rate": {
+  "BTC-USDT-SWAP": {
+   "formulaType": "withRate",
+   "method": "current_period",
+   "interestRate": "0.0001000000000000",
+   "maxFundingRate": "0.00375",
+   "minFundingRate": "-0.00375",
+   "impactValue": "20000.0000000000000000",
+   "interval_hours": 8.0,
+   "fundingTime_utc": "2026-10-22 08:00"
+  },
+  "ETH-USDT-SWAP": {
+   "formulaType": "withRate",
+   "method": "current_period",
+   "interestRate": "0.0001000000000000",
+   "maxFundingRate": "0.0075",
+   "minFundingRate": "-0.0075",
+   "impactValue": "20000.0000000000000000",
+   "interval_hours": 8.0,
+   "fundingTime_utc": "2026-10-22 08:00"
+  }
+ },
+ "position_tiers_isolated_first_5": {
+  "BTC-USDT-SWAP": [
+   {
+    "tier": "1",
+    "minSz": "0",
+    "maxSz": "1000",
+    "mmr": "0.004",
+    "imr": "0.01",
+    "maxLever": "100"
+   },
+   {
+    "tier": "2",
+    "minSz": "1000.01",
+    "maxSz": "5000",
+    "mmr": "0.005",
+    "imr": "0.015",
+    "maxLever": "66.66"
+   },
+   {
+    "tier": "3",
+    "minSz": "5000.01",
+    "maxSz": "20000",
+    "mmr": "0.0075",
+    "imr": "0.02",
+    "maxLever": "50"
+   },
+   {
+    "tier": "4",
+    "minSz": "20000.01",
+    "maxSz": "40000",
+    "mmr": "0.0125",
+    "imr": "0.025",
+    "maxLever": "40"
+   },
+   {
+    "tier": "5",
+    "minSz": "40000.01",
+    "maxSz": "60000",
+    "mmr": "0.0175",
+    "imr": "0.03",
+    "maxLever": "33.33"
+   }
+  ],
+  "ETH-USDT-SWAP": [
+   {
+    "tier": "1",
+    "minSz": "0",
+    "maxSz": "5000",
+    "mmr": "0.004",
+    "imr": "0.01",
+    "maxLever": "100"
+   },
+   {
+    "tier": "2",
+    "minSz": "5000.01",
+    "maxSz": "10000",
+    "mmr": "0.005",
+    "imr": "0.015",
+    "maxLever": "66.66"
+   },
+   {
+    "tier": "3",
+    "minSz": "10000.01",
+    "maxSz": "25000",
+    "mmr": "0.0075",
+    "imr": "0.02",
+    "maxLever": "50"
+   },
+   {
+    "tier": "4",
+    "minSz": "25000.01",
+    "maxSz": "50000",
+    "mmr": "0.0125",
+    "imr": "0.025",
+    "maxLever": "40"
+   },
+   {
+    "tier": "5",
+    "minSz": "50000.01",
+    "maxSz": "75000",
+    "mmr": "0.0175",
+    "imr": "0.03",
+    "maxLever": "33.33"
+   }
+  ]
+ }
+}

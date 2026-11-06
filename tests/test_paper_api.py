@@ -44,7 +44,10 @@ def paper_client():
                 account_id=account.id,
                 status="running",
                 lock_token="runner",
-                lock_heartbeat=NOW,
+                # Fresh when the test runs, not when the module was imported: the API
+                # calls a heartbeat older than PAPER_LOCK_STALE_SECONDS (60 s) stale,
+                # and a long suite can take longer than that before this test runs.
+                lock_heartbeat=datetime.now(tz=timezone.utc),
                 feed_connected=True,
                 feed_stale=False,
                 books_synchronized=True,

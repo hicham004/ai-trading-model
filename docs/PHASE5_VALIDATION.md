@@ -155,10 +155,13 @@ definition**, which is hereby the official definition for this project:
 
 The definition is codified as `is_flat()` in `app/execution/precision.py`
 (unit-tested against the live 1.2E-10 BTC dust case) and used by operator
-reporting. The safety core (driver stop check / exit gating via
-`position_summary`) still treats `position > 0` as open; migrating it to
-lot-precision flatness is a tracked future change requiring independent
-review.
+reporting. Refinement (2026-11-05, lot-precision gating in the safety core,
+plan row R14 part A): the safety core (driver stop check, FLAT exit, entry gate
+and caps via `PositionView`) treats only a **sellable** position
+(`floor(position, lot_size) >= min_size`) as open, and an **unsellable
+remainder** (`0 < floored < min_size`) is reported, never traded and not an
+open position. Before that change the core treated `position > 0` as open,
+which let sub-lot dust block every later entry.
 
 This declaration was made by the human owner; no agent self-approved the
 phase. Completion does NOT authorize Phase 6 or any live trading.
@@ -178,8 +181,12 @@ phase. Completion does NOT authorize Phase 6 or any live trading.
 4. **Research question**: historical clearance rate of the current
    `ma_crossover` configuration against the 0.60 confidence floor (analysis
    only; no retuning authorized).
-5. **Safety-core adoption of lot-precision flatness** (see above) - future
-   reviewed change.
+5. **Safety-core adoption of lot-precision flatness** (see above) - built
+   2026-11-05 (R14 part A); deployment to the VPS is an operator step (restart
+   `shadow.service` after the merge, and only while the heartbeat reports
+   `flat_at_lot: true` and the `--reconcile` gate prints `FLAT at lot
+   precision`: a restart still rebuilds the strategy window and would close an
+   open position, open item 6).
 6. Persistence uses `create_all`; no production migration workflow exists.
 
 ---

@@ -1,9 +1,8 @@
 """Regression tests for CI secret isolation and injection safety.
 
 These enforce the security invariant from the Codex review (P1): the workflow
-that runs UNTRUSTED PR code must hold NO secrets, and notifications (which need
-secrets) must run in a separate `workflow_run` workflow that never executes PR
-code or interpolates untrusted metadata into a shell command.
+that runs UNTRUSTED PR code must hold NO secrets and must never interpolate
+untrusted metadata into a shell command.
 
 They are deliberately text-based (no YAML dependency) so they run anywhere the
 suite runs and fail loudly if someone reintroduces the unsafe pattern.
@@ -11,12 +10,10 @@ suite runs and fail loudly if someone reintroduces the unsafe pattern.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CI = ROOT / ".github" / "workflows" / "ci.yml"
-NOTIFY = ROOT / ".github" / "workflows" / "notify.yml"
 
 
 def _read(p: Path) -> str:
@@ -50,7 +47,8 @@ def test_ci_workflow_references_no_secrets():
     # merely mention the word "secrets" are fine.
     assert "${{ secrets." not in text and "${{secrets." not in text, (
         "ci.yml runs untrusted PR code and must not reference any secret. "
-        "Move secret-using steps to notify.yml (workflow_run)."
+        "A step that needs a secret belongs in a separate workflow that never "
+        "runs PR code."
     )
     assert "TELEGRAM" not in _strip_comments(text), (
         "ci.yml must not handle Telegram credentials."
@@ -88,65 +86,3 @@ def test_ci_workflow_does_not_merge_or_deploy():
     code = _strip_comments(_read(CI)).lower()
     for forbidden in ("pr merge", "auto-merge", "automerge", "deploy", "release "):
         assert forbidden not in code, f"ci.yml must not {forbidden!r}"
-
-
-# --- notify.yml: holds secrets, must never run untrusted PR code ----------
-
-def test_notify_workflow_is_triggered_only_by_workflow_run():
-    text = _read(NOTIFY)
-    assert "workflow_run:" in text, "notify.yml must use the workflow_run trigger"
-    # It must not be triggered directly by pull_request (which would run with
-    # the PR's workflow file / context).
-    assert not re.search(r"^\s*pull_request:", text, re.MULTILINE), (
-        "notify.yml must not be triggered by pull_request"
-    )
-    assert "pull_request_target" not in text
-
-
-def test_notify_workflow_does_not_checkout_pr_head():
-    text = _read(NOTIFY)
-    # Never check out the PR/untrusted ref. The only safe checkout under
-    # workflow_run is the implicit default branch (no `ref:`).
-    for unsafe in (
-        "head_branch",
-        "head_sha",
-        "head.sha",
-        "pull_request.head",
-    ):
-        # head_branch/head_sha may appear in `env:` metadata, but never as a
-        # checkout ref. Assert they are not used as a `ref:` value.
-        assert f"ref: ${{{{ github.event.workflow_run.{unsafe}" not in text
-        assert f"ref: ${{{{ github.event.pull_request" not in text
-
-
-def test_notify_workflow_does_not_run_pr_code():
-    code = _strip_comments(_read(NOTIFY)).lower()
-    # Must not install the PR's full dependency set or run its tests/guards.
-    assert "requirements.txt" not in code, "notify.yml must not install PR deps"
-    assert "pytest" not in code, "notify.yml must not run PR tests"
-    assert "check_travel_mode_safety" not in code, "notify.yml must not run PR guard"
-    assert "pip install -e" not in code, "notify.yml must not editable-install PR code"
-
-
-def test_notify_workflow_has_no_inline_untrusted_metadata_in_run():
-    """Untrusted metadata must reach the shell only via env vars, not `${{ }}`.
-
-    We check the `run:` blocks contain no `${{ github.event` interpolation.
-    """
-    text = _read(NOTIFY)
-    # Find run: ... blocks (indented script bodies) and ensure no GitHub
-    # expression interpolation of event data appears inside them.
-    run_blocks = re.findall(r"run:\s*\|(.*?)(?=\n\S|\Z)", text, re.DOTALL)
-    assert run_blocks, "expected at least one run: block in notify.yml"
-    for block in run_blocks:
-        assert "${{ github.event" not in block, (
-            "notify.yml run blocks must not interpolate github.event data; "
-            "pass it via env and use quoted shell variables"
-        )
-
-
-def test_notify_workflow_is_read_only():
-    text = _read(NOTIFY)
-    assert "contents: read" in text
-    assert "contents: write" not in text
-    assert "pull-requests: write" not in text

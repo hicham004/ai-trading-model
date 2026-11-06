@@ -509,6 +509,85 @@ def test_arming_expires_and_disarm(session_factory):
     assert store.is_armed(aid, now=T0 + timedelta(seconds=11)) is False
 
 
+def _runtime_status(session_factory, account_id) -> tuple:
+    from sqlalchemy import select
+
+    from app.db.models import DemoRuntimeStatus
+
+    session = session_factory()
+    try:
+        row = session.scalar(
+            select(DemoRuntimeStatus).where(DemoRuntimeStatus.account_id == account_id)
+        )
+        return row.status, row.lock_token, row.lock_heartbeat, row.armed_until
+    finally:
+        session.close()
+
+
+def _event_types(session_factory, account_id) -> list[tuple[str, str]]:
+    from sqlalchemy import select
+
+    from app.db.models import DemoEvent
+
+    session = session_factory()
+    try:
+        return [
+            (e.event_type, e.severity)
+            for e in session.scalars(
+                select(DemoEvent)
+                .where(DemoEvent.account_id == account_id)
+                .order_by(DemoEvent.id.asc())
+            )
+        ]
+    finally:
+        session.close()
+
+
+def test_release_stale_lock_also_disarms_and_records_event(session_factory):
+    """Design 7.D item 28 (5.5; section 6 row 14): releasing a stale lock clears arming and records the event."""
+    store, aid = _store(session_factory)
+    assert store.acquire_lock(aid, "tok-a", now=T0) is True
+    store.arm(aid, ttl_seconds=3600, now=T0)
+    later = T0 + timedelta(seconds=120)  # heartbeat 120 s old, stale window 60 s
+    assert store.is_armed(aid, now=later) is True
+    assert store.release_stale_lock(aid, stale_after_seconds=60, now=later) is True
+    assert store.is_armed(aid, now=later) is False
+    assert _runtime_status(session_factory, aid) == ("stale_lock_released", None, None, None)
+    events = _event_types(session_factory, aid)
+    assert events.index(("disarmed_on_stale_lock_release", "warning")) > events.index(
+        ("armed", "warning")
+    )
+    # Nothing left to release: no second release, no second event.
+    assert store.release_stale_lock(
+        aid, stale_after_seconds=60, now=later + timedelta(seconds=1)
+    ) is False
+    assert _event_types(session_factory, aid).count(
+        ("disarmed_on_stale_lock_release", "warning")
+    ) == 1
+
+
+def test_release_stale_lock_does_not_touch_a_fresh_lock_or_its_arming(session_factory):
+    """Design 7.D item 29: a lock with a fresh heartbeat is not released, stays armed, records no event."""
+    store, aid = _store(session_factory)
+    assert store.acquire_lock(aid, "tok-a", now=T0) is True
+    store.arm(aid, ttl_seconds=3600, now=T0)
+    soon = T0 + timedelta(seconds=5)
+    assert store.release_stale_lock(aid, stale_after_seconds=60, now=soon) is False
+    assert store.is_armed(aid, now=soon) is True
+    status, token, heartbeat, armed_until = _runtime_status(session_factory, aid)
+    assert (status, token) == ("starting", "tok-a")
+    assert heartbeat is not None and armed_until is not None
+    assert "disarmed_on_stale_lock_release" not in [
+        event_type for event_type, _ in _event_types(session_factory, aid)
+    ]
+    # A clean release by the owner (no stale lock involved) leaves arming to the
+    # caller, exactly as before.
+    store.release_lock(aid, "tok-a", now=soon)
+    assert store.is_armed(aid, now=soon) is True
+    assert store.release_stale_lock(aid, stale_after_seconds=60, now=soon) is False
+    assert store.is_armed(aid, now=soon) is True
+
+
 def test_create_intent_idempotent_and_fill_idempotent(session_factory):
     store, aid = _store(session_factory)
     from app.execution.store import IntentInput

@@ -1,0 +1,116 @@
+{
+  "kind": "benign_corroborated",
+  "description": "Watchlist-category news that is well corroborated but carries no short-term danger for a new long: decisions as expected, data in line, resolved incidents, de-escalation, bullish approvals. The answer is NO_EFFECT; bullish news is never a reason to act (the vocabulary has no boost).",
+  "cases": [
+    {
+      "id": "ben-fed-hold-expected",
+      "summary": "FOMC holds rates exactly as expected.",
+      "now": "2027-01-27T19:18:00Z",
+      "items": [
+        {"key": "a", "source": "fed_press_monetary", "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20270127a.htm", "published": "-18m", "observed": "-16m", "title": "Federal Reserve issues FOMC statement", "excerpt": "The Committee decided to maintain the target range for the federal funds rate. Inflation has continued to ease toward the Committee's 2 percent objective."},
+        {"key": "b", "publisher": "reuters.com", "published": "-12m", "observed": "-10m", "title": "Fed holds rates steady as expected, sees inflation easing"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "FED_FOMC_RATES", "single_source": false, "reaction": "NO_CLEAR_REACTION"},
+      "why": "Corroborated and official, but a fully expected hold is not a surprise and the market is calm."
+    },
+    {
+      "id": "ben-cpi-in-line",
+      "summary": "CPI matches forecasts.",
+      "now": "2026-12-10T13:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-18m", "observed": "-15m", "title": "US consumer prices rise 0.2% in November, in line with forecasts"},
+        {"key": "b", "publisher": "cnbc.com", "published": "-14m", "observed": "-11m", "title": "CPI matches expectations as inflation cools slightly"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MACRO_CPI_PPI_JOBS", "single_source": false},
+      "why": "A scheduled release that met expectations carries no surprise; calm market."
+    },
+    {
+      "id": "ben-etf-options-approved",
+      "summary": "SEC approves options on spot ether ETFs.",
+      "now": "2026-11-06T21:20:00Z",
+      "items": [
+        {"key": "a", "source": "sec_press", "url": "https://www.sec.gov/newsroom/press-releases/2026-176", "published": "-20m", "observed": "-17m", "title": "SEC Approves Listing of Options on Spot Ether Exchange-Traded Products", "excerpt": "The Commission approved proposed rule changes to list and trade options on shares of spot ether exchange-traded products."},
+        {"key": "b", "publisher": "coindesk.com", "published": "-13m", "observed": "-10m", "title": "SEC clears options trading on spot ether ETFs"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "ETF_SEC_DECISION", "single_source": false, "direction": "RISK_ON"},
+      "why": "A bullish structural approval without volatility danger: never a boost, and nothing to restrict."
+    },
+    {
+      "id": "ben-fed-cut-expected",
+      "summary": "The Fed delivers a widely expected quarter-point cut.",
+      "now": "2027-03-17T18:20:00Z",
+      "items": [
+        {"key": "a", "source": "fed_press_monetary", "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20270317a.htm", "published": "-20m", "observed": "-18m", "title": "Federal Reserve issues FOMC statement", "excerpt": "The Committee decided to lower the target range for the federal funds rate by 1/4 percentage point."},
+        {"key": "b", "publisher": "bloomberg.com", "published": "-14m", "observed": "-12m", "title": "Fed delivers widely expected quarter-point rate cut"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "FED_FOMC_RATES", "single_source": false, "direction": "RISK_ON"},
+      "why": "An expected, mildly bullish decision with a calm market: no danger to a new long."
+    },
+    {
+      "id": "ben-coinbase-restored",
+      "summary": "A short exchange outage is over and funds were never affected.",
+      "now": "2026-11-18T09:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "cnbc.com", "published": "-17m", "observed": "-14m", "title": "Coinbase restores trading after 25-minute outage"},
+        {"key": "b", "publisher": "theblock.co", "published": "-12m", "observed": "-9m", "title": "Coinbase says all markets are back online and no funds were affected"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_EXCHANGE_PROTOCOL_INCIDENT", "single_source": false},
+      "why": "The incident is resolved: the danger has passed and the market is calm."
+    },
+    {
+      "id": "ben-mica-licences",
+      "summary": "EU regulators grant licences to more exchanges.",
+      "now": "2026-11-25T11:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-19m", "observed": "-16m", "title": "EU regulators grant MiCA licences to three more crypto exchanges"},
+        {"key": "b", "publisher": "coindesk.com", "published": "-13m", "observed": "-10m", "title": "Three exchanges win MiCA approval in France and Germany"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "category_accept": ["NONE"], "single_source": false, "direction": "RISK_ON"},
+      "why": "A routine, mildly positive regulatory step: no short-term danger."
+    },
+    {
+      "id": "ben-jobs-steady",
+      "summary": "Payrolls in line, unemployment unchanged.",
+      "now": "2026-12-04T13:50:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-18m", "observed": "-15m", "title": "US employers add 165,000 jobs in November; unemployment steady at 4.3%"},
+        {"key": "b", "publisher": "wsj.com", "published": "-13m", "observed": "-10m", "title": "Hiring holds steady in November as jobless rate stays unchanged"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MACRO_CPI_PPI_JOBS", "single_source": false},
+      "why": "A scheduled release without surprise; calm market."
+    },
+    {
+      "id": "ben-gulf-ceasefire",
+      "summary": "A ceasefire takes hold and shipping reopens.",
+      "now": "2026-12-05T16:20:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-19m", "observed": "-16m", "title": "Ceasefire takes hold in Gulf as shipping lanes reopen"},
+        {"key": "b", "publisher": "apnews.com", "published": "-14m", "observed": "-11m", "title": "Tankers resume Hormuz transits after truce brokered by Oman"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "GEOPOLITICAL_ESCALATION", "category_accept": ["NONE"], "single_source": false, "direction": "RISK_ON"},
+      "why": "De-escalation lowers risk; there is nothing to restrict and nothing may be boosted."
+    },
+    {
+      "id": "ben-sec-closes-probe",
+      "summary": "SEC ends an investigation without action.",
+      "now": "2026-11-27T15:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "coindesk.com", "published": "-18m", "observed": "-15m", "title": "SEC closes investigation into exchange Lumora without enforcement action"},
+        {"key": "b", "publisher": "theblock.co", "published": "-12m", "observed": "-9m", "title": "Lumora says SEC ended its probe and filed no charges"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "category_accept": ["NONE"], "single_source": false, "direction": "RISK_ON"},
+      "why": "A closed probe removes a risk rather than adding one."
+    },
+    {
+      "id": "ben-stablecoin-rules-on-schedule",
+      "summary": "Stablecoin rules take effect on the scheduled date.",
+      "now": "2026-12-15T14:35:00Z",
+      "items": [
+        {"key": "a", "publisher": "reuters.com", "published": "-18m", "observed": "-15m", "title": "US stablecoin rules to take effect in January as scheduled, Treasury says"},
+        {"key": "b", "publisher": "politico.com", "published": "-13m", "observed": "-10m", "title": "Treasury finalizes stablecoin reserve rule, keeps January start date"}
+      ],
+      "expect": {"action": "NO_EFFECT", "category": "MAJOR_REGULATORY_ACTION", "category_accept": ["NONE"], "single_source": false},
+      "why": "A known, scheduled regulatory milestone with no surprise."
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+# Nightly database backup - TOOLING ONLY (docs/runbooks/DB_MIGRATIONS.md).
+#
+# Started once a night by db-backup.timer (02:30 UTC). It runs pg_dump against the local
+# PostgreSQL database the Phase 6a shadow run writes, checks that the new dump is a readable
+# archive, writes its checksum next to it, and removes dumps older than the retention period
+# (never below the minimum number kept). pg_dump only reads: it takes no exclusive lock and
+# blocks no writer. The service never changes the schema, never writes to the database, holds
+# no OKX keys, places and changes no orders, and stopping it changes nothing in trading.
+#
+# Install (runbook step 1): replace /path/to/ai-trading-model and CHANGE_ME_USER below,
+# copy this file and db-backup.timer to /etc/systemd/system/, then
+#   sudo systemctl daemon-reload && sudo systemctl enable --now db-backup.timer
+
+[Unit]
+Description=Nightly PostgreSQL backup of the trading database (pg_dump; reads only, no orders, no OKX keys)
+Documentation=file:///path/to/ai-trading-model/docs/runbooks/DB_MIGRATIONS.md
+# Start after the local PostgreSQL when both come up together; the backup never starts it.
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=CHANGE_ME_USER
+Group=CHANGE_ME_USER
+WorkingDirectory=/path/to/ai-trading-model
+# Only the backup's own variables: the database connection (the one secret) and the retention settings.
+# Never point this at the repository .env: that file holds the OKX demo keys.
+EnvironmentFile=/etc/ai-trading/db-backup.env
+# systemd creates /var/lib/ai-trading/db-backups for the service user and keeps it writable below.
+StateDirectory=ai-trading/db-backups
+StateDirectoryMode=0700
+# The env file may override the folder; then add it to ReadWritePaths as well.
+Environment=DB_BACKUP_DIR=/var/lib/ai-trading/db-backups
+ExecStart=/bin/bash /path/to/ai-trading-model/scripts/db_backup.sh backup
+# A dump of the demo database takes seconds; the limit covers a slow disk or a busy server.
+TimeoutStartSec=1800
+
+# Hardening: the whole system read-only except the backup folder (StateDirectory above).
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+# The OKX demo keys live in the checkout's .env: the backup never needs them.
+# (The PostgreSQL socket in /run/postgresql stays reachable: it is how a local database is dumped.)
+InaccessiblePaths=-/path/to/ai-trading-model/.env
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+UMask=0077
+# A backup must never starve the Phase 6a shadow run on the same host.
+Nice=10
+IOSchedulingClass=idle
+CPUQuota=50%
+MemoryMax=512M
+TasksMax=32

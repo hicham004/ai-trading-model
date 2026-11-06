@@ -1,0 +1,61 @@
+# Daily ops digest - OBSERVABILITY ONLY (docs/runbooks/OPS_DIGEST.md).
+#
+# Started once a day by ops-digest.timer (07:00 Beirut time). It reads the files the
+# Phase 6a shadow, the news shadow, the paper fleet and the OKX changelog watcher write,
+# and sends one plain-English message to Telegram (plus, only with an Anthropic key in its
+# environment file, a short Claude summary on top). It reads files only, holds no OKX keys,
+# never opens the demo database, places and changes no orders, and stopping it changes
+# nothing in trading.
+#
+# Install (runbook step 3): replace /path/to/ai-trading-model and CHANGE_ME_USER below,
+# copy this file and ops-digest.timer to /etc/systemd/system/, then
+#   sudo systemctl daemon-reload && sudo systemctl enable --now ops-digest.timer
+
+[Unit]
+Description=Daily ops digest to Telegram (reads files only; no orders, no OKX keys)
+Documentation=file:///path/to/ai-trading-model/docs/runbooks/OPS_DIGEST.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=CHANGE_ME_USER
+Group=CHANGE_ME_USER
+WorkingDirectory=/path/to/ai-trading-model
+# Only the ops services' own variables: the Telegram bot and, optionally, a capped Anthropic key.
+# Never point this at the repository .env: that file holds the OKX demo keys.
+EnvironmentFile=/etc/ai-trading/ops.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/path/to/ai-trading-model/.venv/bin/python scripts/ops_digest.py --send
+# Reading the files takes seconds; the optional AI summary at most two 60-second attempts; then Telegram.
+TimeoutStartSec=600
+
+# Hardening: the whole system read-only except the digest's own folder.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/path/to/ai-trading-model/logs/ops
+# It never needs the OKX demo keys or the demo database: make both unreachable.
+InaccessiblePaths=-/path/to/ai-trading-model/.env -/run/postgresql
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+UMask=0027
+# A once-a-day report must never starve the Phase 6a shadow run on the same host.
+Nice=10
+CPUQuota=50%
+MemoryMax=1G
+TasksMax=32

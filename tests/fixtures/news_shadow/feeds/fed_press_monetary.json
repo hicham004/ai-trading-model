@@ -1,0 +1,22 @@
+{
+  "kind": "rss",
+  "channel": {
+    "title": "Federal Reserve monetary policy press releases (fixture)",
+    "link": "https://www.federalreserve.gov/newsevents/pressreleases.htm",
+    "description": "Fixture feed in the shape of the Federal Reserve monetary-policy RSS. Invented items."
+  },
+  "items": [
+    {
+      "title": "Minutes of the Federal Open Market Committee, fixture meeting",
+      "link": "https://www.federalreserve.gov/newsevents/pressreleases/fixture-monetary-a.htm",
+      "published": "2026-10-08T18:00:00Z",
+      "description": "Fixture: published days before the run (stale backlog)."
+    },
+    {
+      "title": "Federal Reserve issues fixture statement on discount rates",
+      "link": "https://www.federalreserve.gov/newsevents/pressreleases/fixture-monetary-b.htm",
+      "published": "2026-10-13T18:30:00Z",
+      "description": "Fixture: published days before the run (stale backlog)."
+    }
+  ]
+}

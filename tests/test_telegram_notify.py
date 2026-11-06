@@ -33,12 +33,12 @@ class RecordingTransport:
 # --- formatting -----------------------------------------------------------
 
 def test_format_message_known_event_includes_label_and_fields():
-    msg = format_message("ci_fail", repo="o/r", title="CI failed", url="http://x/pr/1")
-    assert "CI passed" not in msg
-    assert EVENT_LABELS["ci_fail"] in msg
+    msg = format_message("shadow_alert", repo="o/r", title="ALERT file written", url="http://x/report/1")
+    assert EVENT_LABELS["shadow_disarmed"] not in msg
+    assert EVENT_LABELS["shadow_alert"] in msg
     assert "o/r" in msg
-    assert "CI failed" in msg
-    assert "http://x/pr/1" in msg
+    assert "ALERT file written" in msg
+    assert "http://x/report/1" in msg
 
 
 def test_format_message_unknown_event_falls_back_to_name():
@@ -48,7 +48,7 @@ def test_format_message_unknown_event_falls_back_to_name():
 
 
 def test_format_message_minimal_is_just_label():
-    assert format_message("ci_pass") == EVENT_LABELS["ci_pass"]
+    assert format_message("report_ready") == EVENT_LABELS["report_ready"]
 
 
 # --- missing credentials --------------------------------------------------
