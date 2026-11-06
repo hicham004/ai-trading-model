@@ -4,12 +4,14 @@ Generated 2026-11-05 03:34 UTC by `scripts/run_trader_policy_v1.py` (plan row R1
 
 **Nothing here authorizes paper, demo or live trading.** A tier that passes is a hypothesis for the forward paper fleet, not a budget to deploy. Every number is a simulation on historical public data. The demo shadow run, its caps and the 0.60 confidence floor are untouched.
 
-> **Erratum (2026-11-06).** The independent review of pull request #13 found that the research engine did not
-> apply an add's own stop on the bar the add was bought: an add filled at a bar's open survived when the same
-> bar's low crossed its stop (`research/engine.py`, fixed the same day with a regression test). Every number in
-> this report for the **add** variant ("add 0.5x at +1R") therefore omits some losses and overstates that
-> variant; re-run it before any decision about it. Nothing else here changes: the fix touches only runs with the
-> add variant switched on, and no paper-fleet account uses a variant.
+> **Erratum (2026-11-06).** The review of pull request #13 found two gaps in how the research engine handled the
+> **add** variant ("add 0.5x at +1R"): an add bought at a bar's open survived when the same bar's low crossed its
+> own stop, and when the first unit's stop, a trailing stop or a target was hit on that bar the add was skipped
+> entirely. Both are fixed (`research/engine.py`, the same day): the add is bought at the open before that bar's
+> stops are checked, never on a position that leaves at that open, and of two stops crossed on one bar the higher
+> fills first; tests cover each case. Every number in this report for the add variant therefore omits losses and
+> overstates it; re-run it before any decision about it. Nothing else here changes: in 288 random runs without the
+> add, the fixed engine matched the old one to the last bit, and no paper-fleet account uses a variant.
 
 ## Executive summary (plain English)
 

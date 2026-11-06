@@ -523,14 +523,21 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   streamlit 1.66.1 (the first release that allows pillow 13; 16 days old) and pillow 13.0.0, the lock was
   regenerated with the CI's own uv 0.13.3 (in sync; pip-audit clean; streamlit 1.66 also drops gitpython,
   blinker, cachetools, tenacity and toml); (b) Codex P2, `research/engine.py`: an add's own stop was not applied
-  on the bar the add was bought; fixed like the same-bar stop of a new entry, with the Codex example as a
-  regression test (it fails on the old engine: +500 instead of +250); only add-variant runs change, so the R18a
-  add-variant numbers are overstated (erratum in `docs/research/TRADER_POLICY_V1_REPORT.md`) and no fleet account
-  is affected; (c) Codex P2, `app/news/budget.py`: a reservation lived only in memory, so a process stopped
-  between sending a paid request and recording its cost let the next process spend that money again; the
-  reservation is now written to the month's state file before the call and cleared at settle, and a reservation
-  a stopped process left behind is charged in full, to its day, once (`unresolved_usd`), with the Codex
-  reproduction as a test; the news shadow is not running anywhere, so nothing was overspent; (d) the demo fix
+  on the bar the add was bought, and an independent review of the first fix found the older gap beside it (when
+  the first unit's stop, a trailing stop or a target was hit on that bar, the add was skipped entirely); fixed:
+  the add is bought at the open before that bar's stops are checked, never on a position that leaves at that open
+  (signal off, time stop due, a gap through the stop or the target, the ladder flat), and of two stops crossed on
+  one bar the higher fills first; a test for each case (the Codex example gives +500 on the old engine, +250 now);
+  in 288 random runs without the add the engine matched the pre-fix engine to the last bit, so only add-variant
+  runs change: the R18a add-variant numbers are overstated (erratum in `docs/research/TRADER_POLICY_V1_REPORT.md`)
+  and no fleet account is affected; (c) Codex P2, `app/news/budget.py`: a reservation lived only in memory, so a
+  process stopped between sending a paid request and recording its cost let the next process spend that money
+  again; the reservation is now written (and flushed) to the month's state file before the call and cleared at
+  settle, a reservation a stopped process left behind is charged in full, to its day, once (`unresolved_usd`),
+  loading never writes (the operator's `status` stays read-only), and a settlement is taken from the oldest open
+  reservation first, so a call settled after midnight at a month's end never clears the new month's in-flight
+  reservations (the last two found by the independent review); six tests, the Codex reproduction among them; the
+  news shadow is not running anywhere, so nothing was overspent; (d) the demo fix
   branch `sprint-6/position-persistence` (R14 part A, reviewed SAFE TO MERGE) was merged into `plan/auto`
   without conflicts, so #13 carries it and a separate pull request is not needed; (e) the runner's default model
   is Opus 5.5 at max effort again (the owner, 2026-11-06: "i want it on opus 5.5 max"). Open, the owner's: (f)

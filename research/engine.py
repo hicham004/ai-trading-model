@@ -482,18 +482,21 @@ def run_vectorized(
         exited = np.zeros(C, dtype=bool)
         if not in_pos.any():
             return exited
-        # Stop first (worst case if both stop and target are touched).
+        if use_add:
+            # The add unit's own stop, when it sits ABOVE the whole-position stop: a bar falling from the open reaches
+            # it first, so the add is sold at its own stop before the first unit's stop can close the rest.
+            above = ~np.isfinite(stop_px) | (add_stop > stop_px)
+            hit_a = in_pos & (add_qty > 0) & np.isfinite(add_stop) & above & (l[i] <= add_stop)
+            if hit_a.any():
+                ref = np.where(o[i] < add_stop, o[i], add_stop)
+                _exit_add_unit(hit_a, ref, i)
+        # Stop first (worst case if both stop and target are touched). The whole-position stop closes the first unit
+        # and any add still held (an add whose stop sits at or below it, e.g. under a trailing stop, goes with it).
         hit = in_pos & np.isfinite(stop_px) & (l[i] <= stop_px)
         if hit.any():
             ref = np.where(o[i] < stop_px, o[i], stop_px)
             _exit(hit, ref, i, "stop_loss")
             exited |= hit
-        if use_add:
-            # The add unit's own stop (checked after the whole-position stop, which closes both units).
-            hit_a = in_pos & ~exited & (add_qty > 0) & np.isfinite(add_stop) & (l[i] <= add_stop)
-            if hit_a.any():
-                ref = np.where(o[i] < add_stop, o[i], add_stop)
-                _exit_add_unit(hit_a, ref, i)
         if targets is not None:
             hit_t = in_pos & ~exited & np.isfinite(target_px) & (h[i] >= target_px)
             if hit_t.any():
@@ -509,8 +512,41 @@ def run_vectorized(
 
     for i in range(n):
         if i > 0:
-            exited = _check_stops(i)
             want = desired[i - 1]
+            # Plan row R18 add, decided at the previous close, bought at THIS OPEN before the bar's stops are checked
+            # (independent review of PR #13): an add filled at the open lives through the bar like a new entry, so the
+            # bar's low can stop it out, and a whole-position stop, trailing stop or target reached later in the bar
+            # closes it with the first unit. Never on a position that leaves at this very open: the decision turned
+            # off, the time stop is due, the open gapped through the stop or the target, or the drawdown ladder is
+            # flat (the overlay closes the position at this open).
+            if use_add and add_pending.any():
+                leaves_at_open = ~want | (lad_mult <= 0) | (np.isfinite(stop_px) & (o[i] <= stop_px)) | (
+                    np.isfinite(target_px) & (o[i] >= target_px))
+                if use_time_stop:
+                    leaves_at_open |= np.isfinite(ts_arr) & ((i - entry_i) >= ts_arr)
+                do = add_pending & in_pos & ~leaves_at_open & (add_qty0 == 0) & ((c[i - 1] - stops[i - 1]) < o[i])
+                if do.any():
+                    fill = o[i] * (1.0 + slip)
+                    q_add = qty0[do] * float(var.add_size)
+                    affordable = cash[do] / (fill * (1.0 + fee))
+                    q_add = np.minimum(q_add, np.maximum(affordable, 0.0))  # never on margin: at most the cash left
+                    f = fill * q_add * fee
+                    equity_before = cash[do] + (qty[do] + add_qty[do]) * o[i]
+                    cash[do] -= fill * q_add + f
+                    add_qty[do] = q_add
+                    add_qty0[do] = q_add
+                    add_px[do] = fill
+                    add_fee[do] = f
+                    add_stop[do] = c[i - 1] - stops[i - 1][do]
+                    fees_acc[do] += f
+                    n_add[do] += 1
+                    add_alloc[do] = np.where(equity_before > 0, fill * q_add / equity_before, 0.0)
+                    alloc[do] = alloc[do] + add_alloc[do]
+                    first_risk = qty[do] * (entry_px[do] - stop_px[do])
+                    add_risk = q_add * (fill - add_stop[do])
+                    add_wc[do] = np.where(risk_money[do] > 0, (first_risk + add_risk) / risk_money[do], np.nan)
+                add_pending[:] = False
+            exited = _check_stops(i)
             # Exit at the open when the decision turned off.
             to_exit = in_pos & ~want & ~exited
             if to_exit.any():
@@ -543,35 +579,6 @@ def run_vectorized(
                     _reduce(do, np.full(C, o[i]), alloc * (1.0 - float(var.scale_out_share)))
                     n_so[do] += 1
                 so_pending[:] = False
-            if use_add and add_pending.any():
-                do = add_pending & in_pos & (add_qty0 == 0) & ((c[i - 1] - stops[i - 1]) < o[i])
-                if do.any():
-                    fill = o[i] * (1.0 + slip)
-                    q_add = qty0[do] * float(var.add_size)
-                    affordable = cash[do] / (fill * (1.0 + fee))
-                    q_add = np.minimum(q_add, np.maximum(affordable, 0.0))  # never on margin: at most the cash left
-                    f = fill * q_add * fee
-                    equity_before = cash[do] + (qty[do] + add_qty[do]) * o[i]
-                    cash[do] -= fill * q_add + f
-                    add_qty[do] = q_add
-                    add_qty0[do] = q_add
-                    add_px[do] = fill
-                    add_fee[do] = f
-                    add_stop[do] = c[i - 1] - stops[i - 1][do]
-                    fees_acc[do] += f
-                    n_add[do] += 1
-                    add_alloc[do] = np.where(equity_before > 0, fill * q_add / equity_before, 0.0)
-                    alloc[do] = alloc[do] + add_alloc[do]
-                    first_risk = qty[do] * (entry_px[do] - stop_px[do])
-                    add_risk = q_add * (fill - add_stop[do])
-                    add_wc[do] = np.where(risk_money[do] > 0, (first_risk + add_risk) / risk_money[do], np.nan)
-                    # Same-bar stop for the add just bought at this open, as for a new entry below: the bar's low
-                    # may already reach the add's own stop. The whole-position stop was checked at this bar's low
-                    # before the add (_check_stops), and the add's stop sits above it, so only the add can go here.
-                    hit_new_add = do & (add_qty > 0) & np.isfinite(add_stop) & (l[i] <= add_stop)
-                    if hit_new_add.any():
-                        _exit_add_unit(hit_new_add, np.where(o[i] < add_stop, o[i], add_stop), i)
-                add_pending[:] = False
             # Enter at the open when flat and desired (stop must sit below the open).
             to_enter = want & ~in_pos & ~exited
             if to_enter.any():

@@ -178,6 +178,44 @@ def test_the_add_variant_adds_once_on_a_winner_with_its_own_stop_and_reports_the
     assert len(t5) == 1 and t5.loc[0, "adds"] == 1 and t5.loc[0, "exit_reason"] == "end_of_data"
     assert t5.loc[0, "pnl"] == pytest.approx(500.0 - 25 * 10)  # the add lost its 10 points on its entry bar
     np.testing.assert_allclose(res5.equity[4:, 0], 10_000 + 500 - 250)
+    # The add is bought at the open BEFORE the bar's stops are checked (independent review of PR #13): when the same
+    # bar's low (85) crosses both stops, the add (stop 100, the higher one) is sold at 100 and the first unit at 90.
+    lows6 = list(lows)
+    lows6[4] = 85.0
+    o6, h6, l6, c6 = ohlc(opens, highs=highs, lows=lows6, closes=closes)
+    t6 = run_vectorized(o6, h6, l6, c6, desired, stops, costs=ZERO, size_fraction=0.5, variants=var).trades
+    assert t6.loc[0, "adds"] == 1 and t6.loc[0, "exit_reason"] == "stop_loss"
+    assert t6.loc[0, "pnl"] == pytest.approx(-500.0 - 250.0)
+    # A trailing stop above the add's stop closes both units at the trailing stop: bar 3's high 112 trails the stop to
+    # 107 (0.5 R under the high once +1 R is reached); the add bought at 110 goes with the first unit at 107.
+    highs7 = list(highs)
+    highs7[3] = 112.0
+    lows7 = list(lows)
+    lows7[4] = 106.0
+    o7, h7, l7, c7 = ohlc(opens, highs=highs7, lows=lows7, closes=closes)
+    t7 = run_vectorized(o7, h7, l7, c7, desired, stops, costs=ZERO, size_fraction=0.5, variants=var,
+                        trail_activate_r=1.0, trail_r=0.5).trades
+    assert t7.loc[0, "adds"] == 1 and t7.loc[0, "pnl"] == pytest.approx(50 * 7.0 - 25 * 3.0)
+    # A target reached later in the add's bar sells both units at the target (120): +1,000 on the first, +250 on the add.
+    highs8 = list(highs)
+    highs8[4] = 121.0
+    o8, h8, l8, c8 = ohlc(opens, highs=highs8, lows=lows, closes=closes)
+    t8 = run_vectorized(o8, h8, l8, c8, desired, stops, costs=ZERO, size_fraction=0.5, variants=var,
+                        target_distance=np.full(8, 20.0)).trades
+    assert t8.loc[0, "adds"] == 1 and t8.loc[0, "exit_reason"] == "target"
+    assert t8.loc[0, "pnl"] == pytest.approx(50 * 20.0 + 25 * 10.0)
+    # Never on a position that leaves at that very open: a time stop due at bar 4 (entered at bar 1, 3 bars) ...
+    t9 = run_vectorized(o, h, l, c, desired, stops, costs=ZERO, size_fraction=0.5, variants=var, time_stop_bars=3).trades
+    assert t9.loc[0, "adds"] == 0 and t9.loc[0, "exit_reason"] == "time_stop" and t9.loc[0, "pnl"] == pytest.approx(500.0)
+    # ... or an open that gaps through the trailing stop (107): no add bought and sold at the same open.
+    opens10 = list(opens)
+    opens10[4] = 105.0
+    lows10 = list(lows)
+    lows10[4] = 104.5
+    o10, h10, l10, c10 = ohlc(opens10, highs=highs7, lows=lows10, closes=closes)
+    t10 = run_vectorized(o10, h10, l10, c10, desired, stops, costs=ZERO, size_fraction=0.5, variants=var,
+                         trail_activate_r=1.0, trail_r=0.5).trades
+    assert t10.loc[0, "adds"] == 0 and t10.loc[0, "exit_reason"] == "stop_loss" and t10.loc[0, "pnl"] == pytest.approx(50 * 5.0)
     # Never twice: a second +1 R later does not add again; never after a loss (a close below the entry never adds).
     closes3 = [100, 100, 100, 110, 110, 125, 125, 125]
     o3, h3, l3, c3 = ohlc([100, 100, 100, 100, 110, 110, 125, 125], highs=[x + 0.5 for x in closes3], lows=[x - 0.5 for x in closes3], closes=closes3)

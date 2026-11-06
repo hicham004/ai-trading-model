@@ -120,8 +120,43 @@ def test_an_unresolved_reservation_is_charged_to_the_day_it_was_made(tmp_path: P
     second = SpendGuard(tmp_path, monthly_cap_usd=31.0, daily_pace=1.0, clock=clock)
     snap = second.snapshot()
     assert snap.spent_usd == pytest.approx(0.5) and snap.today_usd == 0.0  # yesterday's reservation, not today's pace
+    assert second.reserve(0.01) is None  # the charge reaches the file with this process's next reservation
     stored = json.loads((tmp_path / "spend-2026-10.json").read_text(encoding="utf-8"))
     assert stored["by_day"] == {"2026-10-21": pytest.approx(0.5)}
+    assert stored["pending_usd"] == pytest.approx(0.01) and stored["pending_day"] == "2026-10-22"
+
+
+def test_a_call_settled_after_the_month_turned_never_clears_the_new_months_reservations(tmp_path: Path):
+    # Independent review of PR #13: four triage workers share one guard; A reserves just before midnight at the end of
+    # October, C reserves just after it, A settles after midnight. C's reservation must stay on disk until C settles.
+    clock = Clock(datetime(2026, 10, 31, 23, 59, 58, tzinfo=timezone.utc))
+    guard = SpendGuard(tmp_path, monthly_cap_usd=10.0, daily_pace=0, clock=clock)
+    assert guard.reserve(0.50) is None  # A, in October
+    clock.now = datetime(2026, 11, 1, 0, 0, 5, tzinfo=timezone.utc)
+    assert guard.reserve(0.20) is None  # C, in November
+    clock.now = datetime(2026, 11, 1, 0, 0, 10, tzinfo=timezone.utc)
+    guard.settle(0.50, 0.40, "claude-haiku-5-5")  # A ends: its cost lands in November, its reservation was October's
+    november = json.loads((tmp_path / "spend-2026-11.json").read_text(encoding="utf-8"))
+    assert november["pending_usd"] == pytest.approx(0.20) and november["spent_usd"] == pytest.approx(0.40)
+    # The process dies before C settles: the next one charges C's reservation in full.
+    again = SpendGuard(tmp_path, monthly_cap_usd=10.0, daily_pace=0, clock=clock)
+    assert again.snapshot().spent_usd == pytest.approx(0.60)
+
+
+def test_a_read_only_guard_never_writes_the_live_spend_file(tmp_path: Path):
+    # The operator's `status` builds a second guard on the live folder: it may show an in-flight reservation as spent,
+    # but it must never write the file (a write could race the live process's own saves).
+    clock = Clock(NOW)
+    live = SpendGuard(tmp_path, monthly_cap_usd=1.0, daily_pace=0, clock=clock)
+    assert live.reserve(0.30) is None
+    path = tmp_path / "spend-2026-10.json"
+    before = path.read_bytes()
+    status = SpendGuard(tmp_path, monthly_cap_usd=1.0, daily_pace=0, clock=clock)
+    assert status.snapshot().spent_usd == pytest.approx(0.30)  # the in-flight call counted, conservatively
+    assert path.read_bytes() == before
+    live.settle(0.30, 0.05, "claude-haiku-5-5")
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["spent_usd"] == pytest.approx(0.05) and stored["pending_usd"] == 0.0 and stored["unresolved_usd"] == 0.0
 
 
 def test_a_settled_reservation_leaves_nothing_pending(tmp_path: Path):

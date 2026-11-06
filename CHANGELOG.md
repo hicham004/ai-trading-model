@@ -15,13 +15,16 @@ The blockers of pull request #13 (`plan/auto` into `main`), `docs/PLAN_STATUS.md
   blinker, cachetools, tenacity or toml.
 
 ### Fixed
-- `research/engine.py`: the add variant now applies the add's own stop on the bar the add is bought (Codex review, P2); only
-  runs with the add switched on change. The Trader Policy v1 report carries an erratum: its add-variant numbers overstate the
-  variant. Regression test in `tests/test_research_trader_policy_engine.py`.
-- `app/news/budget.py`: a reservation is written to the month's spend file before the paid call and cleared when the call is
-  settled; a reservation left by a stopped process is charged in full, to its day, once, when the file is next loaded
-  (Codex review, P2). Four tests in `tests/test_news_budget.py`, the Codex reproduction among them. Log-only news shadow; no order
-  path is involved.
+- `research/engine.py`, the add variant (Codex review P2, then an independent review): the add is bought at the bar's open
+  before that bar's stops are checked, so the bar's low can stop it and a whole-position stop, trailing stop or target reached
+  later in the bar closes it with the first unit; never on a position that leaves at that open; of two stops crossed on one bar
+  the higher fills first. 288 random runs without the add match the pre-fix engine to the last bit. The Trader Policy v1 report
+  carries an erratum: its add-variant numbers overstate the variant. Tests in `tests/test_research_trader_policy_engine.py`.
+- `app/news/budget.py` (Codex review P2, then an independent review): a reservation is written and flushed to the month's spend
+  file before the paid call and cleared when the call is settled; a reservation left by a stopped process is charged in full,
+  to its day, once; loading never writes the file (the operator's `status` stays read-only); a settlement is taken from the
+  oldest open reservation first, so a call settled after midnight at a month's end cannot clear the new month's reservations.
+  Six tests in `tests/test_news_budget.py`, the Codex reproduction among them. Log-only news shadow; no order path is involved.
 
 ### Changed
 - `scripts/plan-runner.ps1`: the default model is Opus 5.5 again, at max effort (the owner, 2026-11-06).

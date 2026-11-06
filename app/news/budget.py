@@ -23,14 +23,18 @@ written atomically; an unreadable state file counts as a fully spent month (the
 guard fails toward not spending) until the operator checks and removes it.
 
 Reservations are written to the state file BEFORE the call is sent
-(``pending_usd``, with the day of the oldest one in ``pending_day``) and removed
-when the call is settled. A process that stops in between (a crash, a kill, a
-power cut) may already have been billed for that call, so the next process that
-loads the file charges every reservation it finds there in full, to the day it
-was made, as spend from ``unresolved`` (counted in ``unresolved_usd``), once.
-The guard assumes one process per state folder, as the news shadow runs. A call
-reserved in one month and settled in the next leaves its reservation in the old
-month's file, where nothing charges it again.
+(``pending_usd``, with the day of the oldest one in ``pending_day``; the file is
+flushed to disk) and removed when the call is settled. A process that stops in
+between (a crash or a kill) may already have been billed for that call, so the
+next process that loads the file charges every reservation it finds there in
+full, to that day, as spend from ``unresolved`` (counted in ``unresolved_usd``):
+in memory at once, on disk with its next reservation or settlement, so it is
+charged once and a read-only guard (the operator's ``status``) never writes the
+file. A settlement is taken from this process's oldest open reservation first, so
+a call reserved before midnight at the end of a month and settled after it never
+clears the new month's in-flight reservations; its own reservation stays in the
+old month's file, where nothing charges it again. One process spends per state
+folder, as the news shadow runs.
 """
 
 from __future__ import annotations
@@ -182,6 +186,8 @@ class SpendGuard:
         self._state: Optional[Dict[str, Any]] = None
         self._state_error: Optional[str] = None
         self._reserved = 0.0
+        # This process's open reservations by the month they were made in (UTC "YYYY-MM").
+        self._outstanding: Dict[str, float] = {}
 
     @property
     def monthly_cap_usd(self) -> float:
@@ -203,7 +209,6 @@ class SpendGuard:
         self._state_error = None
         path = self.state_file(month)
         state = _empty_state(month)
-        charged_unresolved = False
         if path is not None and path.exists():
             try:
                 loaded = json.loads(path.read_text(encoding="utf-8"))
@@ -222,20 +227,19 @@ class SpendGuard:
                 if pending > 0:
                     # A previous process reserved these calls and never settled them: it stopped between sending a
                     # request and recording its cost, and the request may have been billed. Charge the worst case in
-                    # full, to the day it was reserved, once (the cleared reservation is saved right below).
+                    # full, to the day it was reserved, once.
                     day = loaded.get("pending_day")
                     day = day if isinstance(day, str) and day.startswith(month) else now.date().isoformat()
                     state["spent_usd"] = spent + pending
                     state["by_day"][day] = float(state["by_day"].get(day, 0.0)) + pending
                     state["by_model"]["unresolved"] = float(state["by_model"].get("unresolved", 0.0)) + pending
                     state["unresolved_usd"] = unresolved + pending
-                    charged_unresolved = True
             except (OSError, ValueError, TypeError, AttributeError) as exc:
                 # Fail toward not spending: an unreadable record counts as a spent month.
                 self._state_error = f"unreadable spend state ({type(exc).__name__}); treated as fully spent"
+        # A leftover reservation charged above is saved with this process's next reservation or settlement, never
+        # here, so a read-only guard (the operator's status) does not write the file; until then it is in memory.
         self._state = state
-        if charged_unresolved and not self._state_error:
-            self._save()
         return state
 
     def _save(self) -> None:
@@ -245,7 +249,10 @@ class SpendGuard:
         assert path is not None
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_name(path.name + ".tmp")
-        tmp.write_text(json.dumps(self._state, sort_keys=True, indent=1), encoding="utf-8")
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(self._state, sort_keys=True, indent=1))
+            fh.flush()
+            os.fsync(fh.fileno())  # the reservation must be on disk before the paid call is sent
         os.replace(tmp, path)
 
     # -- the rule -----------------------------------------------------------------------
@@ -285,6 +292,8 @@ class SpendGuard:
                 self._save()
                 return reason
             self._reserved += amount
+            month = f"{now:%Y-%m}"
+            self._outstanding[month] = self._outstanding.get(month, 0.0) + amount
             # Persist the reservation before the call is sent, so a process that stops before settling it
             # cannot let the next one spend the same money again (see the module docstring).
             state = self._load(now)
@@ -299,8 +308,23 @@ class SpendGuard:
         now = _utc(now or self._clock())
         with self._lock:
             self._reserved = max(0.0, self._reserved - reserved)
+            # Take the settled amount from this process's oldest open reservations first; only the part reserved in
+            # the current month leaves the current month's pending (see the module docstring).
+            month = f"{now:%Y-%m}"
+            left = max(0.0, float(reserved))
+            from_this_month = 0.0
+            for reserved_month in sorted(self._outstanding):
+                if left <= 0:
+                    break
+                take = min(left, self._outstanding[reserved_month])
+                self._outstanding[reserved_month] -= take
+                left -= take
+                if reserved_month == month:
+                    from_this_month += take
+                if self._outstanding[reserved_month] <= 1e-12:
+                    del self._outstanding[reserved_month]
             state = self._load(now)
-            pending = float(state.get("pending_usd") or 0.0) - reserved
+            pending = float(state.get("pending_usd") or 0.0) - from_this_month
             state["pending_usd"] = pending if pending > 1e-12 else 0.0
             if state["pending_usd"] == 0.0:
                 state["pending_day"] = None
