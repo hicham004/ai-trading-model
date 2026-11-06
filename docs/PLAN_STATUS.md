@@ -551,6 +551,22 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   three Codex conversations must be marked resolved (the rule requires it); the repository variable
   `TRAVEL_MODE` can be deleted (nothing reads it after the merge).
 
+- From R24 (nothing to decide now): the named cost profiles are built (`research/engine.py`, `COST_PROFILES`:
+  `gate` 0.30 % a round trip, `measured_btc_eth_2026_11` 0.24 % for BTC-USDT and ETH-USDT only, `altcoin` 0.50 %;
+  how to use them: `docs/RESEARCH_LAB.md`, "Named cost profiles for future studies"). The engine's default, every
+  stored study, the paper fleet's 33 accounts (fingerprint 93cfcc282a1d) and its fill costs are unchanged; no study was
+  run and no results file changed; the server needs no update for this row. The next study pre-registered on BTC-USDT
+  or ETH-USDT records `cost_profile_record("measured_btc_eth_2026_11")` in its pre-registration, passes that profile to
+  its protocol check, runs its reproduction cells at the gate profile and writes to its own output paths (the shared
+  runner refuses Sprint 2c's files at any other profile).
+- From R24: how a configuration confirmed by a study at the measured profile would join the paper fleet. The fleet
+  charges the gate cost and now refuses such a record explicitly (the row left the joining rule to a later row).
+  Decision only once such a passer exists. Recommendation: keep every account at the gate cost and admit such a passer
+  through the same study's gate-cost record of that rule (pre-register a gate-profile run of every judged configuration
+  in that study), so an account and its expectations pay the same cost; a per-account fill cost in the fleet is not
+  worth the extra scope, and a measured-cost expectation beside a gate-cost account would make the account look about
+  6 bps a round trip worse than expected by construction.
+
 ### Decided — the owner, 2026-11-05 evening ("do what you recommend")
 
 The owner's words, after the plain-English summary of the day: "do what you recommend, cause i dont

@@ -72,6 +72,14 @@ any study whose results carry the protocol check (``source.results``), so the
 R20 breadth study's single-sleeve record serves ``c20-s1-btc-6h-none-trader``
 through the R18b path unchanged. Rows the owner decides on are built from the
 study's own record by ``research.fleet_rows`` (``scripts/apply_fleet_rows.py``).
+
+Plan row R24 (named cost profiles): the fleet charges the gate profile
+(``COSTS``: 0.10 % fee + 0.05 % slippage a side, ``research.engine``'s
+``"gate"``) and refuses any results file or study record taken at another
+profile: a results ``meta`` naming another profile or other numbers, a result's
+own ``costs`` record, or a fee / slippage difference its protocol check
+recorded, explained or not. How a passer of a study at the measured BTC/ETH
+profile would be read beside the fleet's own fill costs is a later plan row.
 """
 
 from __future__ import annotations
@@ -87,7 +95,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from research.allocator import DEFAULT_ALLOCATOR_V2, AllocatorV2Config
 from research.brakes import BrakeSpec
-from research.engine import Costs
+from research.engine import GATE_PROFILE, Costs
 from research.markets import REPLICATION_CANDIDATES
 from research.regime_v2 import RegimeV2Config
 from research.sizing import LadderConfig, SizingSpec
@@ -476,8 +484,53 @@ def _source_results(source: Any, cache: Dict[Path, List[Mapping[str, Any]]]) -> 
         check = (doc.get("meta") or {}).get("protocol_check")
         if check is not None and not check.get("ok"):
             raise ValueError(f"{rel}: the study did not run Sprint 2c's protocol ({check.get('mismatches')})")
+        _gate_cost_meta(doc.get("meta") or {}, str(rel))
         cache[path] = _flat_results(doc)
     return path, cache[path]
+
+
+# Plan row R24: the fleet charges the gate cost (``COSTS``, the registry's "gate" profile) and compares every account with numbers
+# taken at that cost, so it refuses a study record taken at any other cost profile (the measured BTC/ETH profile, the altcoin
+# profile, hand-given numbers), whatever that study's protocol check explained. How a measured-cost passer would be read beside
+# the fleet's own fill costs is a later plan row.
+_COST_PROTOCOL_KEYS = ("fee", "slippage")
+_COST_REFUSAL = ("the fleet charges the gate cost (0.10 % fee + 0.05 % slippage a side) and reads only research numbers taken at it; "
+                 "how a record at another cost profile would be read beside the fleet's own fill costs is a later plan row")
+
+
+def _same_rate(a: Any, b: float) -> bool:
+    try:
+        return math.isclose(float(a), float(b), rel_tol=0.0, abs_tol=1e-12)
+    except (TypeError, ValueError):
+        return False
+
+
+def _gate_cost_meta(meta: Mapping[str, Any], where: str) -> None:
+    """A results file whose ``meta`` records another cost than the fleet's is refused (plan row R24)."""
+    named = meta.get("cost_profile")
+    if named is not None:  # a name or a profile record; anything but exactly the gate profile is refused (fail closed)
+        name = named.get("name") if isinstance(named, Mapping) else named
+        if name != GATE_PROFILE:
+            raise ValueError(f"{where}: the study ran at the cost profile {name!r}; {_COST_REFUSAL}")
+    for key, value in (("fee_rate", COSTS.fee_rate), ("slippage_rate", COSTS.slippage_rate)):
+        if meta.get(key) is not None and not _same_rate(meta[key], value):
+            raise ValueError(f"{where}: the study charged {key} {meta[key]!r} a side, not the fleet's {value:g}; {_COST_REFUSAL}")
+
+
+def _gate_cost_result(result: Mapping[str, Any], name: str) -> None:
+    """A study record taken at another cost than the fleet's is refused (plan row R24): its own ``costs`` record, or a fee / slippage
+    difference its protocol check recorded (explained or not), or the cost profile that check names."""
+    costs = result.get("costs")
+    if costs is not None and not (costs.get("profile") == GATE_PROFILE and _same_rate(costs.get("fee_rate"), COSTS.fee_rate)
+                                  and _same_rate(costs.get("slippage_rate"), COSTS.slippage_rate)):
+        raise ValueError(f"{name}: the study record was taken at the cost profile {costs.get('profile')!r}; {_COST_REFUSAL}")
+    check = result.get("protocol_check") or {}
+    recorded = set()
+    for part in ("mismatches", "expected_mismatches", "unexplained_mismatches"):
+        recorded |= set(check.get(part) or {})
+    flagged = sorted(k for k in _COST_PROTOCOL_KEYS if k in recorded)
+    if flagged or check.get("cost_profile") not in (None, GATE_PROFILE):
+        raise ValueError(f"{name}: the study's protocol check records another cost ({flagged or check.get('cost_profile')!r}); {_COST_REFUSAL}")
 
 
 _WF_KEYS = ("cagr", "ann_vol", "sharpe", "sortino", "max_drawdown", "calmar", "profit_factor", "n_trades", "trades_per_year",
@@ -532,6 +585,7 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
     policy = _sizing(shortlist["sizing_proposal"])
     if meta.get("rebalance_threshold") not in (None, REBALANCE_THRESHOLD):
         raise ValueError("the research rebalance threshold differs from the fleet's")
+    _gate_cost_meta(meta, str(Path(results_path).name))  # plan row R24: the Sprint 2c numbers are the gate cost's
     accounts: List[AccountSpec] = []
     source_docs: Dict[Path, List[Mapping[str, Any]]] = {}
     source_files: Dict[str, Path] = {}
@@ -551,6 +605,7 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
         result = _result_for(pool, row["candidate"], row["instrument"], row["timeframe"], regime.mode, cell=(src or {}).get("cell"))
         if src and (src.get("cell") or src.get("tier")):
             tier, brakes = _tier_checks(row, result, src)
+        _gate_cost_result(result, f"shortlist row {row.get('rank')}")  # plan row R24: after the protocol check, for every path
         params = _params(row["params"])
         if _params(result["selected_params"]) != params or not math.isclose(float(result["oos"]["cagr"]), float(row["cagr"]), abs_tol=1e-9):
             raise ValueError(f"shortlist row {row['rank']} does not match the results file")
@@ -578,6 +633,7 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
         if row["candidate"] == "hold":
             regime = _regime(row["regime_config"])
             result = _result_for(results, "hold", inst, tf, regime.mode)
+            _gate_cost_result(result, f"control hold {inst} {tf}")
             sleeve = SleeveSpec("hold", inst, tf, _params(row["params"]), regime, _sizing(row["sizing_config"]), REBALANCE_THRESHOLD)
             accounts.append(AccountSpec(f"ctl-hold-{_inst(inst)}-{tf.lower()}", "control", "sleeve",
                                         f"control: always long, policy sizing — {inst} {tf}", sleeve=sleeve, instrument=inst,
@@ -592,6 +648,7 @@ def load_manifest(shortlist_path: Path = DEFAULT_SHORTLIST, results_path: Path =
             regime = _regime(row["regime_config"])
             result = _result_for(pool, row["candidate"], inst, tf, regime.mode, cell=src.get("cell"))
             tier, brakes = _tier_checks(row, result, src)
+            _gate_cost_result(result, f"control {row['candidate']} {inst} {tf}")
             if row["candidate"] == TF_CONTROL_CANDIDATE:
                 if tier != REFERENCE_TIER or brakes is not None:
                     raise ValueError(f"control {row['candidate']} {inst} {tf}: the slow-trend forward control runs at the Reference sizing without brakes")

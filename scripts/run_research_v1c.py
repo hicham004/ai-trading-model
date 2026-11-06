@@ -45,7 +45,7 @@ from app.strategy.timeframes import parse_timeframe  # noqa: E402
 from research.bracket import BRACKETS  # noqa: E402
 from research.brakes import summary_for_column  # noqa: E402
 from research.data import bars_per_year, load_or_resample_candles, positioning_context, split_holdout, to_market_candles  # noqa: E402
-from research.engine import Costs, buy_and_hold  # noqa: E402
+from research.engine import COST_PROFILE_INSTRUMENTS, COST_PROFILES, CUSTOM_PROFILE, GATE_PROFILE, Costs, buy_and_hold  # noqa: E402
 from research.gated_walkforward import (  # noqa: E402
     WindowRegime,
     cost_scenarios_gated,
@@ -131,8 +131,13 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--purge-days", type=float, default=7)
     p.add_argument("--min-trades", type=int, default=20)
     p.add_argument("--select-by", default="sharpe", choices=["sharpe", "sortino", "profit_factor", "calmar", "total_return"])
-    p.add_argument("--fee", type=float, default=0.0010, help="Fee per side (default 0.10%%).")
-    p.add_argument("--slippage", type=float, default=0.0005, help="Slippage per side (default 0.05%%).")
+    # Plan row R24: a named cost profile (research.engine.COST_PROFILES). The default is the gate profile, Sprint 2c's cost, so every
+    # stored study reproduces; --fee / --slippage alone still charge hand-given numbers (named after the profile they equal, else custom).
+    p.add_argument("--cost-profile", default=None, choices=sorted(COST_PROFILES), metavar="NAME",
+                   help=("Named per-side costs: 'gate' (the default: 0.10%% fee + 0.05%% slippage, 0.30%% a round trip), "
+                         "'measured_btc_eth_2026_11' (BTC-USDT and ETH-USDT only: 0.10%% + 0.02%%, 0.24%%), 'altcoin' (0.10%% + 0.15%%, 0.50%%)."))
+    p.add_argument("--fee", type=float, default=None, help="Fee per side (default: the cost profile's, 0.10%%).")
+    p.add_argument("--slippage", type=float, default=None, help="Slippage per side (default: the cost profile's; the gate profile's 0.05%%).")
     p.add_argument("--policy-target-vol", type=float, default=0.10)
     p.add_argument("--policy-lookback", type=int, default=30)
     p.add_argument("--policy-crash-dd", type=float, default=0.15)
@@ -167,10 +172,65 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--shortlist", default="docs/research/paper_fleet_shortlist_v1c.json")
     p.add_argument("--render-from-json", default=None, metavar="PATH",
                    help="Re-render the report/shortlist/narrative from a saved results JSON without re-running the research.")
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    _resolve_costs(p, args)
+    return args
 
 
 # -- configuration helpers ---------------------------------------------------------
+
+def _resolve_costs(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Plan row R24: the run's per-side costs and the profile name they carry; a recorded name always describes the numbers charged.
+
+    ``--cost-profile`` alone charges that profile (none: the gate profile); ``--fee`` / ``--slippage`` alone charge those numbers and
+    the run is named after the profile they equal (``custom`` when none has them); given together they must agree."""
+    named = args.cost_profile
+    base = Costs.named(named or GATE_PROFILE)
+    fee = base.fee_rate if args.fee is None else float(args.fee)
+    slip = base.slippage_rate if args.slippage is None else float(args.slippage)
+    try:
+        costs = Costs(fee_rate=fee, slippage_rate=slip)
+    except ValueError as exc:
+        parser.error(str(exc))
+    if named is not None and costs.profile != named:
+        parser.error(f"--fee {fee:g} / --slippage {slip:g} are not the cost profile {named!r} ({base.label}); "
+                     "name the profile alone, or give the numbers without it")
+    args.fee, args.slippage, args.cost_profile = costs.fee_rate, costs.slippage_rate, costs.profile_label
+
+
+def _costs(args) -> Costs:
+    """The run's per-side costs (plan row R24); refuses arguments whose recorded profile name does not describe their numbers."""
+    costs = Costs(fee_rate=float(args.fee), slippage_rate=float(args.slippage))
+    name = getattr(args, "cost_profile", None)
+    if name is not None and name != costs.profile_label:
+        raise ValueError(f"the run names the cost profile {name!r} but its numbers are {costs.label}")
+    return costs
+
+
+def _cost_meta(args) -> Dict[str, Any]:
+    """What a results ``meta`` records of the run's costs (plan row R24): the profile's name and the numbers charged."""
+    costs = _costs(args)
+    return {"cost_profile": costs.profile_label, "fee_rate": costs.fee_rate, "slippage_rate": costs.slippage_rate, "round_trip": costs.round_trip}
+
+
+#: Sprint 2c's stored outputs, the defaults of --report / --json / --shortlist: a run at any other cost profile must write elsewhere.
+STORED_OUTPUTS: Dict[str, str] = {"report": "docs/research/ENSEMBLE_V1C_REPORT.md", "json": "docs/research/ensemble_v1c_results.json",
+                                  "shortlist": "docs/research/paper_fleet_shortlist_v1c.json"}
+
+
+def _stored_outputs_hit(args, cost_profile: str) -> List[str]:
+    """Plan row R24: the options that would overwrite Sprint 2c's stored files (its results, its report, the paper fleet's shortlist)
+    with numbers taken at another cost profile than the gate profile they were computed at; empty when the run may write."""
+    if cost_profile == GATE_PROFILE:
+        return []
+    root = Path(__file__).resolve().parents[1]
+    hits = []
+    for option, default in STORED_OUTPUTS.items():
+        target = Path(getattr(args, option)).resolve()
+        if target in {(root / default).resolve(), Path(default).resolve()}:
+            hits.append(f"--{option}")
+    return hits
+
 
 def _wf_config(args, timeframe: str, *, min_trades: Optional[int] = None) -> WalkForwardConfig:
     return WalkForwardConfig(
@@ -405,7 +465,7 @@ def run_candidate(args, layout: LakeLayout, df_all: pd.DataFrame, instrument: st
 
     out: Dict[str, Any] = {
         "candidate": key, "label": candidate.label, "instrument": instrument, "timeframe": timeframe,
-        "regime": regime_cfg.to_dict(), "policy_sizing": policy.to_dict(), "grid_size": len(combos),
+        "regime": regime_cfg.to_dict(), "policy_sizing": policy.to_dict(), "costs": costs.to_dict(), "grid_size": len(combos),
         "selected_params": selected, "rule_frequency": wf.rule_frequency,
         "oos": {k: _finite(v, k) for k, v in wf.oos_metrics.items()}, "yearly": yearly, "yearly_gate": yearly_gate,
         "robustness": robust, "dsr": dsr, "montecarlo": mc, "slippage_stress": stress, "full_size": full_size,
@@ -476,8 +536,11 @@ def run_candidate(args, layout: LakeLayout, df_all: pd.DataFrame, instrument: st
 
 def run_series(args_dict: Dict[str, Any], instrument: str, timeframe: str) -> Dict[str, Any]:
     args = argparse.Namespace(**args_dict)
+    costs = _costs(args)
+    if not costs.covers(instrument):  # plan row R24: a measured profile is charged only on the markets it was measured on
+        raise ValueError(f"the cost profile {costs.profile!r} was measured on {', '.join(COST_PROFILE_INSTRUMENTS[str(costs.profile)])} only, "
+                         f"not on {instrument}; charge {instrument} another profile")
     layout = LakeLayout(Path(args.lake_dir)) if args.lake_dir else LakeLayout.from_env()
-    costs = Costs(fee_rate=args.fee, slippage_rate=args.slippage)
     out: Dict[str, Any] = {"instrument": instrument, "timeframe": timeframe, "results": [], "failures": [], "sleeves": {}, "full_sleeves": {},
                            "trades": {}, "benchmark": None, "span": None, "holdout_span": None, "positioning": None, "sensitivity": [],
                            "s0_blocked_share": None, "skipped": None}
@@ -712,9 +775,27 @@ def _owner_decisions(run: Dict[str, Any]) -> List[str]:
 
 # -- main ----------------------------------------------------------------------
 
+def _refuse_stored_outputs(args, cost_profile: str) -> bool:
+    """Print why and return True when the run would overwrite Sprint 2c's stored files at another cost profile (plan row R24)."""
+    hits = _stored_outputs_hit(args, cost_profile)
+    if hits:
+        print(f"refused: a run at the cost profile {cost_profile!r} would overwrite Sprint 2c's stored gate-cost files ({', '.join(hits)} "
+              "at their defaults, among them the paper fleet's shortlist); give this study its own --report, --json and --shortlist paths",
+              file=sys.stderr)
+    return bool(hits)
+
+
 def render_from_json(args) -> int:
     """Re-render the report, shortlist and derived narrative from a saved results JSON (no research re-run)."""
     saved = json.loads(Path(args.render_from_json).read_text(encoding="utf-8"))
+    saved_meta = saved.get("meta") or {}
+    named = saved_meta.get("cost_profile")  # a name (this runner's meta) or a profile record (a later study's)
+    if isinstance(named, dict):
+        named = named.get("name") or CUSTOM_PROFILE
+    saved_profile = named or Costs(fee_rate=float(saved_meta.get("fee_rate", 0.0010)),
+                                   slippage_rate=float(saved_meta.get("slippage_rate", 0.0005))).profile_label
+    if _refuse_stored_outputs(args, str(saved_profile)):
+        return 2
     results = saved["results"]
     holds = [r for r in results if r["candidate"] in REFERENCE_CANDIDATES]
     run = dict(saved)
@@ -741,6 +822,8 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     if args.render_from_json:
         return render_from_json(args)
+    if _refuse_stored_outputs(args, args.cost_profile):
+        return 2
     args_dict = dict(vars(args))
     series_list = [(inst, tf) for inst in args.instruments for tf in args.timeframes]
     t0 = time.monotonic()
@@ -790,7 +873,7 @@ def main(argv=None) -> int:
             "data_span": "; ".join(spans) or "no data",
             "data_span_short": f"{spans[0].split(': ')[1].split(' (')[0]}" if spans else "n/a",
             "holdout_span": sorted(set(holdout_spans))[0] if holdout_spans else "n/a",
-            "holdout_months": args.holdout_months, "fee_rate": args.fee, "slippage_rate": args.slippage,
+            "holdout_months": args.holdout_months, **_cost_meta(args),
             "train_days": args.train_days, "test_days": args.test_days, "purge_days": args.purge_days,
             "select_by": args.select_by, "min_trades": args.min_trades,
             "policy_sizing": _policy_spec(args).to_dict(),

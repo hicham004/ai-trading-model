@@ -215,6 +215,19 @@ median and 1.8-2.9 bps at the 90th percentile.
   research engine; no finished study (Sprint 2 to R20) is re-judged, and none of the forward paper
   accounts change. The change is the owner's decision (`docs/PLAN_STATUS.md`, section 2).
 
+**Decided (the owner, 2026-11-05; built in plan row R24 on 2026-11-06).** The recommendation was
+taken as a NAMED profile, not a new default. `research/engine.py` has `COST_PROFILES`: `gate` (10 bps
+fee plus 5 bps slippage a side, 0.30 % a round trip: the engine's default `Costs()`, the cost of every
+finished study and of the paper fleet's fills), `measured_btc_eth_2026_11` (10 bps plus 2 bps, 0.24 %;
+BTC-USDT and ETH-USDT only, clips up to 20 K USDT; the shared runner refuses to charge it to any other
+market) and `altcoin` (10 bps plus 15 bps, 0.50 %). Studies pre-registered after 2026-11-05 on BTC-USDT
+and ETH-USDT charge the measured profile and record it in their pre-registration (its name and its
+numbers); altcoins stay at the `altcoin` profile until they are measured the same way; the maker
+variant is not a profile. Nothing finished is re-judged: the default is the gate profile, so every
+stored study still reproduces bit for bit, and the paper fleet refuses any record taken at another
+profile (`docs/runbooks/PAPER_FLEET.md`). How a study uses it: `docs/RESEARCH_LAB.md`, "Named cost
+profiles for future studies".
+
 ## 8. Caveats
 
 - Ten days, one regime: 2026-10-25 to 2026-11-03, which included a fall of about 6 % in BTC and a

@@ -4,6 +4,50 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — R24: a named cost profile for future BTC-USDT and ETH-USDT studies (plan row R24, 2026-11-06)
+
+Research code, tests and docs only (`research/`, `scripts/run_research_v1c.py`, `tests/`, `docs/`): nothing under `app/`, `config/` or
+`migrations/` changed, no study was run and no results file changed; the engine's default cost, every finished study, the paper fleet's
+33 accounts (fingerprints pinned) and its own fill costs are unchanged. The owner's decision of 2026-11-05 from the R22 fill-cost replay
+(`docs/PLAN_STATUS.md`, section 2, "Decided — the owner, 2026-11-05 evening"). Simulation only; nothing here is an order or can place one.
+
+### Added
+- `research/engine.py`: the read-only registry `COST_PROFILES` — `gate` (0.10 % fee + 0.05 % slippage a side, 0.30 % a round trip:
+  today's `Costs()`), `measured_btc_eth_2026_11` (0.10 % + 0.02 %, 0.24 %; BTC-USDT and ETH-USDT only, clips up to 20 K USDT) and
+  `altcoin` (0.10 % + 0.15 %, 0.50 %) — with `Costs.named(name)`, the profile name every `Costs` carries (`profile`, left out of
+  equality and hashing, so `Costs() == Costs.named("gate")`), `round_trip`, `label`, `covers(instrument)` and `to_dict()`. A `Costs`
+  can never carry the name of a profile it does not charge.
+- `scripts/run_research_v1c.py --cost-profile NAME` (default `gate`): the profile is charged, recorded in the results `meta`
+  (`cost_profile`, `fee_rate`, `slippage_rate`, `round_trip`) and on every result (`costs`); `--fee` / `--slippage` alone still charge
+  hand-given numbers (named after the profile they equal, else `custom`), and numbers that contradict a named profile are refused; the
+  measured profile is refused on any other market; a run at a non-gate profile refuses to write over Sprint 2c's stored files (the
+  default `--report`, `--json` and `--shortlist`, the paper fleet's shortlist among them), and so does a re-render of such a run.
+- `research/replication.py`: `cost_profile_record` (what a pre-registration records: the name and the numbers),
+  `preregistered_cost_profile` (`gate` when a pre-registration names none; stops on a bare name, an unknown name or changed numbers),
+  `explain_cost_mismatches` (a fee / slippage difference from the stored Sprint 2c run is explained only when the pre-registration names
+  a non-gate profile and the job charged exactly it) and `cost_profile_of`.
+- `tests/test_research_cost_profiles.py`: the three profiles and `Costs()` unchanged; the breadth constants equal to the registry; the
+  runner option recorded in `meta` and on every result, its refusals; the pre-registration record; the protocol checks of R18a, R19 and
+  R20 explaining fee / slippage only when pre-registered and still stopping otherwise; the reproduction at the stored profile; the fleet's
+  refusals.
+
+### Changed
+- `research/breadth_study.py`: `MAJOR_COSTS` / `ALTCOIN_COSTS` are the registry's `gate` / `altcoin` profiles (the same numbers, so its
+  stored results and its committed pre-registration hold).
+- `research/trader_policy_study.py` (`protocol_check_cell`), `research/round3.py` and `research/breadth_study.py` (`protocol_check_job`):
+  an optional `cost_profile` (the pre-registered profile; default none = gate, as the three studies were registered, so their behaviour
+  is unchanged), and every check records the job's `cost_profile`.
+- `research/replication.py`, `reproduction_check`: a reproduction runs at the stored run's cost profile (the gate profile for every
+  stored result); a result taken at another profile fails it.
+- `research/paper_fleet/config.py`: the loader refuses, explicitly, a results file or study record taken at another cost than the
+  fleet's gate cost (a `meta` naming another profile or other numbers, a result's `costs` record, or a fee / slippage difference in its
+  protocol check, explained or not); it refused such records only through its protocol allow-lists before. The 33 accounts load
+  unchanged (fingerprint 93cfcc282a1d).
+- `research/report_v1c.py`: the report names the cost profile of a run that records one.
+- Docs: `docs/TRADER_PLAN_2026-11-05.md` sections 2.9 and 4.6 (the dated decision), `docs/research/FILL_COST_REPLAY.md` section 7
+  ("Decided"), `docs/RESEARCH_LAB.md` ("Named cost profiles for future studies"; there is no `docs/research/README.md`),
+  `docs/runbooks/PAPER_FLEET.md` ("A study at the measured cost (plan row R24)").
+
 ## Unreleased — the PR #13 review: a security update, two fixes, the demo fix folded in, the runner on Opus (2026-11-06)
 
 The blockers of pull request #13 (`plan/auto` into `main`), `docs/PLAN_STATUS.md` section 2, "From the PR #13 review".

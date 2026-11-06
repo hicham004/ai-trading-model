@@ -62,12 +62,21 @@ and each leaving the engine bit-for-bit what it was when off:
   initial stop), ``risk_pct`` of the equity at entry, ``adds``,
   ``add_worst_case_r``, ``scale_outs``) for the expectancy-in-R, gap and
   re-entry statistics; the Sprint 2 columns are unchanged.
+
+Named cost profiles (plan row R24, the owner's decision of 2026-11-05 from the
+R22 fill-cost replay): :data:`COST_PROFILES` names the per-side costs a study
+may charge, ``"gate"`` (today's :class:`Costs` default, every stored study's
+cost), ``"measured_btc_eth_2026_11"`` (BTC-USDT and ETH-USDT only) and
+``"altcoin"``. ``Costs()`` keeps the gate numbers, so every stored study
+reproduces bit for bit; a profile is chosen by name (``Costs.named``) and each
+``Costs`` carries the name of the profile its numbers are, for reports.
 """
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Union
+from types import MappingProxyType
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -75,17 +84,111 @@ import pandas as pd
 from research.brakes import BarCalendar, BrakeSpec, EntryBrakes
 from research.sizing import LADDER_MULTIPLIERS, LadderConfig, ladder_step
 
+# -- named cost profiles (plan row R24) -------------------------------------------------------------------------------
+#
+# NEVER edit a profile's numbers in place: a study pre-registers a profile by its name AND its numbers, so an edited
+# profile would change every study that named it; a new measurement gets a new name (the date is in the name for that).
+
+GATE_PROFILE = "gate"
+MEASURED_BTC_ETH_PROFILE = "measured_btc_eth_2026_11"
+ALTCOIN_PROFILE = "altcoin"
+CUSTOM_PROFILE = "custom"  # the label of per-side numbers no profile has (a hand-given --fee / --slippage); never a registry name
+_PROFILE_RATES: Mapping[str, Tuple[float, float]] = MappingProxyType({
+    GATE_PROFILE: (0.0010, 0.0005),  # OKX's regular 0.10 % taker fee + 0.05 % slippage a side: 0.30 % a round trip
+    MEASURED_BTC_ETH_PROFILE: (0.0010, 0.0002),  # the same fee + 0.02 % slippage a side: 0.24 % a round trip
+    ALTCOIN_PROFILE: (0.0010, 0.0015),  # the same fee + 0.05 % slippage + the altcoin 0.10 % a side: 0.50 % a round trip
+})
+#: What each profile is for and where its numbers come from (written into pre-registrations and reports).
+COST_PROFILE_NOTES: Mapping[str, str] = MappingProxyType({
+    GATE_PROFILE: ("the Sprint 2c gate cost and the research engine's default: OKX's regular 0.10 % taker fee plus 0.05 % slippage a side "
+                   "(0.30 % a round trip); every study finished by 2026-11-05 ran it, and the paper fleet charges it"),
+    MEASURED_BTC_ETH_PROFILE: ("BTC-USDT and ETH-USDT only, clips up to 20 K USDT: the 0.10 % taker fee plus 0.02 % slippage a side "
+                               "(0.24 % a round trip), measured on OKX's public tick and order-book archive "
+                               "(docs/research/FILL_COST_REPLAY.md, section 7); the owner's decision of 2026-11-05 for studies "
+                               "pre-registered after that day"),
+    ALTCOIN_PROFILE: ("every other OKX market: the 0.10 % taker fee plus 0.05 % slippage plus the altcoin 0.10 % a side "
+                      "(0.50 % a round trip; docs/TRADER_PLAN_2026-11-05.md, section 4.2), until altcoins are measured the same way"),
+})
+#: The markets a profile was measured on (a profile not listed here applies to any market).
+COST_PROFILE_INSTRUMENTS: Mapping[str, Tuple[str, ...]] = MappingProxyType({
+    MEASURED_BTC_ETH_PROFILE: ("BTC-USDT", "ETH-USDT"),
+})
+_RATE_TOLERANCE = 1e-12
+
+
+def _same_rate(a: Any, b: Any) -> bool:
+    try:
+        return abs(float(a) - float(b)) <= _RATE_TOLERANCE
+    except (TypeError, ValueError):
+        return False
+
+
+def cost_profile_for(fee_rate: float, slippage_rate: float) -> Optional[str]:
+    """The name of the profile whose per-side numbers these are, or None when no profile has them."""
+    for name, (fee, slip) in _PROFILE_RATES.items():
+        if _same_rate(fee_rate, fee) and _same_rate(slippage_rate, slip):
+            return name
+    return None
+
 
 @dataclass(frozen=True)
 class Costs:
     fee_rate: float = 0.0010  # 0.10 % per side (OKX regular spot taker tier)
     slippage_rate: float = 0.0005  # 0.05 % per side
+    # Plan row R24: the named profile these numbers are (inferred when not given; None for numbers no profile has). Not part of
+    # equality or the hash, so ``Costs()`` == ``Costs.named("gate")`` and every comparison of numbers behaves as before.
+    profile: Optional[str] = field(default=None, compare=False)
 
     def __post_init__(self) -> None:
         for name in ("fee_rate", "slippage_rate"):
             v = getattr(self, name)
             if not (0.0 <= v < 0.1):
                 raise ValueError(f"{name} must be in [0, 0.1)")
+        if self.profile is None:
+            object.__setattr__(self, "profile", cost_profile_for(self.fee_rate, self.slippage_rate))
+            return
+        rates = _PROFILE_RATES.get(self.profile)
+        if rates is None:
+            raise ValueError(f"unknown cost profile {self.profile!r}; known: {sorted(_PROFILE_RATES)}")
+        if not (_same_rate(self.fee_rate, rates[0]) and _same_rate(self.slippage_rate, rates[1])):
+            raise ValueError(f"the cost profile {self.profile!r} is fee {rates[0]:g} + slippage {rates[1]:g} a side, "
+                             f"not {self.fee_rate:g} + {self.slippage_rate:g}")
+
+    @classmethod
+    def named(cls, name: str) -> "Costs":
+        """The registry's costs of one named profile (plan row R24); an unknown name is refused."""
+        try:
+            return COST_PROFILES[name]
+        except (KeyError, TypeError):
+            raise ValueError(f"unknown cost profile {name!r}; known: {sorted(COST_PROFILES)}") from None
+
+    @property
+    def round_trip(self) -> float:
+        """Fee plus slippage on both sides of one trade (rounded to 12 decimals for records and labels)."""
+        return round(2.0 * (self.fee_rate + self.slippage_rate), 12)
+
+    @property
+    def profile_label(self) -> str:
+        """The profile's name, or ``"custom"`` for numbers no profile has (for reports and results)."""
+        return self.profile or CUSTOM_PROFILE
+
+    @property
+    def label(self) -> str:
+        return (f"{self.profile_label}: fee {self.fee_rate * 100:.2f} % + slippage {self.slippage_rate * 100:.2f} % a side "
+                f"({self.round_trip * 100:.2f} % a round trip)")
+
+    def covers(self, instrument: str) -> bool:
+        """Whether the profile was measured for this market (a profile without a market list covers every market)."""
+        markets = COST_PROFILE_INSTRUMENTS.get(self.profile or "")
+        return markets is None or instrument in markets
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"profile": self.profile_label, "fee_rate": float(self.fee_rate), "slippage_rate": float(self.slippage_rate),
+                "round_trip": float(self.round_trip)}
+
+
+#: The named profiles, read-only. ``Costs()`` is the ``"gate"`` profile's numbers.
+COST_PROFILES: Mapping[str, Costs] = MappingProxyType({name: Costs(fee, slip, profile=name) for name, (fee, slip) in _PROFILE_RATES.items()})
 
 
 TRADE_COLUMNS = (

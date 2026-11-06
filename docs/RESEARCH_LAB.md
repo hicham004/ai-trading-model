@@ -938,3 +938,46 @@ unchanged; the owner decides (`docs/PLAN_STATUS.md`, section 2). No finished stu
 - The measurement says the engine's slippage is far above the venue's cost for these two books; it
   does not make any strategy better, and the fee (10 bps a side) remains the cost that limits
   turnover (plan section 2.9).
+
+## Named cost profiles for future studies (plan row R24)
+
+The owner decided on 2026-11-05, from the R22 fill-cost replay, that studies pre-registered after
+that day on BTC-USDT and ETH-USDT charge 2 bps of slippage a side instead of 5. It is built as a
+named profile, not a new default, so that every stored study still reproduces bit for bit. Research
+code only: nothing under `app/` changed, no study was run, no results file changed.
+
+| Profile | Fee + slippage a side | Round trip | For |
+|---|---|---|---|
+| `gate` | 0.10 % + 0.05 % | 0.30 % | the default `Costs()`: the Sprint 2c gate cost, every study finished by 2026-11-05, the paper fleet's fills, every reproduction of stored numbers |
+| `measured_btc_eth_2026_11` | 0.10 % + 0.02 % | 0.24 % | BTC-USDT and ETH-USDT only, clips up to 20 K USDT, in studies pre-registered after 2026-11-05 (`docs/research/FILL_COST_REPLAY.md`, section 7) |
+| `altcoin` | 0.10 % + 0.15 % | 0.50 % | every other market (plan section 4.2), until it is measured the same way |
+
+- `research/engine.py`: `COST_PROFILES` (read-only) and `Costs.named(name)`; every `Costs` carries
+  the name of the profile its numbers are (`profile`; `None`, labelled `custom`, for numbers no
+  profile has), and equality and hashing ignore the name, so `Costs() == Costs.named("gate")`. Never
+  edit a profile's numbers: a new measurement gets a new name (the date is in the name for that).
+- `scripts/run_research_v1c.py --cost-profile NAME` (default `gate`): the run charges that profile and
+  records it in its results `meta` (`cost_profile`, `fee_rate`, `slippage_rate`, `round_trip`) and on
+  every result (`costs`). `--fee` / `--slippage` alone still charge hand-given numbers, named after
+  the profile they equal (`custom` otherwise); numbers that contradict a named profile are refused.
+  The measured profile is refused on any market but BTC-USDT and ETH-USDT, and a run at any profile
+  but `gate` refuses to write over Sprint 2c's stored files (the default `--report`, `--json` and
+  `--shortlist`, the last being the paper fleet's shortlist): give such a study its own paths.
+- A study records its profile in its pre-registration as `research.replication.cost_profile_record(name)`
+  (the name and the numbers) and reads it back with `preregistered_cost_profile(prereg)`, which answers
+  `gate` for a pre-registration that names none (every study finished by 2026-11-05) and stops on a
+  bare name, an unknown name, or numbers that are no longer the registry's.
+- The protocol check (`protocol_check_cell` of the Trader Policy study, `protocol_check_job` of
+  research round 3 and of the breadth study, all through `research.replication.explain_cost_mismatches`)
+  treats the runner's `fee` / `slippage` difference from the stored Sprint 2c run as EXPLAINED only
+  when the pre-registration names a non-gate profile and the job charged exactly that profile, the way
+  a tier explains `policy_sizing`; otherwise the difference stays unexplained and the study stops. Each
+  check records the job's `cost_profile`.
+- The reproduction (`research.replication.reproduction_check`, which every study since R12 uses) runs at
+  the stored run's profile: a result taken at another profile than the stored one is no reproduction,
+  and every stored result is at the gate profile.
+- The paper fleet charges the gate profile and refuses any results file or record taken at another one
+  (`docs/runbooks/PAPER_FLEET.md`, "A study at the measured cost (plan row R24)").
+- Not to be confused with the fixed cost replays of R18-R20 (`--cost-scenarios`, for example
+  `measured_btc_eth=0.0005:0.0005`, 0.20 % a round trip): those are replays shown beside the gate
+  cost; a profile is what a study charges.

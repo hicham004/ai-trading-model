@@ -682,6 +682,21 @@ C:\Users\Admin\Desktop\ai-trading-fleet\.venv\Scripts\python.exe C:\Users\Admin\
 # 33 accounts; c20-s1-btc-6h-none-trader and ctl-s8-btc-6h-trader at 10,000.00 and flat at the start, each with a "trader tier" line
 ```
 
+### A study at the measured cost (plan row R24): not accepted by the fleet
+
+From 2026-11-05, research studies on BTC-USDT and ETH-USDT may charge a lower, measured cost (0.10 %
+fee plus 0.02 % slippage a side, 0.24 % a round trip; `docs/RESEARCH_LAB.md`, "Named cost profiles
+for future studies") instead of the gate cost every account here pays (0.10 % plus 0.05 %, 0.30 %).
+The fleet does not take such a record. Its loader refuses any results file or study record taken at
+another cost profile — a results `meta` naming another profile or other numbers, a result's own
+`costs` record, or a fee or slippage difference its protocol check recorded, explained or not — so
+the fleet's start fails loudly instead of comparing an account that pays the gate cost with
+expectations computed at a cheaper one. How a passer of a measured-cost study would join (for
+example through the same study's gate-cost record of that rule, or with the fleet's own fill costs
+reported beside it) is a later plan row, not this one. Nothing changed for the 33 accounts: their
+fingerprints, the shared rules and the fleet's own fill costs are as before, and the server needs
+no update for this row (it takes the loader's extra refusal at its next ordinary `update`).
+
 ## Troubleshooting
 
 | What you see | What it means | What to do |

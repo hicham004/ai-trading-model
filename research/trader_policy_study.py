@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from research.brakes import TRADER_BRAKES
-from research.replication import DATA_END, load_ledger, load_v1c_runner, protocol_check, reproduction_check  # noqa: F401
+from research.replication import DATA_END, explain_cost_mismatches, load_ledger, load_v1c_runner, protocol_check, reproduction_check  # noqa: F401
 from research.report_v1c import GATES, _row, holdout_verdict
 from research.trader_policy import (
     ALL_TIERS,
@@ -367,8 +367,12 @@ def cell_args(cell: Cell, run: Configuration, *, evaluate_holdout: bool, lake_di
     return dict(vars(v1c.parse_args(cell_argv(cell, run, evaluate_holdout=evaluate_holdout, lake_dir=lake_dir, quick=quick))))
 
 
-def protocol_check_cell(args: Mapping[str, Any], meta: Mapping[str, Any], cell: Cell, run: Configuration) -> Dict[str, Any]:
-    """The replication study's protocol check, with the cell's deliberate, documented differences named beside the raw mismatches."""
+def protocol_check_cell(args: Mapping[str, Any], meta: Mapping[str, Any], cell: Cell, run: Configuration, *,
+                        cost_profile: Optional[str] = None) -> Dict[str, Any]:
+    """The replication study's protocol check, with the cell's deliberate, documented differences named beside the raw mismatches.
+
+    ``cost_profile`` is the cost profile the study's pre-registration names (plan row R24; ``None``: none, the gate profile, as this
+    study was registered): only then is a fee / slippage difference explained, and only when the job charged exactly that profile."""
     narrowed = dict(args, strategies=[s for s in args["strategies"] if s in set(meta.get("strategies") or [])])
     check = protocol_check(narrowed, meta)
     expected: Dict[str, str] = {}
@@ -377,10 +381,11 @@ def protocol_check_cell(args: Mapping[str, Any], meta: Mapping[str, Any], cell: 
     if run.role == "tf_control":
         expected["brackets"] = "the TF control runs without an exit bracket (fixed rule)"
         expected["min_trades"] = "the TF control skips the 20-train-trade qualification (fixed rule)"
+    expected.update(explain_cost_mismatches(check, args, cost_profile))
     unexplained = {k: v for k, v in check["mismatches"].items() if k not in expected}
     check.update({
         "cell": cell.to_dict(), "expected_mismatches": expected, "unexplained_mismatches": unexplained,
-        "ok_for_cell": not unexplained,
+        "ok_for_cell": not unexplained, "cost_profile": args.get("cost_profile"),
         "r18": {"tier": cell.tier, "brakes_on": cell.brakes, "brakes": None if not (cell.brakes or tier(cell.tier).turtle_ladder) else
                 (TRADER_BRAKES.to_dict() if cell.brakes and tier(cell.tier).turtle_ladder else None), "variant": cell.variant},
         "new_candidates": [s for s in args["strategies"] if s not in set(meta.get("strategies") or [])],

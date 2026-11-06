@@ -51,8 +51,8 @@ from research.breadth import (
     top_n_selector,
 )
 from research.data import bars_per_year, load_or_resample_candles, positioning_context, split_holdout
-from research.engine import Costs
-from research.replication import DATA_END, load_ledger, load_v1c_runner, protocol_check, reproduction_check  # noqa: F401
+from research.engine import ALTCOIN_PROFILE, GATE_PROFILE, Costs
+from research.replication import DATA_END, explain_cost_mismatches, load_ledger, load_v1c_runner, protocol_check, reproduction_check  # noqa: F401
 from research.report_v1c import GATES, HOLDOUT_MIN_TRADES, holdout_verdict, yearly_gate_v2
 from research.sizing import SIZING_TIERS, rule_fraction_matrix
 from research.strategies import get_candidate
@@ -86,8 +86,9 @@ REFERENCE_CELL = Cell("reference", False)
 JUDGED_CELL = Cell("trader", True)  # the paper fleet's cell (plan row R18): the sleeves' own verdicts are read here
 CELLS: Tuple[Cell, ...] = (REFERENCE_CELL, JUDGED_CELL)
 BOOK_TIER = "trader"
-MAJOR_COSTS = Costs(fee_rate=0.0010, slippage_rate=0.0005)  # the engine's gate cost: 0.30 % a round trip
-ALTCOIN_COSTS = Costs(fee_rate=0.0010, slippage_rate=0.0015)  # +10 bps a side: 0.50 % a round trip (plan section 4.2)
+# Plan row R24: the registry's named profiles, the same numbers this study was pre-registered and run with (so its results reproduce).
+MAJOR_COSTS = Costs.named(GATE_PROFILE)  # the engine's gate cost: 0.10 % + 0.05 % a side, 0.30 % a round trip
+ALTCOIN_COSTS = Costs.named(ALTCOIN_PROFILE)  # +10 bps a side: 0.10 % + 0.15 %, 0.50 % a round trip (plan section 4.2)
 COST_SCENARIOS: Mapping[str, Tuple[float, float]] = {"measured_btc_eth": (0.0005, 0.0005), "altcoin": (0.0010, 0.0015)}
 BOOK_CONFIG = BookConfig(brakes=TRADER_BRAKES, corr_cap=0.50, corr_lookback_days=60, corr_min_days=20, corr_threshold=0.70, rebalance_threshold=0.25)
 #: Ablations of the book (diagnostics, never candidates): each switches one layer or replaces the costs.
@@ -415,15 +416,20 @@ def run_job(job: Mapping[str, Any]) -> Dict[str, Any]:
     return series
 
 
-def protocol_check_job(args: Mapping[str, Any], meta: Mapping[str, Any], cell: Cell) -> Dict[str, Any]:
-    """The replication study's protocol check with the cell's deliberate, documented difference named beside the raw mismatches."""
+def protocol_check_job(args: Mapping[str, Any], meta: Mapping[str, Any], cell: Cell, *, cost_profile: Optional[str] = None) -> Dict[str, Any]:
+    """The replication study's protocol check with the cell's deliberate, documented difference named beside the raw mismatches.
+
+    ``cost_profile`` is the cost profile the study's pre-registration names (plan row R24; ``None``: none, the gate profile, as this
+    study was registered): only then is a fee / slippage difference explained, and only when the job charged exactly that profile."""
     narrowed = dict(args, strategies=[s for s in args["strategies"] if s in set(meta.get("strategies") or [])])
     check = protocol_check(narrowed, meta)
     expected: Dict[str, str] = {}
     if cell.tier != "reference":
         expected["policy_sizing"] = f"the {cell.tier} tier ({tier(cell.tier).label})"
+    expected.update(explain_cost_mismatches(check, args, cost_profile))
     unexplained = {k: v for k, v in check["mismatches"].items() if k not in expected}
     check.update({"cell": cell.to_dict(), "expected_mismatches": expected, "unexplained_mismatches": unexplained, "ok_for_cell": not unexplained,
+                  "cost_profile": args.get("cost_profile"),
                   "new_candidates": [s for s in args["strategies"] if s not in set(meta.get("strategies") or [])],
                   "r18": {"tier": cell.tier, "brakes_on": cell.brakes, "brakes": TRADER_BRAKES.to_dict() if (cell.brakes and tier(cell.tier).turtle_ladder) else None,
                           "variant": cell.variant},

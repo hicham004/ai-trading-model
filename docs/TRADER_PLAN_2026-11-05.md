@@ -308,6 +308,15 @@ everything that must change; trading them is a later, separately approved phase.
   about 50 % above the measured cost for BTC/ETH, about right for altcoins. It stays the gate cost
   (conservative) until R22 measures better. Altcoins carry a further 10 bps a side in every study
   here (0.50 % a round trip).
+- **Decided 2026-11-05 (the owner, from R22; built in plan row R24 on 2026-11-06):** studies
+  pre-registered after 2026-11-05 on BTC-USDT and ETH-USDT charge the measured profile,
+  `measured_btc_eth_2026_11` (`research/engine.py`, `COST_PROFILES`): the 0.10 % taker fee plus
+  0.02 % slippage a side, 0.24 % a round trip, for clips up to 20 K USDT
+  (`docs/research/FILL_COST_REPLAY.md`, section 7); altcoins unchanged (the `altcoin` profile,
+  0.50 %); nothing finished is re-judged. The `gate` profile (0.30 %) stays the engine's default,
+  the cost of every stored study and of the paper fleet's fills. Not the same thing as the 0.20 %
+  replays of R18-R20 (a fixed 0.05 % + 0.05 % a side scenario shown beside the gate cost): the
+  profile is what a new study charges, 0.24 %, between the two.
 
 ---
 
@@ -525,6 +534,13 @@ split, trailing, scale-out, wider stop) counts only if its Sharpe is at least th
 its Calmar at least the base rule's after scaling to the base's realized volatility (size-neutral
 comparisons). The circuit breakers are judged by their trigger counts and cost, not by a gate.
 Nothing is swept to find the best budget: the three tiers are fixed above.
+
+**Costs (decided 2026-11-05, built in plan row R24):** studies pre-registered after 2026-11-05 on
+BTC-USDT and ETH-USDT charge the measured profile (`measured_btc_eth_2026_11`: 0.10 % fee plus
+0.02 % slippage a side, 0.24 % a round trip) and name it in their pre-registration; altcoins
+unchanged (`altcoin`, 0.50 %); the gates themselves are unchanged; the reproduction of the stored
+numbers still runs at the gate profile (0.30 %) before anything is judged; nothing finished is
+re-judged.
 
 ---
 

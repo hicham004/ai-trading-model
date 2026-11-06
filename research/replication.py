@@ -36,6 +36,7 @@ import pyarrow.compute as pc
 from app.datalake.layout import LakeLayout
 from app.datalake.okx_public_rest import OKXPublicRest
 from app.datalake.parquet_store import CANDLE_SCHEMA, read_candles, write_partitioned
+from research.engine import COST_PROFILE_NOTES, GATE_PROFILE, Costs
 from research.markets import ALWAYS_INCLUDED, HISTORY_CUTOFF, RANKED_PICKS, REPLICATION_CANDIDATES, SPRINT_2C_INSTRUMENTS, research_symbol_for
 from research.replication_data import BAR_MS, COLLECTED_BARS, TICKERS_PATH, candle_history_start
 from research.report_v1c import _row, holdout_verdict
@@ -345,6 +346,74 @@ def protocol_check(args: Mapping[str, Any], meta: Mapping[str, Any]) -> Dict[str
                                                                                                 "strategies", "regime_modes", "timeframes", "quick"])}
 
 
+# -- named cost profiles (plan row R24) ------------------------------------------------------------------------------
+#
+# The owner's decision of 2026-11-05 (from the R22 fill-cost replay): studies pre-registered after that day on BTC-USDT and
+# ETH-USDT charge the measured profile; altcoins keep the altcoin profile; nothing finished is re-judged. A study names its
+# profile in its pre-registration (name AND numbers); the runner charges it through ``--cost-profile``; the protocol check
+# explains the resulting fee / slippage difference from the stored Sprint 2c run only because the pre-registration named it.
+
+#: The runner's protocol parameters a pre-registered cost profile may explain (its ``--fee`` / ``--slippage``).
+COST_PROTOCOL_KEYS: Tuple[str, ...] = ("fee", "slippage")
+
+
+def _same_number(a: Any, b: Any) -> bool:
+    try:
+        return abs(float(a) - float(b)) <= 1e-12
+    except (TypeError, ValueError):
+        return False
+
+
+def cost_profile_record(name: str) -> Dict[str, Any]:
+    """What a study's pre-registration and its results ``meta`` record of the cost profile it charges: the name AND the numbers."""
+    costs = Costs.named(name)
+    return {"name": costs.profile, "fee_rate": costs.fee_rate, "slippage_rate": costs.slippage_rate, "round_trip": costs.round_trip,
+            "note": COST_PROFILE_NOTES[str(costs.profile)]}
+
+
+def preregistered_cost_profile(prereg: Optional[Mapping[str, Any]]) -> str:
+    """The cost profile a pre-registration names (its ``cost_profile``, a :func:`cost_profile_record`); ``"gate"`` when it names none.
+
+    Every study finished by 2026-11-05 names none and ran the gate profile. Fails closed: a name without its numbers, an unknown name,
+    or numbers that are no longer the registry's (a profile edited after the registration) stop the study instead of charging
+    something the pre-registration did not fix."""
+    block = (prereg or {}).get("cost_profile")
+    if block is None:
+        return GATE_PROFILE
+    if not isinstance(block, Mapping):
+        raise ReplicationError(f"the pre-registration names the cost profile {block!r} without its numbers; record cost_profile_record(name)")
+    costs = Costs.named(str(block.get("name")))
+    if not (_same_number(block.get("fee_rate"), costs.fee_rate) and _same_number(block.get("slippage_rate"), costs.slippage_rate)):
+        raise ReplicationError(f"the pre-registered cost profile {costs.profile!r} was fee {block.get('fee_rate')} + slippage {block.get('slippage_rate')} "
+                               f"a side, the registry says {costs.fee_rate:g} + {costs.slippage_rate:g}: a registered profile never changes")
+    return str(costs.profile)
+
+
+def explain_cost_mismatches(check: Mapping[str, Any], args: Mapping[str, Any], preregistered: Optional[str]) -> Dict[str, str]:
+    """The fee / slippage differences from the stored Sprint 2c run that a pre-registered cost profile explains (plan row R24).
+
+    Explained only when the pre-registration names a profile other than the gate profile AND the job charged exactly that profile
+    (its ``cost_profile`` argument and its numbers), the way a tier explains ``policy_sizing``. With no pre-registered profile
+    (``None`` or ``"gate"``: every study finished by 2026-11-05) nothing is explained, so a fee or slippage mismatch stays
+    unexplained and the study stops, never silently. A job of a measured-cost study that runs at the gate profile (the
+    reproduction of the stored numbers) has no cost mismatch to explain."""
+    name = GATE_PROFILE if preregistered is None else str(preregistered)
+    costs = Costs.named(name)  # an unknown name is refused
+    if name == GATE_PROFILE or args.get("cost_profile") != name:
+        return {}
+    mismatches = check.get("mismatches") or {}
+    explained: Dict[str, str] = {}
+    for key, value in zip(COST_PROTOCOL_KEYS, (costs.fee_rate, costs.slippage_rate)):
+        if key in mismatches and _same_number(args.get(key), value):
+            explained[key] = f"the pre-registered cost profile ({costs.label})"
+    return explained
+
+
+def cost_profile_of(result: Mapping[str, Any]) -> str:
+    """The cost profile a result was computed at: its ``costs`` record (plan row R24); a result without one ran the gate profile."""
+    return str(((result.get("costs") or {}).get("profile")) or GATE_PROFILE)
+
+
 # -- one market x timeframe through Sprint 2c's run_series -----------------------------------------------
 
 SERIES_KEYS = ("instrument", "timeframe", "results", "failures", "benchmark", "span", "holdout_span", "positioning", "sensitivity",
@@ -422,6 +491,13 @@ def reproduction_check(series: Mapping[str, Any], stored: Sequence[Mapping[str, 
         row: Dict[str, Any] = {"candidate": r["candidate"], "instrument": r["instrument"], "timeframe": r["timeframe"], "regime": mode}
         if exp is None:
             row.update({"ok": False, "note": "no stored Sprint 2c result for this configuration"})
+            checks.append(row)
+            continue
+        # Plan row R24: the reproduction runs at the stored run's cost profile (the gate profile for every stored study), never at another.
+        ran, stored_profile = cost_profile_of(r), cost_profile_of(exp)
+        row["cost_profile"] = ran
+        if ran != stored_profile:
+            row.update({"ok": False, "note": f"a reproduction runs at the stored run's cost profile ({stored_profile!r}), not at {ran!r}"})
             checks.append(row)
             continue
         diffs: Dict[str, float] = {}

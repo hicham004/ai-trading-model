@@ -46,7 +46,15 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from research.brakes import TRADER_BRAKES
 from research.markets import SPRINT_2C_INSTRUMENTS
-from research.replication import DATA_END, load_ledger, load_v1c_runner, markets_needed, protocol_check, reproduction_check  # noqa: F401
+from research.replication import (  # noqa: F401
+    DATA_END,
+    explain_cost_mismatches,
+    load_ledger,
+    load_v1c_runner,
+    markets_needed,
+    protocol_check,
+    reproduction_check,
+)
 from research.report_v1c import GATES, _row, holdout_verdict
 from research.round2 import R12_PREREGISTRATION, REPLICATION_MARKETS, Round2Error, binomial_tail, sign_threshold
 from research.round2 import check_replication_markets as _check_r12_markets
@@ -435,8 +443,12 @@ def config_from_dict(d: Mapping[str, Any]) -> Round3Config:
     return Round3Config(**{k: (tuple(v) if isinstance(v, list) else v) for k, v in d.items()})
 
 
-def protocol_check_job(args: Mapping[str, Any], meta: Mapping[str, Any], cell: Cell, kind: str, timeframe: str) -> Dict[str, Any]:
-    """The replication study's protocol check with the job's deliberate, documented differences named beside the raw mismatches."""
+def protocol_check_job(args: Mapping[str, Any], meta: Mapping[str, Any], cell: Cell, kind: str, timeframe: str, *,
+                       cost_profile: Optional[str] = None) -> Dict[str, Any]:
+    """The replication study's protocol check with the job's deliberate, documented differences named beside the raw mismatches.
+
+    ``cost_profile`` is the cost profile the study's pre-registration names (plan row R24; ``None``: none, the gate profile, as this
+    round was registered): only then is a fee / slippage difference explained, and only when the job charged exactly that profile."""
     narrowed = dict(args, strategies=[s for s in args["strategies"] if s in set(meta.get("strategies") or [])])
     check = protocol_check(narrowed, meta)
     expected: Dict[str, str] = {}
@@ -447,9 +459,11 @@ def protocol_check_job(args: Mapping[str, Any], meta: Mapping[str, Any], cell: C
         expected["min_trades"] = "the fixed-rule protocol: no train-trade qualification (min_trades 0)"
     if timeframe == "1D":
         expected["timeframes"] = "the bar-size question of this round: 1D bars resampled from 1H (Sprint 2c ran 4H and 6H)"
+    expected.update(explain_cost_mismatches(check, args, cost_profile))
     unexplained = {k: v for k, v in check["mismatches"].items() if k not in expected}
     check.update({"cell": cell.to_dict(), "kind": kind, "timeframe": timeframe, "expected_mismatches": expected, "unexplained_mismatches": unexplained,
-                  "ok_for_cell": not unexplained, "new_candidates": [s for s in args["strategies"] if s not in set(meta.get("strategies") or [])],
+                  "ok_for_cell": not unexplained, "cost_profile": args.get("cost_profile"),
+                  "new_candidates": [s for s in args["strategies"] if s not in set(meta.get("strategies") or [])],
                   "r18": {"tier": cell.tier, "brakes_on": cell.brakes, "brakes": TRADER_BRAKES.to_dict() if (cell.brakes and tier(cell.tier).turtle_ladder) else None,
                           "variant": cell.variant},
                   "protocol_variant": FIXED_RULE_PROTOCOL if kind in FIXED_KINDS else None,

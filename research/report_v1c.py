@@ -526,6 +526,12 @@ def _summary_row(r: Mapping[str, Any]) -> str:
             f"{'**PASS**' if acc.get('passed') else 'fail'} | {_holdout_cell(r)} |")
 
 
+def _cost_profile_note(meta: Mapping[str, Any]) -> str:
+    """Plan row R24: the named cost profile of a run that records one (results written before the profiles record none)."""
+    name = meta.get("cost_profile")
+    return f" (the `{name}` cost profile)" if name else ""
+
+
 def render_report_v1c(run: Mapping[str, Any]) -> str:
     meta = run["meta"]
     results = list(run["results"])
@@ -536,7 +542,8 @@ def render_report_v1c(run: Mapping[str, Any]) -> str:
         "",
         f"Generated {meta['generated_at']} by `scripts/run_research_v1c.py`. Data: PUBLIC OKX spot candles from the Parquet lake "
         f"({meta['data_span']}); 6H bars resampled from 1H (UTC-aligned). Positioning features: {meta.get('positioning_source', 'none')} "
-        f"(public, research only). Costs: fee {meta['fee_rate'] * 100:.2f}% per side + slippage {meta['slippage_rate'] * 100:.3f}% per side. "
+        f"(public, research only). Costs: fee {meta['fee_rate'] * 100:.2f}% per side + slippage {meta['slippage_rate'] * 100:.3f}% per side"
+        f"{_cost_profile_note(meta)}. "
         f"Long-only spot, no leverage. Walk-forward: train {meta['train_days']}d → purge {meta['purge_days']}d → test {meta['test_days']}d, rolling; "
         f"the trading rule (entries × exit bracket) is selected on the train slice by {meta['select_by']} with ≥{meta['min_trades']} train trades at "
         f"full size, exactly as in Sprint 2b; the regime model (`{meta['regime']['label']}`, {meta['regime']['n_states']} states on log return + log "
