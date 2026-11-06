@@ -137,6 +137,12 @@ machine, in which case it copies that and only tops it up.
 
 ### Option A1 (recommended) — the VPS from its own checkout, with one line (since 2026-11-06)
 
+**What runs (2026-11-06, 11:32 UTC):** both services on the droplet `ubuntu-s-1vcpu-1gb-sgp1` (SGP1,
+Ubuntu 24.04, 1 vCPU, 961 MB plus the 1 GB swap file the script added), checkout 8a5739a, a fresh fleet
+record with 33 accounts; the laptop tasks of option B2 are disabled. In a new web-console window, type
+`bind 'set enable-bracketed-paste off'` by hand before pasting anything: otherwise the console glues
+`^[[200~` to the pasted line and the shell answers "command not found" (seen on the first paste).
+
 Option A runs the fleet from the checkout `shadow.service` uses, so it waits for the `plan/auto`
 merge (plan row G2). Option A1 does not wait. `scripts/vps_research_setup.sh` gives the fleet **and**
 the tokenized-stocks recorder (`docs/runbooks/XSTOCKS_DATA.md`) their own checkout of `plan/auto` in
@@ -240,7 +246,7 @@ missed bar only the prices that existed at that bar, so the result is the same
 as if it had never stopped. Do not run it on the VPS **and** the laptop as the
 "real" fleet: pick one place and keep it there, so there is one record.
 
-### Option B2 — this laptop, as a Windows scheduled task from its own checkout (what ran from 2026-11-04 until the move to the server)
+### Option B2 — this laptop, as a Windows scheduled task from its own checkout (what ran from 2026-11-04 until 2026-11-06 11:41 UTC; the task is now disabled)
 
 A window can be closed by mistake, and the repository folder is where the plan
 runner's chats edit and test code. So the fleet runs from a **separate

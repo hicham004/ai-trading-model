@@ -16,7 +16,7 @@ Never paste a key, a token or a chat id into a chat, a screenshot or the repo.
 
 | # | Step | Time | What it unlocks |
 |---|---|---|---|
-| 12 | **Do this first:** a new small server, then one line in its console, for the paper fleet and the stock recorder | 15 min | The 60-day test keeps running with the laptop off |
+| 12 | **Done 2026-11-06:** a new small server, then one line in its console, for the paper fleet and the stock recorder | 15 min | The 60-day test keeps running with the laptop off |
 | 1 | Move the VPS shadow run off port 8443 (new account name) (waits: the old server was deleted) | 15 min (+ up to 3 days of waiting) | The demo shadow run keeps its eyes when OKX switches 8443 off |
 | 2 | Change one GitHub setting, open and merge the `plan/auto` pull request | 20 min | Five months of work reaches `main`; the VPS can be updated; CI protects it |
 | 3 | Update the VPS checkout, install the nightly database backup, stamp the database (waits: the old server was deleted) | 25 min | The VPS runs the merged code (port-less defaults, Alembic); a backup every night, with a proven restore |
@@ -269,7 +269,11 @@ Until both are done, no demo evidence is being produced.
 
 ---
 
-## 12. A new small server for the paper fleet and the stock recorder (do this first)
+## 12. A new small server for the paper fleet and the stock recorder (done 2026-11-06)
+
+**Done.** The droplet `ubuntu-s-1vcpu-1gb-sgp1` runs both programs since 2026-11-06 at 11:32 UTC
+(13:32 Beirut time), and the laptop's copies are switched off. The steps below stay for the record and
+for a new server later.
 
 **Why.** The paper fleet needs about 60 days of prices before its numbers mean anything, and the
 stock recorder has to be awake at the US open and close every weekday. Both run on this laptop now,
@@ -291,7 +295,9 @@ system, with a fake demo run and fake keys next to it.
    **Password** and save it somewhere safe. Leave the rest as it is (no paid backups) and click
    **Create Droplet**.
 3. When it shows an IP address, click its name, then **Console** at the top right. A black window
-   opens, already logged in.
+   opens, already logged in. First type this short line by hand (do not paste it) and press Enter;
+   it stops the console from gluing hidden characters (`^[[200~`) to whatever you paste next:
+   `bind 'set enable-bracketed-paste off'`
 4. Paste this line (right-click → Paste) and press Enter:
 
    ```bash
@@ -306,7 +312,8 @@ system, with a fake demo run and fake keys next to it.
 **What you lose.** Almost nothing. The server starts a fresh record, so the 60 days count from that
 day. The laptop's first two days stay on the laptop as an archive.
 
-**Later.** To see how they are doing, paste
+**Later.** In a new console window, type the `bind` line of step 3 by hand first. To see how they are
+doing, paste
 `sudo bash /opt/ai-trading-research/scripts/vps_research_setup.sh status` in the same console.
 When a plan row adds an account to the fleet, its note in `docs/PLAN_STATUS.md` asks you to paste
 `sudo bash /opt/ai-trading-research/scripts/vps_research_setup.sh update`.
@@ -326,30 +333,27 @@ When a plan row adds an account to the fleet, its note in `docs/PLAN_STATUS.md` 
   it runs again and then stops at R10 once more. Progress: `docs/PLAN_STATUS.md`, section 0; details:
   `artifacts/plan-runner/summary.md`. Stop it after the current step by
   creating the file `artifacts\plan-runner\STOP`.
-- **The paper fleet** (Windows task "AI Trading paper fleet") runs 33 pretend
-  accounts forward on live public prices from its own checkout at
-  `C:\Users\Admin\Desktop\ai-trading-fleet`. Free, no keys, nothing can
-  trade. Weekly report: `C:\Users\Admin\Desktop\ai-trading-fleet\logs\paper_fleet\reports\`.
-  It needs about 60 days before the numbers mean anything (plan row G7). Its
+- **The paper fleet** runs 33 pretend accounts forward on live public prices on
+  the new droplet since 2026-11-06 at 11:32 UTC (`paper-fleet.service`, checkout
+  `/opt/ai-trading-research`; step 12). Free, no keys, nothing can trade. Look at
+  it with `sudo bash /opt/ai-trading-research/scripts/vps_research_setup.sh status`
+  in the droplet's console; reports are in `/opt/ai-trading-research/logs/paper_fleet/reports/`.
+  The 60 days of plan row G7 count from that start. The Windows task "AI Trading
+  paper fleet" is disabled; its folder `C:\Users\Admin\Desktop\ai-trading-fleet`
+  keeps the laptop record of 2026-11-04 to 06 as an archive. Before the move, its
   checkout was updated and the task restarted on 2026-11-04 at 23:00 UTC (01:00
   Beirut time; the four accounts of rows R12, R13 and R16 joined) and again on
   2026-11-05 at 19:05 UTC (21:05 Beirut time; the seven Trader-tier accounts of
   row R18b joined, and row R17's funding and open-interest data for SOL and DOGE
-  went live, so `c11` runs with its filter again). The 24 earlier accounts kept
-  their records. A later row that adds an account needs the same update-and-restart
-  step (`docs/runbooks/PAPER_FLEET.md`, "Updating the fleet's code"), which an
-  agent session can do for you; the Trader accounts' first 30-day verdicts come
-  about 2026-12-05.
-- **The tokenized-stocks collector** (plan row R21, Windows task "AI Trading
-  xstocks data") runs since 2026-11-05 at 19:12 UTC from the fleet's checkout: the
-  history of the 15 pairs is in, and it takes the US-open and US-close order books
-  every weekday plus the 03:00 UTC and Saturday-noon books
-  (`docs/runbooks/XSTOCKS_DATA.md`). The 60-90 days before the decision in plan
-  section 6.2 count from that day. Free, public data, nothing trades.
-- Until step 12 is done, the laptop must stay on and plugged in (it does not sleep on power; keep
-  the lid open, closing it may put it to sleep). After step 12 only the plan runner lives on the
-  laptop, and it simply waits while the laptop is off. After a sleep all three tasks
-  simply continue (the fleet catches up bar by bar; the collector still takes a
-  slot missed by less than 30 minutes). After a reboot all three
-  tasks start again when you log on (each has a logon trigger); the runner
-  then waits for 20 quiet minutes before its next row.
+  went live, so `c11` runs with its filter again). A later row that adds an account
+  now needs the `update` line in the droplet's console (its row says so); the first
+  30-day verdicts come about 2026-12-06.
+- **The tokenized-stocks collector** (plan row R21) runs on the new droplet since
+  2026-11-06 at 11:32 UTC (`xstocks-data.service`): the history of the 15 pairs is
+  in, and it takes the US-open and US-close order books every weekday plus the
+  03:00 UTC and Saturday-noon books (`docs/runbooks/XSTOCKS_DATA.md`). The 60-90
+  days before the decision in plan section 6.2 count from that day. Free, public
+  data, nothing trades. The laptop task "AI Trading xstocks data" is disabled.
+- Since step 12 (2026-11-06) only the plan runner lives on the laptop, and the laptop may be off: the
+  runner simply waits, starts again when you log on (logon trigger) and then waits for 20 quiet
+  minutes before its next row.

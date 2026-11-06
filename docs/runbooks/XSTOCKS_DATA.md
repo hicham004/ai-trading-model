@@ -39,7 +39,8 @@ is skipped and recorded as such by its absence. Everything lives under `data/lak
 
 ## Where it runs
 
-**On the server (recommended, since 2026-11-06):** next to the paper fleet, installed with it by
+**On the server (what runs since 2026-11-06 11:32 UTC, on the droplet `ubuntu-s-1vcpu-1gb-sgp1`; the
+laptop task is disabled):** next to the paper fleet, installed with it by
 the one line of `docs/runbooks/PAPER_FLEET.md`, option A1, as `xstocks-data.service` from the
 checkout `/opt/ai-trading-research` (the user `ai-research`, the system read-only except
 `data/lake/xstocks/`, every home folder hidden, capped at a quarter of a core and 512 MB, first in

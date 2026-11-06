@@ -49,6 +49,10 @@ days"). Simulation and public market data only; nothing here is an order or can 
 - The published one line, pasted as written on a fresh stand-in server after the push: the script came from GitHub, commit
   f8e07a8 was installed, `DONE.` after 9 min 47 s over a home connection, both services running, both fake keys (under `/home`
   and under `/srv`) unreadable from inside them, the fake shadow run never restarted.
+- On the owner's new droplet (2026-11-06, 1 vCPU, 961 MB, Ubuntu 24.04, SGP1): the one line ended with `DONE.` (1023 MB of swap
+  added, `python3-venv` installed, checkout 8a5739a, the offline check ok); `status` seven minutes later: 33 accounts at 10,000.00,
+  data fresh, positioning data for all four swaps, the services at 144 MB and 108 MB. The console's bracketed paste broke the
+  first paste; typing `bind 'set enable-bracketed-paste off'` first fixed it (documented).
 - The full offline suite on Windows: exit code 0 (about 15 minutes); after the last changes the new tests, the deploy-unit tests and the 11 test files that scan the repository were run again: exit code 0.
 
 ## Unreleased — R23: two paper-fleet accounts the owner added — the S8 forward control and S1 BTC-USDT 6H, both at the Trader tier (plan row R23)
