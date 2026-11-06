@@ -38,7 +38,11 @@ requests==2.33.0
 websockets==16.0
 
 # Dashboard + data handling
-streamlit==1.58.0
+# 1.66.1 (2026-10-21) is the first streamlit that allows pillow 13, which fixes the 39 advisories pip-audit
+# reports for pillow 12.x (CI's dependency audit, 2026-11-06).
+streamlit==1.66.1
+# Security floor for a transitive dependency of streamlit, pinned here so the lock cannot keep 12.x.
+pillow==13.0.0
 altair==6.2.1
 pandas==2.2.3
 

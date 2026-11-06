@@ -4,6 +4,30 @@ All notable changes to this repository. Dates are UTC. Nothing in this file
 authorizes a phase, live trading, or a safety-core change; see
 `PROJECT_RULES.md` and `CLAUDE.md`.
 
+## Unreleased — the PR #13 review: a security update, two fixes, the demo fix folded in, the runner on Opus (2026-11-06)
+
+The blockers of pull request #13 (`plan/auto` into `main`), `docs/PLAN_STATUS.md` section 2, "From the PR #13 review".
+
+### Security
+- `requirements.in` / `requirements.txt`: streamlit 1.58.0 -> 1.66.1 and pillow 12.3.0 -> 13.0.0 (pinned): pip-audit reported
+  39 advisories for pillow 12.x, all fixed in 13.0.0, and streamlit 1.58 capped pillow below 13. The lock was regenerated with
+  the CI's uv 0.13.3; the CI's sync check and pip-audit pass locally. Streamlit 1.66 no longer needs gitpython, gitdb, smmap,
+  blinker, cachetools, tenacity or toml.
+
+### Fixed
+- `research/engine.py`: the add variant now applies the add's own stop on the bar the add is bought (Codex review, P2); only
+  runs with the add switched on change. The Trader Policy v1 report carries an erratum: its add-variant numbers overstate the
+  variant. Regression test in `tests/test_research_trader_policy_engine.py`.
+- `app/news/budget.py`: a reservation is written to the month's spend file before the paid call and cleared when the call is
+  settled; a reservation left by a stopped process is charged in full, to its day, once, when the file is next loaded
+  (Codex review, P2). Four tests in `tests/test_news_budget.py`, the Codex reproduction among them. Log-only news shadow; no order
+  path is involved.
+
+### Changed
+- `scripts/plan-runner.ps1`: the default model is Opus 5.5 again, at max effort (the owner, 2026-11-06).
+- R14 part A (`sprint-6/position-persistence`, reviewed SAFE TO MERGE) is merged into `plan/auto`, so pull request #13 carries the
+  demo safety-core fix; its own changelog and review record are in that branch's files.
+
 ## Unreleased — the paper fleet and the tokenized-stocks recorder on the server, with one line (2026-11-06)
 
 Deploy files, one setup script, tests and docs only (`scripts/vps_research_setup.sh`, `deploy/systemd/xstocks-data.service`,

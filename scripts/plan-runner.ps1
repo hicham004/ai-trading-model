@@ -17,7 +17,7 @@ found something that looks like a credential (the repository is public).
 
 A chat that hits a usage limit is resumed where it stopped. A five-hour limit is waited out on
 the same model. The owner decided on 2026-10-20 that every row runs on one model at max effort
-(Opus 5.5 then, Fable 5.1 since 2026-11-04) and that a weekly limit (one resetting more than 12
+(Opus 5.5 on 2026-10-20, Fable 5.1 from 2026-11-04, Opus 5.5 again since 2026-11-06) and that a weekly limit (one resetting more than 12
 hours away) is waited out too, so the plan finishes while the owner is away. With -FallbackModel set, a weekly limit instead moves the
 chat to that model at once, later rows stay on it until the limit resets, and Claude Code's
 --fallback-model does the same for a model that is overloaded or unavailable.
@@ -45,8 +45,9 @@ param(
     [int]$IdleMinutes = 20,
     [int]$MaxLimitWaits = 12,
     # The model every row runs on unless -RowModels names another for it. The owner moved the
-    # runner from Opus 5.5 to Fable 5.1 on 2026-11-04 ("all on fable max").
-    [string]$Model = 'claude-fable-5-1',
+    # runner from Opus 5.5 to Fable 5.1 on 2026-11-04 ("all on fable max") and back to Opus 5.5 on
+    # 2026-11-06 ("i want it on opus 5.5 max").
+    [string]$Model = 'claude-opus-5-5',
     # Row id pattern (-like) to model; a row matching none runs on -Model.
     [hashtable]$RowModels = @{},
     # After a weekly limit the chat carries on with this model, and so do later rows until that

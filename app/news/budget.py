@@ -21,6 +21,16 @@ The spend is an ESTIMATE from list prices. The spend limit on the API key in the
 Anthropic console is the hard backstop. State: one small JSON file per month,
 written atomically; an unreadable state file counts as a fully spent month (the
 guard fails toward not spending) until the operator checks and removes it.
+
+Reservations are written to the state file BEFORE the call is sent
+(``pending_usd``, with the day of the oldest one in ``pending_day``) and removed
+when the call is settled. A process that stops in between (a crash, a kill, a
+power cut) may already have been billed for that call, so the next process that
+loads the file charges every reservation it finds there in full, to the day it
+was made, as spend from ``unresolved`` (counted in ``unresolved_usd``), once.
+The guard assumes one process per state folder, as the news shadow runs. A call
+reserved in one month and settled in the next leaves its reservation in the old
+month's file, where nothing charges it again.
 """
 
 from __future__ import annotations
@@ -111,6 +121,11 @@ def _empty_state(month: str) -> Dict[str, Any]:
         "by_model": {},
         "calls": 0,
         "refused": {},
+        # Reservations of calls sent but not yet settled (persisted before the call is sent).
+        "pending_usd": 0.0,
+        "pending_day": None,
+        # Reservations a previous process left unsettled, charged in full when this file was next loaded.
+        "unresolved_usd": 0.0,
     }
 
 
@@ -188,6 +203,7 @@ class SpendGuard:
         self._state_error = None
         path = self.state_file(month)
         state = _empty_state(month)
+        charged_unresolved = False
         if path is not None and path.exists():
             try:
                 loaded = json.loads(path.read_text(encoding="utf-8"))
@@ -196,12 +212,30 @@ class SpendGuard:
                 spent = float(loaded.get("spent_usd", 0.0))
                 if not math.isfinite(spent) or spent < 0:
                     raise ValueError("spent_usd is not a non-negative number")
+                pending = float(loaded.get("pending_usd") or 0.0)
+                unresolved = float(loaded.get("unresolved_usd") or 0.0)
+                if not math.isfinite(pending) or pending < 0 or not math.isfinite(unresolved) or unresolved < 0:
+                    raise ValueError("pending_usd / unresolved_usd is not a non-negative number")
                 state.update({k: loaded[k] for k in ("by_day", "by_model", "calls", "refused") if k in loaded})
                 state["spent_usd"] = spent
-            except (OSError, ValueError, TypeError) as exc:
+                state["unresolved_usd"] = unresolved
+                if pending > 0:
+                    # A previous process reserved these calls and never settled them: it stopped between sending a
+                    # request and recording its cost, and the request may have been billed. Charge the worst case in
+                    # full, to the day it was reserved, once (the cleared reservation is saved right below).
+                    day = loaded.get("pending_day")
+                    day = day if isinstance(day, str) and day.startswith(month) else now.date().isoformat()
+                    state["spent_usd"] = spent + pending
+                    state["by_day"][day] = float(state["by_day"].get(day, 0.0)) + pending
+                    state["by_model"]["unresolved"] = float(state["by_model"].get("unresolved", 0.0)) + pending
+                    state["unresolved_usd"] = unresolved + pending
+                    charged_unresolved = True
+            except (OSError, ValueError, TypeError, AttributeError) as exc:
                 # Fail toward not spending: an unreadable record counts as a spent month.
                 self._state_error = f"unreadable spend state ({type(exc).__name__}); treated as fully spent"
         self._state = state
+        if charged_unresolved and not self._state_error:
+            self._save()
         return state
 
     def _save(self) -> None:
@@ -251,6 +285,13 @@ class SpendGuard:
                 self._save()
                 return reason
             self._reserved += amount
+            # Persist the reservation before the call is sent, so a process that stops before settling it
+            # cannot let the next one spend the same money again (see the module docstring).
+            state = self._load(now)
+            if float(state.get("pending_usd") or 0.0) <= 0:
+                state["pending_day"] = now.date().isoformat()
+            state["pending_usd"] = float(state.get("pending_usd") or 0.0) + amount
+            self._save()
             return None
 
     def settle(self, reserved: float, cost: float, model: Optional[str], now: Optional[datetime] = None) -> None:
@@ -258,15 +299,18 @@ class SpendGuard:
         now = _utc(now or self._clock())
         with self._lock:
             self._reserved = max(0.0, self._reserved - reserved)
-            if cost <= 0:
-                return
             state = self._load(now)
-            day = now.date().isoformat()
-            key = base_model(model) or "unknown"
-            state["spent_usd"] = float(state["spent_usd"]) + cost
-            state["by_day"][day] = float(state["by_day"].get(day, 0.0)) + cost
-            state["by_model"][key] = float(state["by_model"].get(key, 0.0)) + cost
-            state["calls"] = int(state["calls"]) + 1
+            pending = float(state.get("pending_usd") or 0.0) - reserved
+            state["pending_usd"] = pending if pending > 1e-12 else 0.0
+            if state["pending_usd"] == 0.0:
+                state["pending_day"] = None
+            if cost > 0:
+                day = now.date().isoformat()
+                key = base_model(model) or "unknown"
+                state["spent_usd"] = float(state["spent_usd"]) + cost
+                state["by_day"][day] = float(state["by_day"].get(day, 0.0)) + cost
+                state["by_model"][key] = float(state["by_model"].get(key, 0.0)) + cost
+                state["calls"] = int(state["calls"]) + 1
             self._save()
 
     def snapshot(self, now: Optional[datetime] = None) -> SpendSnapshot:

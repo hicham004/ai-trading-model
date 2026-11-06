@@ -517,6 +517,33 @@ Each line: the decision, then the recommendation. Chats add to this list instead
   count from the server's first bar on 2026-11-06. From now on, a row that adds or changes a fleet account
   writes "server update needed" here and the owner pastes the `update` line.
 
+- From the PR #13 review (2026-11-06): the owner opened pull request #13, `plan/auto` into `main` (plan row G2).
+  Its blockers and what was done: (a) the dependency audit failed on pillow 12.3.0 (39 advisories, all fixed in
+  13.0.0, a transitive dependency of streamlit 1.58, which capped it below 13): `requirements.in` now pins
+  streamlit 1.66.1 (the first release that allows pillow 13; 16 days old) and pillow 13.0.0, the lock was
+  regenerated with the CI's own uv 0.13.3 (in sync; pip-audit clean; streamlit 1.66 also drops gitpython,
+  blinker, cachetools, tenacity and toml); (b) Codex P2, `research/engine.py`: an add's own stop was not applied
+  on the bar the add was bought; fixed like the same-bar stop of a new entry, with the Codex example as a
+  regression test (it fails on the old engine: +500 instead of +250); only add-variant runs change, so the R18a
+  add-variant numbers are overstated (erratum in `docs/research/TRADER_POLICY_V1_REPORT.md`) and no fleet account
+  is affected; (c) Codex P2, `app/news/budget.py`: a reservation lived only in memory, so a process stopped
+  between sending a paid request and recording its cost let the next process spend that money again; the
+  reservation is now written to the month's state file before the call and cleared at settle, and a reservation
+  a stopped process left behind is charged in full, to its day, once (`unresolved_usd`), with the Codex
+  reproduction as a test; the news shadow is not running anywhere, so nothing was overspent; (d) the demo fix
+  branch `sprint-6/position-persistence` (R14 part A, reviewed SAFE TO MERGE) was merged into `plan/auto`
+  without conflicts, so #13 carries it and a separate pull request is not needed; (e) the runner's default model
+  is Opus 5.5 at max effort again (the owner, 2026-11-06: "i want it on opus 5.5 max"). Open, the owner's: (f)
+  Codex P0, `scripts/plan-runner.ps1`: the unattended chats run with `--permission-mode bypassPermissions` plus
+  deny rules, which `AGENTS.md` lists as a P0 for any automation; decision: record the owner's standing
+  approval of the runner as a named exception in `AGENTS.md` and `CLAUDE.md` (recommended; the runner has run
+  this way with the owner's go since 2026-10-20), or move the runner to an explicit allow-list mode (its chats
+  used about 60 kinds of command, so rows would fail until the list is right); (g) GitHub settings: the branch
+  rule of `main` still requires the old check `tests + travel-mode safety guard`, which `plan/auto`'s CI no
+  longer has (its job is `tests`), so the required check must be swapped to `tests` (checklist step 2); the
+  three Codex conversations must be marked resolved (the rule requires it); the repository variable
+  `TRAVEL_MODE` can be deleted (nothing reads it after the merge).
+
 ### Decided — the owner, 2026-11-05 evening ("do what you recommend")
 
 The owner's words, after the plain-English summary of the day: "do what you recommend, cause i dont
@@ -621,6 +648,9 @@ recommendation above that was waiting for one, and for nothing else:
   running or new account (the plan's rule); if you want one of them tested forward, the honest form is a new
   pre-registered fleet account for ONE variant on ONE sleeve (the add on S1+S5 BTC 6H is the candidate with the
   largest gain and the largest extra risk: 1.5 R on average and 1.73 R at most at the stops), as a new plan row.
+  **Correction 2026-11-06:** the add variant's numbers overstate it (the engine skipped the add's stop on the bar
+  the add was bought; fixed with the PR #13 review, see "From the PR #13 review" below): re-run the add variant
+  before choosing it for anything.
 - From R18a, for information: the Aggressive tier passes on all five configurations with the brakes on (at
   9.9-17.2 % worst drawdowns and a bootstrap chance of touching -30 % of up to 2.9 %); the plan does not recommend
   it as a fleet default and nothing here changes that (owner checklist step 10 stands).

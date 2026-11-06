@@ -168,6 +168,16 @@ def test_the_add_variant_adds_once_on_a_winner_with_its_own_stop_and_reports_the
     assert len(t2) == 1 and t2.loc[0, "adds"] == 1 and t2.loc[0, "exit_reason"] == "end_of_data"
     assert t2.loc[0, "pnl"] == pytest.approx(500.0 - 25 * 10)  # the add lost 10 points on 25 units; the first unit kept its 500
     assert res2.equity[6, 0] == pytest.approx(10_000 + 500 - 250) and res2.equity[7, 0] == pytest.approx(10_250)
+    # The add's stop also holds on the add's own entry bar (Codex review of PR #13): the add fills at bar 4's open (110,
+    # stop 100) and the same bar's low (99) crosses that stop but not the first unit's (90) -> only the add is stopped.
+    lows5 = list(lows)
+    lows5[4] = 99.0
+    o5, h5, l5, c5 = ohlc(opens, highs=highs, lows=lows5, closes=closes)
+    res5 = run_vectorized(o5, h5, l5, c5, desired, stops, costs=ZERO, size_fraction=0.5, variants=var)
+    t5 = res5.trades
+    assert len(t5) == 1 and t5.loc[0, "adds"] == 1 and t5.loc[0, "exit_reason"] == "end_of_data"
+    assert t5.loc[0, "pnl"] == pytest.approx(500.0 - 25 * 10)  # the add lost its 10 points on its entry bar
+    np.testing.assert_allclose(res5.equity[4:, 0], 10_000 + 500 - 250)
     # Never twice: a second +1 R later does not add again; never after a loss (a close below the entry never adds).
     closes3 = [100, 100, 100, 110, 110, 125, 125, 125]
     o3, h3, l3, c3 = ohlc([100, 100, 100, 100, 110, 110, 125, 125], highs=[x + 0.5 for x in closes3], lows=[x - 0.5 for x in closes3], closes=closes3)

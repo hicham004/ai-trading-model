@@ -4,6 +4,13 @@ Generated 2026-11-05 03:34 UTC by `scripts/run_trader_policy_v1.py` (plan row R1
 
 **Nothing here authorizes paper, demo or live trading.** A tier that passes is a hypothesis for the forward paper fleet, not a budget to deploy. Every number is a simulation on historical public data. The demo shadow run, its caps and the 0.60 confidence floor are untouched.
 
+> **Erratum (2026-11-06).** The independent review of pull request #13 found that the research engine did not
+> apply an add's own stop on the bar the add was bought: an add filled at a bar's open survived when the same
+> bar's low crossed its stop (`research/engine.py`, fixed the same day with a regression test). Every number in
+> this report for the **add** variant ("add 0.5x at +1R") therefore omits some losses and overstates that
+> variant; re-run it before any decision about it. Nothing else here changes: the fix touches only runs with the
+> add variant switched on, and no paper-fleet account uses a variant.
+
 ## Executive summary (plain English)
 
 - **What we did.** The five configurations the earlier studies confirmed were re-judged at three fixed risk budgets — Reference (today's 10 % volatility target), Trader (20 % target, at most 2 % of the account at risk on one stop, the Turtle ladder) and Aggressive (25 %, 2.5 %) — plus Kovner's 1.5 %-per-stop rule for information, with the section 4.3 brakes on and off and each section 4.2 position-management variant on alone, under the Sprint 2c walk-forward and the section 4.6 gates written down before the run. Before any tier was judged, the Reference cell of every configuration and hold control went through the same unchanged selection and matched the stored numbers (Sprint 2c's, the replication study's, round 1's, round 2's) in 11 of 11 cases. The rule each walk-forward window selects never sees the budget, so every configuration kept its ATR multiple and exit bracket; only the size of the same trades changes. 150 cells ran on 2019-12-16->2026-10-20 after fees and slippage.

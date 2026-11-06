@@ -565,6 +565,12 @@ def run_vectorized(
                     first_risk = qty[do] * (entry_px[do] - stop_px[do])
                     add_risk = q_add * (fill - add_stop[do])
                     add_wc[do] = np.where(risk_money[do] > 0, (first_risk + add_risk) / risk_money[do], np.nan)
+                    # Same-bar stop for the add just bought at this open, as for a new entry below: the bar's low
+                    # may already reach the add's own stop. The whole-position stop was checked at this bar's low
+                    # before the add (_check_stops), and the add's stop sits above it, so only the add can go here.
+                    hit_new_add = do & (add_qty > 0) & np.isfinite(add_stop) & (l[i] <= add_stop)
+                    if hit_new_add.any():
+                        _exit_add_unit(hit_new_add, np.where(o[i] < add_stop, o[i], add_stop), i)
                 add_pending[:] = False
             # Enter at the open when flat and desired (stop must sit below the open).
             to_enter = want & ~in_pos & ~exited

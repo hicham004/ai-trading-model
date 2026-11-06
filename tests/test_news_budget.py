@@ -89,6 +89,61 @@ def test_spend_survives_a_restart_and_refusals_are_counted(tmp_path: Path):
     assert stored["by_model"] == {"claude-opus-5-5": pytest.approx(1.75)}
 
 
+def test_a_reservation_left_by_a_crash_is_charged_in_full_after_a_restart(tmp_path: Path):
+    # Codex review of PR #13: a process that stops between sending a request and recording its cost must not let the
+    # next process spend that money again. Reservation-only reproduction with a $1 cap.
+    clock = Clock(NOW)
+    first = SpendGuard(tmp_path, monthly_cap_usd=1.0, daily_pace=0, clock=clock)
+    assert first.reserve(0.80) is None
+    assert first.reserve(0.80) == "monthly_cap"  # the same guard refuses
+    stored = json.loads((tmp_path / "spend-2026-10.json").read_text(encoding="utf-8"))
+    assert stored["pending_usd"] == pytest.approx(0.80) and stored["pending_day"] == "2026-10-21"  # written before the call
+    # The process dies here, without settle(); a new one starts from the same folder.
+    second = SpendGuard(tmp_path, monthly_cap_usd=1.0, daily_pace=0, clock=clock)
+    assert second.reserve(0.80) == "monthly_cap"  # the unresolved 0.80 counts as spent
+    assert second.snapshot().spent_usd == pytest.approx(0.80)
+    stored = json.loads((tmp_path / "spend-2026-10.json").read_text(encoding="utf-8"))
+    assert stored["pending_usd"] == 0.0 and stored["pending_day"] is None
+    assert stored["unresolved_usd"] == pytest.approx(0.80)
+    assert stored["by_day"] == {"2026-10-21": pytest.approx(0.80)} and stored["by_model"] == {"unresolved": pytest.approx(0.80)}
+    assert stored["calls"] == 0  # not a call that was seen to complete
+    # Charged once: a third start does not charge it again.
+    third = SpendGuard(tmp_path, monthly_cap_usd=1.0, daily_pace=0, clock=clock)
+    assert third.snapshot().spent_usd == pytest.approx(0.80) and third.reserve(0.15) is None
+
+
+def test_an_unresolved_reservation_is_charged_to_the_day_it_was_made(tmp_path: Path):
+    clock = Clock(NOW)
+    first = SpendGuard(tmp_path, monthly_cap_usd=31.0, daily_pace=1.0, clock=clock)
+    assert first.reserve(0.5) is None
+    clock.now = NOW + timedelta(days=1)
+    second = SpendGuard(tmp_path, monthly_cap_usd=31.0, daily_pace=1.0, clock=clock)
+    snap = second.snapshot()
+    assert snap.spent_usd == pytest.approx(0.5) and snap.today_usd == 0.0  # yesterday's reservation, not today's pace
+    stored = json.loads((tmp_path / "spend-2026-10.json").read_text(encoding="utf-8"))
+    assert stored["by_day"] == {"2026-10-21": pytest.approx(0.5)}
+
+
+def test_a_settled_reservation_leaves_nothing_pending(tmp_path: Path):
+    clock = Clock(NOW)
+    guard = SpendGuard(tmp_path, monthly_cap_usd=1.0, daily_pace=0, clock=clock)
+    assert guard.reserve(0.80) is None
+    guard.settle(0.80, 0.10, "claude-haiku-5-5")
+    assert guard.reserve(0.30) is None
+    guard.settle(0.30, 0.0, "claude-haiku-5-5")  # never billed: nothing spent, the reservation still cleared on disk
+    stored = json.loads((tmp_path / "spend-2026-10.json").read_text(encoding="utf-8"))
+    assert stored["pending_usd"] == 0.0 and stored["pending_day"] is None and stored["unresolved_usd"] == 0.0
+    again = SpendGuard(tmp_path, monthly_cap_usd=1.0, daily_pace=0, clock=clock)
+    assert again.snapshot().spent_usd == pytest.approx(0.10) and again.reserve(0.80) is None
+
+
+def test_a_corrupt_pending_field_counts_as_a_spent_month(tmp_path: Path):
+    path = tmp_path / "spend-2026-10.json"
+    path.write_text(json.dumps({"month": "2026-10", "spent_usd": 0.0, "pending_usd": "lots"}), encoding="utf-8")
+    guard = SpendGuard(tmp_path, monthly_cap_usd=40.0, clock=Clock(NOW))
+    assert guard.snapshot().state_error and guard.reserve(0.01) == "monthly_cap"
+
+
 def test_an_unreadable_record_counts_as_a_spent_month_and_is_kept(tmp_path: Path):
     path = tmp_path / "spend-2026-10.json"
     path.write_text("{broken", encoding="utf-8")
