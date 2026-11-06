@@ -35,7 +35,7 @@ requests==2.33.0
 # Phase 3: client for the PUBLIC, UNAUTHENTICATED OKX market-data WebSocket.
 # Already present transitively via uvicorn[standard]; pinned here because it is
 # now a direct dependency. Market-data only; never used for auth or orders.
-websockets==16.0
+websockets==17.4
 
 # Dashboard + data handling
 # 1.66.1 (2026-10-21) is the first streamlit that allows pillow 13, which fixes the 39 advisories pip-audit
